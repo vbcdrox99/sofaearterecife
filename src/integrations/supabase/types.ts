@@ -14,16 +14,266 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      materiais: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          preco_unitario: number | null
+          quantidade_atual: number
+          quantidade_minima: number
+          unidade_medida: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          preco_unitario?: number | null
+          quantidade_atual?: number
+          quantidade_minima?: number
+          unidade_medida?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          preco_unitario?: number | null
+          quantidade_atual?: number
+          quantidade_minima?: number
+          unidade_medida?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pedido_anexos: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          nome_arquivo: string
+          pedido_id: string
+          tipo_arquivo: string
+          uploaded_by: string
+          url_arquivo: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome_arquivo: string
+          pedido_id: string
+          tipo_arquivo: string
+          uploaded_by: string
+          url_arquivo: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome_arquivo?: string
+          pedido_id?: string
+          tipo_arquivo?: string
+          uploaded_by?: string
+          url_arquivo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_anexos_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pedido_materiais: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          pedido_id: string
+          quantidade_necessaria: number
+          quantidade_reservada: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          pedido_id: string
+          quantidade_necessaria: number
+          quantidade_reservada?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          pedido_id?: string
+          quantidade_necessaria?: number
+          quantidade_reservada?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_materiais_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedido_materiais_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pedidos: {
+        Row: {
+          cliente_endereco: string | null
+          cliente_nome: string
+          cliente_telefone: string
+          created_at: string
+          created_by: string
+          data_previsao_entrega: string | null
+          descricao_sofa: string
+          id: string
+          numero_pedido: number
+          observacoes: string | null
+          status: Database["public"]["Enums"]["status_pedido"]
+          updated_at: string
+          valor_total: number | null
+        }
+        Insert: {
+          cliente_endereco?: string | null
+          cliente_nome: string
+          cliente_telefone: string
+          created_at?: string
+          created_by: string
+          data_previsao_entrega?: string | null
+          descricao_sofa: string
+          id?: string
+          numero_pedido?: number
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["status_pedido"]
+          updated_at?: string
+          valor_total?: number | null
+        }
+        Update: {
+          cliente_endereco?: string | null
+          cliente_nome?: string
+          cliente_telefone?: string
+          created_at?: string
+          created_by?: string
+          data_previsao_entrega?: string | null
+          descricao_sofa?: string
+          id?: string
+          numero_pedido?: number
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["status_pedido"]
+          updated_at?: string
+          valor_total?: number | null
+        }
+        Relationships: []
+      }
+      producao_etapas: {
+        Row: {
+          concluida: boolean
+          created_at: string
+          data_conclusao: string | null
+          data_inicio: string | null
+          etapa: Database["public"]["Enums"]["etapa_producao"]
+          id: string
+          observacoes: string | null
+          pedido_id: string
+          responsavel_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          concluida?: boolean
+          created_at?: string
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          etapa: Database["public"]["Enums"]["etapa_producao"]
+          id?: string
+          observacoes?: string | null
+          pedido_id: string
+          responsavel_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          concluida?: boolean
+          created_at?: string
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          etapa?: Database["public"]["Enums"]["etapa_producao"]
+          id?: string
+          observacoes?: string | null
+          pedido_id?: string
+          responsavel_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producao_etapas_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          nome_completo: string
+          tipo: Database["public"]["Enums"]["tipo_usuario"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome_completo: string
+          tipo?: Database["public"]["Enums"]["tipo_usuario"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome_completo?: string
+          tipo?: Database["public"]["Enums"]["tipo_usuario"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      etapa_producao: "estrutura" | "estofamento" | "acabamento"
+      status_pedido:
+        | "aguardando_producao"
+        | "em_producao"
+        | "finalizado"
+        | "em_entrega"
+        | "entregue"
+      tipo_usuario: "admin" | "funcionario"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +400,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      etapa_producao: ["estrutura", "estofamento", "acabamento"],
+      status_pedido: [
+        "aguardando_producao",
+        "em_producao",
+        "finalizado",
+        "em_entrega",
+        "entregue",
+      ],
+      tipo_usuario: ["admin", "funcionario"],
+    },
   },
 } as const
