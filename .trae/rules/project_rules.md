@@ -1,0 +1,1 @@
+O link do projeto SUPABASE utilizado nesse projeto será sempre: sofaearterecife - qdyrzxhsecirhnubfdqo

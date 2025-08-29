@@ -89,7 +89,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout
-      title="Dashboard"
+      title="Painel de Controle - Sofá e Arte"
       description="Visão geral do sistema de produção Sofá e Arte"
     >
       <div className="space-y-8">

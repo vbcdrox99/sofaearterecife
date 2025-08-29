@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   BarChart3,
@@ -10,16 +10,42 @@ import {
   Sofa,
   LogOut,
   Settings,
-  PlusCircle
+  PlusCircle,
+  Menu,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { useState, useEffect } from 'react';
 
-const Sidebar = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onToggle?: () => void;
+}
+
+const Sidebar = ({ isOpen = true, onToggle }: SidebarProps) => {
   const { profile, signOut, isAdmin } = useAuth();
   const location = useLocation();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const handleLinkClick = () => {
+    if (isMobile && onToggle) {
+      onToggle();
+    }
+  };
 
   const navigationItems = [
     {
@@ -83,23 +109,58 @@ const Sidebar = () => {
   };
 
   return (
-    <motion.aside
-      initial={{ x: -300 }}
-      animate={{ x: 0 }}
-      className="fixed left-0 top-0 z-40 h-screen w-72 bg-card border-r border-border shadow-lg"
-    >
+    <>
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isMobile && isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onToggle}
+            className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar */}
+      <motion.aside
+        initial={{ x: isMobile ? -300 : 0 }}
+        animate={{ 
+          x: isMobile ? (isOpen ? 0 : -300) : 0 
+        }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className={cn(
+          "fixed left-0 top-0 z-40 h-screen bg-card border-r border-border shadow-lg",
+          isMobile ? "w-80" : "w-72"
+        )}
+      >
       <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-red-glow">
-              <Sofa className="w-6 h-6 text-primary-foreground" />
+          {/* Header */}
+          <div className="p-6 border-b border-border">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-red-glow">
+                  <Sofa className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-gradient">Sofá e Arte</h1>
+                  <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
+                </div>
+              </div>
+              
+              {/* Close button for mobile */}
+              {isMobile && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggle}
+                  className="md:hidden"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              )}
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-gradient">Sofá e Arte</h1>
-              <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
-            </div>
-          </div>
           
           {/* User info */}
           <div className="mt-4 p-3 bg-muted/50 rounded-lg">
@@ -121,6 +182,7 @@ const Sidebar = () => {
               >
                 <NavLink
                   to={item.href}
+                  onClick={handleLinkClick}
                   className={({ isActive }) =>
                     cn(
                       "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group",
@@ -165,6 +227,7 @@ const Sidebar = () => {
         </div>
       </div>
     </motion.aside>
+    </>
   );
 };
 
