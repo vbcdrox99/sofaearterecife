@@ -8,6 +8,8 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Tipos para o banco de dados
+export type StatusProducao = 'pendente' | 'iniciado' | 'supervisao' | 'finalizado';
+
 export interface Pedido {
   id?: string;
   numero_pedido: string;
@@ -37,12 +39,27 @@ export interface ItemProducao {
   pedido_id: string;
   etapa: 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido';
   concluida: boolean;
+  status?: StatusProducao;
   data_inicio?: string;
   data_conclusao?: string;
   responsavel_id?: string;
   observacoes?: string;
   created_at?: string;
   updated_at?: string;
+  // Dados do pedido relacionado (quando carregado com join)
+  pedidos?: {
+    numero_pedido: string | number;
+    cliente_nome: string;
+    tipo_sofa?: string;
+    tipo_servico?: string;
+    data_previsao_entrega?: string;
+    observacoes?: string;
+    cor?: string;
+    espuma?: string;
+    tecido?: string;
+    tipo_pe?: string;
+    braco?: string;
+  };
 }
 
 // Funções auxiliares para interação com o banco
@@ -67,6 +84,24 @@ export const pedidosService = {
       .single();
     
     if (error) throw error;
+    
+    // Criar itens de produção para todas as etapas
+    const etapas: ItemProducao['etapa'][] = ['marcenaria', 'corte_costura', 'espuma', 'bancada', 'tecido'];
+    const itensProducao = etapas.map(etapa => ({
+      pedido_id: data.id,
+      etapa,
+      concluida: false
+    }));
+    
+    const { error: errorItens } = await supabase
+      .from('itens_producao')
+      .insert(itensProducao);
+    
+    if (errorItens) {
+      console.error('Erro ao criar itens de produção:', errorItens);
+      // Não falha o pedido se houver erro nos itens de produção
+    }
+    
     return data;
   },
 
@@ -105,6 +140,7 @@ export const producaoService = {
           numero_pedido,
           cliente_nome,
           tipo_sofa,
+          tipo_servico,
           data_previsao_entrega
         )
       `)
@@ -125,6 +161,7 @@ export const producaoService = {
           numero_pedido,
           cliente_nome,
           tipo_sofa,
+          tipo_servico,
           data_previsao_entrega
         )
       `)
@@ -140,17 +177,27 @@ export const producaoService = {
       .from('itens_producao')
       .select(`
         *,
-        pedidos!inner(
+        pedidos (
           numero_pedido,
           cliente_nome,
           tipo_sofa,
-          data_previsao_entrega
+          tipo_servico,
+          data_previsao_entrega,
+          observacoes,
+          cor,
+          espuma,
+          tecido,
+          tipo_pe,
+          braco
         )
       `)
       .eq('etapa', etapa)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
+
     return data || [];
   },
 
@@ -166,11 +213,14 @@ export const producaoService = {
     return data;
   },
 
-  // Criar todas as etapas para um pedido
-  async criarEtapasPedido(pedidoId: string): Promise<ItemProducao[]> {
-    const etapas: ItemProducao['etapa'][] = ['marcenaria', 'corte_costura', 'espuma', 'bancada', 'tecido'];
+  // Criar etapas específicas para um pedido
+  async criarEtapasPedido(pedidoId: string, etapasNecessarias?: string[]): Promise<ItemProducao[]> {
+    // Se não especificado, criar todas as etapas (comportamento padrão)
+    const etapasParaCriar = etapasNecessarias && etapasNecessarias.length > 0 
+      ? etapasNecessarias as ItemProducao['etapa'][]
+      : ['marcenaria', 'corte_costura', 'espuma', 'bancada', 'tecido'];
     
-    const itens = etapas.map(etapa => ({
+    const itens = etapasParaCriar.map(etapa => ({
       pedido_id: pedidoId,
       etapa,
       concluida: false
@@ -224,6 +274,48 @@ export const producaoService = {
         data_conclusao: null,
         updated_at: new Date().toISOString()
       })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Atualizar status do item de produção
+  async updateStatus(id: string, status: StatusProducao): Promise<ItemProducao> {
+    const updates: any = {
+      status,
+      updated_at: new Date().toISOString()
+    };
+
+    // Atualizar campos relacionados baseado no status
+    if (status === 'iniciado') {
+      // Sempre definir data_inicio quando status for 'iniciado', mas só se não existir ainda
+      const { data: currentItem } = await supabase
+        .from('itens_producao')
+        .select('data_inicio')
+        .eq('id', id)
+        .single();
+      
+      if (!currentItem?.data_inicio) {
+        updates.data_inicio = new Date().toISOString();
+      }
+    }
+    
+    if (status === 'finalizado') {
+      updates.concluida = true;
+      updates.data_conclusao = new Date().toISOString();
+    } else {
+      updates.concluida = false;
+      if (status === 'pendente') {
+        updates.data_conclusao = null;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('itens_producao')
+      .update(updates)
       .eq('id', id)
       .select()
       .single();

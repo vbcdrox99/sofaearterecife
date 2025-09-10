@@ -14,6 +14,128 @@ export type Database = {
   }
   public: {
     Tables: {
+      categorias: {
+        Row: {
+          created_at: string | null
+          id: number
+          nome: string
+          tipo: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          nome: string
+          tipo: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          nome?: string
+          tipo?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      clientes: {
+        Row: {
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          created_at: string | null
+          email: string | null
+          endereco_completo: string | null
+          estado: string | null
+          id: string
+          nome: string
+          telefone: string
+          updated_at: string | null
+        }
+        Insert: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          created_at?: string | null
+          email?: string | null
+          endereco_completo?: string | null
+          estado?: string | null
+          id?: string
+          nome: string
+          telefone: string
+          updated_at?: string | null
+        }
+        Update: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          created_at?: string | null
+          email?: string | null
+          endereco_completo?: string | null
+          estado?: string | null
+          id?: string
+          nome?: string
+          telefone?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      itens_producao: {
+        Row: {
+          concluida: boolean | null
+          created_at: string | null
+          data_conclusao: string | null
+          data_inicio: string | null
+          etapa: string
+          id: string
+          observacoes: string | null
+          pedido_id: string
+          responsavel_id: string | null
+          status: Database["public"]["Enums"]["status_producao"]
+          status_etapa: string | null
+          supervisao_ativa: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          concluida?: boolean | null
+          created_at?: string | null
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          etapa: string
+          id?: string
+          observacoes?: string | null
+          pedido_id: string
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["status_producao"]
+          status_etapa?: string | null
+          supervisao_ativa?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          concluida?: boolean | null
+          created_at?: string | null
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          etapa?: string
+          id?: string
+          observacoes?: string | null
+          pedido_id?: string
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["status_producao"]
+          status_etapa?: string | null
+          supervisao_ativa?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_producao_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materiais: {
         Row: {
           created_at: string
@@ -135,51 +257,101 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          braco: string | null
+          cliente_email: string | null
           cliente_endereco: string | null
+          cliente_id: string | null
           cliente_nome: string
           cliente_telefone: string
+          cor: string | null
           created_at: string
           created_by: string
           data_previsao_entrega: string | null
           descricao_sofa: string
+          dimensoes: string | null
+          espuma: string | null
+          etapas_necessarias: string[] | null
           id: string
           numero_pedido: number
           observacoes: string | null
+          prioridade: string | null
           status: Database["public"]["Enums"]["status_pedido"]
+          tecido: string | null
+          tipo_pe: string | null
+          tipo_servico: string | null
+          tipo_sofa: string | null
           updated_at: string
+          valor_orcamento: number | null
+          valor_pago: number | null
           valor_total: number | null
         }
         Insert: {
+          braco?: string | null
+          cliente_email?: string | null
           cliente_endereco?: string | null
+          cliente_id?: string | null
           cliente_nome: string
           cliente_telefone: string
+          cor?: string | null
           created_at?: string
           created_by: string
           data_previsao_entrega?: string | null
           descricao_sofa: string
+          dimensoes?: string | null
+          espuma?: string | null
+          etapas_necessarias?: string[] | null
           id?: string
           numero_pedido?: number
           observacoes?: string | null
+          prioridade?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
+          tecido?: string | null
+          tipo_pe?: string | null
+          tipo_servico?: string | null
+          tipo_sofa?: string | null
           updated_at?: string
+          valor_orcamento?: number | null
+          valor_pago?: number | null
           valor_total?: number | null
         }
         Update: {
+          braco?: string | null
+          cliente_email?: string | null
           cliente_endereco?: string | null
+          cliente_id?: string | null
           cliente_nome?: string
           cliente_telefone?: string
+          cor?: string | null
           created_at?: string
           created_by?: string
           data_previsao_entrega?: string | null
           descricao_sofa?: string
+          dimensoes?: string | null
+          espuma?: string | null
+          etapas_necessarias?: string[] | null
           id?: string
           numero_pedido?: number
           observacoes?: string | null
+          prioridade?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
+          tecido?: string | null
+          tipo_pe?: string | null
+          tipo_servico?: string | null
+          tipo_sofa?: string | null
           updated_at?: string
+          valor_orcamento?: number | null
+          valor_pago?: number | null
           valor_total?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       producao_etapas: {
         Row: {
@@ -266,13 +438,14 @@ export type Database = {
       }
     }
     Enums: {
-      etapa_producao: "estrutura" | "estofamento" | "acabamento"
-      status_pedido:
-        | "aguardando_producao"
-        | "em_producao"
-        | "finalizado"
-        | "em_entrega"
-        | "entregue"
+      etapa_producao:
+        | "marcenaria"
+        | "corte_costura"
+        | "espuma"
+        | "bancada"
+        | "tecido"
+      status_pedido: "pendente" | "em_producao" | "concluido" | "entregue"
+      status_producao: "pendente" | "iniciado" | "supervisao" | "finalizado"
       tipo_usuario: "admin" | "funcionario"
     }
     CompositeTypes: {
@@ -401,15 +574,22 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      etapa_producao: ["estrutura", "estofamento", "acabamento"],
-      status_pedido: [
-        "aguardando_producao",
-        "em_producao",
-        "finalizado",
-        "em_entrega",
-        "entregue",
+      etapa_producao: [
+        "marcenaria",
+        "corte_costura",
+        "espuma",
+        "bancada",
+        "tecido",
       ],
+      status_pedido: ["pendente", "em_producao", "concluido", "entregue"],
+      status_producao: ["pendente", "iniciado", "supervisao", "finalizado"],
       tipo_usuario: ["admin", "funcionario"],
     },
   },
 } as const
+
+// Tipos auxiliares para facilitar o uso
+export type StatusProducao = Database["public"]["Enums"]["status_producao"]
+export type ItemProducao = Tables<"itens_producao">
+export type ItemProducaoInsert = TablesInsert<"itens_producao">
+export type ItemProducaoUpdate = TablesUpdate<"itens_producao">

@@ -16,6 +16,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   description 
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -34,11 +35,20 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+      <Sidebar 
+        isOpen={sidebarOpen} 
+        onToggle={toggleSidebar}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapse}
+      />
       
-      <main className={`transition-all duration-300 ${isMobile ? 'ml-0' : (sidebarOpen ? 'ml-72' : 'ml-0')}`}>
+      <main className={`transition-all duration-300 ${isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-20' : 'ml-72')}`}>
         <div className="p-6">
           {/* Mobile Menu Button */}
           {isMobile && (
