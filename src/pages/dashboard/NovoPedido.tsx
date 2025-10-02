@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Save, User, Phone, MapPin, Package, Calendar, DollarSign, Mail, AlertCircle, Plus, X, Trash2 } from 'lucide-react';
+import { Save, User, Phone, MapPin, Package, Calendar, DollarSign, Mail, AlertCircle, Plus, X, Trash2, Camera } from 'lucide-react';
+import ImageUpload, { UploadedImage } from '@/components/ImageUpload';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,8 @@ interface FormData {
   valorPago: string;
   prioridade: string;
   etapasNecessarias: string[];
+  fotosPedido: UploadedImage[];
+  fotosControle: UploadedImage[];
 }
 
 const NovoPedido = () => {
@@ -140,7 +143,9 @@ const NovoPedido = () => {
     valorTotal: '',
     valorPago: '',
     prioridade: 'media',
-    etapasNecessarias: []
+    etapasNecessarias: [],
+    fotosPedido: [],
+    fotosControle: []
   });
 
   const handleInputChange = (field: keyof FormData, value: string) => {
@@ -210,6 +215,15 @@ const NovoPedido = () => {
         ? `${valorFormatado} x ${prev.dimensaoComprimento}`
         : `${prev.dimensaoLargura} x ${valorFormatado}`
     }));
+  };
+
+  // Funções para manipular imagens
+  const handleFotosPedidoChange = (images: UploadedImage[]) => {
+    setFormData(prev => ({ ...prev, fotosPedido: images }));
+  };
+
+  const handleFotosControleChange = (images: UploadedImage[]) => {
+    setFormData(prev => ({ ...prev, fotosControle: images }));
   };
 
   // Função para lidar com a seleção de cliente
@@ -864,6 +878,33 @@ const NovoPedido = () => {
 
       const pedidoCriado = data[0];
 
+      // Salvar imagens anexadas
+      const todasImagens = [
+        ...formData.fotosPedido.map(img => ({ ...img, tipo: 'foto_pedido' })),
+        ...formData.fotosControle.map(img => ({ ...img, tipo: 'foto_controle' }))
+      ];
+
+      if (todasImagens.length > 0) {
+        const anexosData = todasImagens.map(img => ({
+          pedido_id: pedidoCriado.id,
+          nome_arquivo: img.name,
+          url_arquivo: img.url,
+          tipo_arquivo: img.type,
+          tamanho_arquivo: img.size,
+          descricao: img.tipo,
+          uploaded_by: user.id
+        }));
+
+        const { error: anexosError } = await supabase
+          .from('pedido_anexos')
+          .insert(anexosData);
+
+        if (anexosError) {
+          console.error('Erro ao salvar anexos:', anexosError);
+          // Não falha o pedido por causa dos anexos, apenas loga o erro
+        }
+      }
+
       // Criar etapas de produção para as etapas selecionadas
       try {
         const { producaoService } = await import('@/lib/supabase');
@@ -916,7 +957,9 @@ const NovoPedido = () => {
         valorTotal: '',
         valorPago: '',
         prioridade: 'media',
-        etapasNecessarias: []
+        etapasNecessarias: [],
+        fotosPedido: [],
+        fotosControle: []
       });
       
       // Limpar cliente selecionado e etapas
@@ -1082,6 +1125,21 @@ const NovoPedido = () => {
                   placeholder="Descrição detalhada do pedido"
                   rows={3}
                   required
+                />
+              </div>
+              
+              {/* Campo de Foto do Pedido */}
+              <div className="space-y-2 md:col-span-2">
+                <Label className="flex items-center gap-2">
+                  <Camera className="h-4 w-4" />
+                  Foto do Pedido
+                </Label>
+                <ImageUpload
+                  images={formData.fotosPedido}
+                  onImagesChange={handleFotosPedidoChange}
+                  maxImages={5}
+                  bucketName="pedido-imagens"
+                  folder="fotos-pedido"
                 />
               </div>
               <div className="space-y-2">
@@ -1511,6 +1569,21 @@ const NovoPedido = () => {
                   onChange={(e) => handleInputChange('observacoes', e.target.value)}
                   placeholder="Observações adicionais sobre o pedido"
                   rows={2}
+                />
+              </div>
+              
+              {/* Campo de Fotos de Controle */}
+              <div className="space-y-2 md:col-span-2">
+                <Label className="flex items-center gap-2">
+                  <Camera className="h-4 w-4" />
+                  Fotos de Controle
+                </Label>
+                <ImageUpload
+                  images={formData.fotosControle}
+                  onImagesChange={handleFotosControleChange}
+                  maxImages={3}
+                  bucketName="pedido-imagens"
+                  folder="fotos-controle"
                 />
               </div>
               <div className="space-y-2">

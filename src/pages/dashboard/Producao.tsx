@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle, Hammer, Scissors, Package, Wrench, Shirt, Loader2, Eye, RefreshCw } from 'lucide-react';
+import { Clock, CheckCircle, Hammer, Scissors, Package, Wrench, Shirt, Loader2, Eye, RefreshCw, Camera } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import PedidoPhotosModal from '@/components/PedidoPhotosModal';
 
 const Producao = () => {
   const { toast } = useToast();
@@ -15,6 +16,10 @@ const Producao = () => {
   const [abaAtiva, setAbaAtiva] = useState('marcenaria');
   const [carregando, setCarregando] = useState(true);
   const [statusItems, setStatusItems] = useState<{[key: string]: StatusProducao}>({});
+  const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null }>({
+    isOpen: false,
+    pedidoId: null
+  });
 
   useEffect(() => {
     carregarItensProducao();
@@ -208,6 +213,18 @@ const Producao = () => {
                           <Badge className={`px-3 py-1 text-xs font-medium ${getStatusColor(currentStatus)}`}>
                             {getStatusText(currentStatus)}
                           </Badge>
+                          
+                          {/* Ícone para fotos */}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-gray-400 hover:text-blue-600"
+                            title="Ver fotos do pedido"
+                            onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: item.pedido_id })}
+                          >
+                            <Camera className="w-4 h-4" />
+                          </Button>
+
                           {item.pedidos?.observacoes && (
                             <Dialog>
                               <DialogTrigger asChild>
@@ -307,6 +324,13 @@ const Producao = () => {
           ))}
         </Tabs>
       </div>
+
+      {/* Modal de Fotos do Pedido */}
+      <PedidoPhotosModal
+        isOpen={pedidoPhotosModal.isOpen}
+        onClose={() => setPedidoPhotosModal({ isOpen: false, pedidoId: null })}
+        pedidoId={pedidoPhotosModal.pedidoId}
+      />
     </DashboardLayout>
   );
 };

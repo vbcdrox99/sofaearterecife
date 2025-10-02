@@ -11,7 +11,9 @@ import {
   Calendar,
   FileText,
   Play,
-  CheckCircle
+  CheckCircle,
+  Camera,
+  Printer
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,14 +21,21 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { usePedidos } from '@/hooks/usePedidos';
+import { usePDFGenerator } from '@/hooks/usePDFGenerator';
 import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
+import PedidoPhotosModal from '@/components/PedidoPhotosModal';
 
 const Dashboard = () => {
   const { pedidos } = usePedidos();
+  const { printRef, printCurrentView, isPrinting } = usePDFGenerator();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [loadingProducao, setLoadingProducao] = useState(true);
   const [datasVisiveis, setDatasVisiveis] = useState<{[key: string]: boolean}>({});
   const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'novos' | 'iniciados' | 'finalizados'>('todos');
+  const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null }>({
+    isOpen: false,
+    pedidoId: null
+  });
 
   useEffect(() => {
     carregarDadosProducao();
@@ -45,57 +54,118 @@ const Dashboard = () => {
   };
 
   const getStatusColor = (status: StatusProducao) => {
-    const colors = {
-      'pendente': 'bg-red-500',
-      'iniciado': 'bg-yellow-500',
-      'supervisao': 'bg-blue-500',
-      'finalizado': 'bg-green-500'
+    switch (status) {
+      case 'pendente': return 'bg-red-500';
+      case 'iniciado': return 'bg-yellow-500';
+      case 'supervisao': return 'bg-blue-500';
+      case 'finalizado': return 'bg-green-500';
+      default: return 'bg-gray-400';
     };
-    return colors[status];
   };
 
   const getStatusText = (status: StatusProducao) => {
-    const texts = {
-      'pendente': 'Pendente',
-      'iniciado': 'Iniciado',
-      'supervisao': 'Supervisão',
-      'finalizado': 'Finalizado'
+    switch (status) {
+      case 'pendente': return 'Pendente';
+      case 'iniciado': return 'Iniciado';
+      case 'supervisao': return 'Em Supervisão';
+      case 'finalizado': return 'Finalizado';
+      default: return 'Desconhecido';
     };
-    return texts[status];
   };
 
   const getEtapaIcon = (etapa: string) => {
-    const icons = {
-      'marcenaria': Hammer,
-      'corte_costura': Scissors,
-      'espuma': Package,
-      'bancada': Wrench,
-      'tecido': Shirt
-    };
-    return icons[etapa as keyof typeof icons] || Package;
+    switch (etapa) {
+      case 'marcenaria': return Hammer;
+      case 'corte_costura': return Scissors;
+      case 'espuma': return Package;
+      case 'bancada': return Wrench;
+      case 'tecido': return Shirt;
+      default: return Package;
+    }
   };
 
   const getEtapaLabel = (etapa: string) => {
-    const labels = {
-      'marcenaria': 'Marcenaria',
-      'corte_costura': 'Corte e Costura',
-      'espuma': 'Espuma',
-      'bancada': 'Bancada',
-      'tecido': 'Tecido'
-    };
-    return labels[etapa as keyof typeof labels] || etapa;
+    switch (etapa) {
+      case 'marcenaria': return 'Marcenaria';
+      case 'corte_costura': return 'Corte e Costura';
+      case 'espuma': return 'Espuma';
+      case 'bancada': return 'Bancada';
+      case 'tecido': return 'Tecido';
+      default: return etapa;
+    }
   };
 
-  // Agrupar itens de produção por pedido
+  // Função para calcular dias restantes até a entrega
+  const calcularDiasRestantes = (dataEntrega: string | null) => {
+    if (!dataEntrega) return null;
+    
+    const hoje = new Date();
+    const entrega = new Date(dataEntrega);
+    const diffTime = entrega.getTime() - hoje.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+
+  // Função para determinar a cor de urgência
+  const getCorUrgencia = (dataEntrega: string | null) => {
+    const diasRestantes = calcularDiasRestantes(dataEntrega);
+    
+    if (diasRestantes === null) return 'bg-gray-300'; // Sem data
+    if (diasRestantes <= 2) return 'bg-red-500'; // Vermelho - urgente
+    if (diasRestantes <= 5) return 'bg-yellow-500'; // Amarelo - atenção
+    if (diasRestantes <= 10) return 'bg-green-500'; // Verde - no prazo
+    return 'bg-blue-500'; // Azul - muito tempo
+  };
+
+  // Função para obter texto de urgência
+  const getTextoUrgencia = (dataEntrega: string | null) => {
+    const diasRestantes = calcularDiasRestantes(dataEntrega);
+    
+    if (diasRestantes === null) return 'Sem data';
+    if (diasRestantes < 0) return `${Math.abs(diasRestantes)} dias atrasado`;
+    if (diasRestantes === 0) return 'Entrega hoje';
+    if (diasRestantes === 1) return '1 dia restante';
+    return `${diasRestantes} dias restantes`;
+  };
+
+  // Impressão nativa em A4 horizontal da visualização atual
+  const handleGerarPDF = () => {
+    const titulo =
+      filtroAtivo === 'todos'
+        ? 'Relatório de Todos os Pedidos'
+        : filtroAtivo === 'novos'
+        ? 'Relatório de Pedidos Novos'
+        : filtroAtivo === 'iniciados'
+        ? 'Relatório de Pedidos em Andamento'
+        : 'Relatório de Pedidos Finalizados';
+
+    // Usa react-to-print para imprimir a tabela como está na tela
+    printCurrentView(titulo);
+  };
+
   const pedidosComProducao = pedidos.map(pedido => {
     const itensRelacionados = itensProducao.filter(item => item.pedido_id === pedido.id);
     return {
       ...pedido,
       itensProducao: itensRelacionados
     };
-  }).filter(pedido => pedido.itensProducao.length > 0);
+  }).filter(pedido => pedido.itensProducao.length > 0)
+  // Ordenar por data de entrega (mais urgentes primeiro)
+  .sort((a, b) => {
+    const diasA = calcularDiasRestantes(a.data_previsao_entrega);
+    const diasB = calcularDiasRestantes(b.data_previsao_entrega);
+    
+    // Pedidos sem data vão para o final
+    if (diasA === null && diasB === null) return 0;
+    if (diasA === null) return 1;
+    if (diasB === null) return -1;
+    
+    // Ordenar por urgência (menor número de dias primeiro)
+    return diasA - diasB;
+  });
 
-  // Calcular estatísticas dos pedidos
+  // Contadores para os filtros
   const pedidosNovos = pedidosComProducao.filter(pedido => 
     pedido.itensProducao.every(item => item.status === 'pendente')
   ).length;
@@ -111,93 +181,105 @@ const Dashboard = () => {
 
   // Filtrar pedidos baseado no filtro ativo
   const pedidosFiltrados = pedidosComProducao.filter(pedido => {
-    switch (filtroAtivo) {
-      case 'novos':
-        return pedido.itensProducao.every(item => item.status === 'pendente');
-      case 'iniciados':
-        return pedido.itensProducao.some(item => item.status === 'iniciado' || item.status === 'supervisao') &&
-               !pedido.itensProducao.every(item => item.status === 'finalizado');
-      case 'finalizados':
-        return pedido.itensProducao.length > 0 && pedido.itensProducao.every(item => item.status === 'finalizado');
-      default:
-        return true;
+    if (filtroAtivo === 'todos') return true;
+    if (filtroAtivo === 'novos') {
+      return pedido.itensProducao.every(item => item.status === 'pendente');
     }
+    if (filtroAtivo === 'iniciados') {
+      return pedido.itensProducao.some(item => item.status === 'iniciado' || item.status === 'supervisao') &&
+             !pedido.itensProducao.every(item => item.status === 'finalizado');
+    }
+    if (filtroAtivo === 'finalizados') {
+      return pedido.itensProducao.length > 0 && pedido.itensProducao.every(item => item.status === 'finalizado');
+    }
+    return true;
   });
 
   return (
-    <DashboardLayout
-      title="Painel de Controle - Sofá e Arte"
-      description="Visão geral do sistema de produção Sofá e Arte"
-    >
-      <div className="space-y-8">
-        {/* Estatísticas dos Pedidos */}
-        <Card className="border border-gray-200 bg-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between space-x-6">
+    <DashboardLayout 
+      title="Dashboard - Sofá e Arte"
+      rightContent={
+        <Card className="w-auto">
+          <CardContent className="p-2">
+            <div className="flex items-center space-x-2">
               <button 
                 onClick={() => setFiltroAtivo('novos')}
-                className={`flex items-center space-x-3 p-2 rounded-lg transition-all duration-200 hover:bg-blue-50 ${
-                  filtroAtivo === 'novos' ? 'bg-blue-100 ring-2 ring-blue-300' : ''
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-blue-50 ${
+                  filtroAtivo === 'novos' ? 'bg-blue-50 ring-1 ring-blue-200' : ''
                 }`}
               >
-                <div className="p-2 bg-blue-100 rounded-full">
-                  <FileText className="w-4 h-4 text-blue-600" />
+                <div className="p-1 bg-blue-100 rounded-full">
+                  <FileText className="w-3 h-3 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-xs text-blue-600 font-medium">Novos</p>
-                  <p className="text-lg font-bold text-blue-700">{pedidosNovos}</p>
+                  <p className="text-xs font-bold text-blue-700">{pedidosNovos}</p>
                 </div>
               </button>
               
               <button 
                 onClick={() => setFiltroAtivo('iniciados')}
-                className={`flex items-center space-x-3 p-2 rounded-lg transition-all duration-200 hover:bg-orange-50 ${
-                  filtroAtivo === 'iniciados' ? 'bg-orange-100 ring-2 ring-orange-300' : ''
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-orange-50 ${
+                  filtroAtivo === 'iniciados' ? 'bg-orange-50 ring-1 ring-orange-200' : ''
                 }`}
               >
-                <div className="p-2 bg-orange-100 rounded-full">
-                  <Play className="w-4 h-4 text-orange-600" />
+                <div className="p-1 bg-orange-100 rounded-full">
+                  <Play className="w-3 h-3 text-orange-600" />
                 </div>
                 <div>
                   <p className="text-xs text-orange-600 font-medium">Iniciados</p>
-                  <p className="text-lg font-bold text-orange-700">{pedidosIniciados}</p>
+                  <p className="text-xs font-bold text-orange-700">{pedidosIniciados}</p>
                 </div>
               </button>
               
               <button 
                 onClick={() => setFiltroAtivo('finalizados')}
-                className={`flex items-center space-x-3 p-2 rounded-lg transition-all duration-200 hover:bg-green-50 ${
-                  filtroAtivo === 'finalizados' ? 'bg-green-100 ring-2 ring-green-300' : ''
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-green-50 ${
+                  filtroAtivo === 'finalizados' ? 'bg-green-50 ring-1 ring-green-200' : ''
                 }`}
               >
-                <div className="p-2 bg-green-100 rounded-full">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
+                <div className="p-1 bg-green-100 rounded-full">
+                  <CheckCircle className="w-3 h-3 text-green-600" />
                 </div>
                 <div>
                   <p className="text-xs text-green-600 font-medium">Finalizados</p>
-                  <p className="text-lg font-bold text-green-700">{pedidosFinalizados}</p>
+                  <p className="text-xs font-bold text-green-700">{pedidosFinalizados}</p>
                 </div>
               </button>
             </div>
-            
-            {filtroAtivo !== 'todos' && (
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <button 
-                  onClick={() => setFiltroAtivo('todos')}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline"
-                >
-                  Mostrar todos os pedidos
-                </button>
-              </div>
-            )}
           </CardContent>
         </Card>
-        {/* Status de Produção de Todos os Pedidos */}
+      }
+    >
+      <div className="space-y-8">
+        {filtroAtivo !== 'todos' && (
+          <div className="mb-4">
+            <button 
+              onClick={() => setFiltroAtivo('todos')}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Mostrar todos os pedidos
+            </button>
+          </div>
+        )}
+
         <Card className="card-elegant">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2">
-              <Wrench className="w-4 h-4 text-primary" />
-              <span className="text-base">Status de Produção - Todos os Pedidos</span>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Wrench className="w-4 h-4 text-primary" />
+                <span className="text-base">Status de Produção - Todos os Pedidos</span>
+              </div>
+              <Button
+                onClick={handleGerarPDF}
+                disabled={isPrinting || pedidosFiltrados.length === 0}
+                variant="outline"
+                size="sm"
+                className="flex items-center space-x-2 no-print"
+              >
+                <Printer className="w-4 h-4" />
+                <span>{isPrinting ? 'Gerando...' : 'Gerar PDF'}</span>
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
@@ -210,41 +292,44 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                  {/* Layout Planilha */}
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    {/* Container com scroll horizontal para mobile */}
-                    <div className="overflow-x-auto">
-                      {/* Cabeçalho da Tabela */}
-                      <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 min-w-[1200px]">
-                        <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                          <div className="col-span-1">Nº Pedido</div>
-                          <div className="col-span-1">Tipo</div>
-                          <div className="col-span-1">Entrega</div>
-                          <div className="col-span-1">Espuma</div>
-                          <div className="col-span-1">Tecido</div>
-                          <div className="col-span-1">Tipo Pé</div>
-                          <div className="col-span-1">Braço</div>
-                          <div className="col-span-3">Status Produção</div>
-                          <div className="col-span-1">Cliente</div>
-                          <div className="col-span-1">Ações</div>
-                        </div>
+                {/* Tabela de Pedidos */}
+                <div ref={printRef} className="bg-white rounded-lg border border-gray-200 overflow-hidden print-table" data-table="pedidos-table">
+                  {/* Cabeçalho da Tabela */}
+                  <div className="overflow-x-auto">
+                    {/* Header */}
+                    <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 min-w-[1200px]">
+                      <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                        <div className="col-span-1">Nº Pedido</div>
+                        <div className="col-span-1">Tipo</div>
+                        <div className="col-span-1">Entrega</div>
+                        <div className="col-span-1">Espuma</div>
+                        <div className="col-span-1">Tecido</div>
+                        <div className="col-span-1">Tipo Pé</div>
+                        <div className="col-span-1">Braço</div>
+                        <div className="col-span-3">Status Produção</div>
+                        <div className="col-span-1 print-hide">Cliente</div>
+                        <div className="col-span-1 print-hide">Ações</div>
                       </div>
+                    </div>
 
-                      {/* Conteúdo da Tabela */}
-                      <div className="divide-y divide-gray-200 min-w-[1200px]">
-                        {pedidosFiltrados.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            {filtroAtivo === 'todos' 
-                              ? 'Nenhum pedido em produção encontrado.' 
-                              : `Nenhum pedido ${filtroAtivo} encontrado.`
-                            }
-                          </div>
-                        ) : (
-                          pedidosFiltrados.map((pedido, index) => (
-                          <div key={pedido.id} className={`px-4 py-3 hover:bg-gray-100 transition-colors ${
-                             index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                           }`}>
-                            <div className="grid grid-cols-12 gap-4 items-center">
+                    {/* Conteúdo da Tabela */}
+                    <div className="divide-y divide-gray-200 min-w-[1200px]">
+                      {pedidosFiltrados.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          {filtroAtivo === 'todos' 
+                            ? 'Nenhum pedido em produção encontrado.' 
+                            : `Nenhum pedido ${filtroAtivo} encontrado.`
+                          }
+                        </div>
+                      ) : (
+                        pedidosFiltrados.map((pedido, index) => (
+                          <div key={pedido.id} className={`relative px-4 py-2 hover:bg-gray-50 transition-colors bg-white ${
+                            index !== pedidosFiltrados.length - 1 ? 'border-b border-gray-200' : ''
+                          }`}>
+                            {/* Barra de urgência na lateral esquerda */}
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(pedido.data_previsao_entrega)}`}></div>
+                            
+                            <div className="grid grid-cols-12 gap-3 items-center">
                               {/* Número do Pedido */}
                               <div className="col-span-1">
                                 <div className="flex items-center space-x-2">
@@ -254,49 +339,60 @@ const Dashboard = () => {
                               </div>
 
                               {/* Tipo */}
-                              <div className="col-span-1">
-                                <span className="text-sm text-gray-900">{pedido.tipo_sofa || 'N/A'}</span>
+                              <div className="col-span-1 min-w-0">
+                                <span className="text-sm text-gray-900 block truncate" title={pedido.tipo_sofa || 'N/A'}>{pedido.tipo_sofa || 'N/A'}</span>
                               </div>
 
                               {/* Data de Entrega */}
                               <div className="col-span-1">
-                                <span className="text-sm text-gray-900">
-                                  {pedido.data_previsao_entrega ? 
-                                    new Date(pedido.data_previsao_entrega).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) :
-                                    'N/A'
-                                  }
-                                </span>
+                                <div className="flex flex-col">
+                                  <span className="text-sm text-gray-900">
+                                    {pedido.data_previsao_entrega ? 
+                                      new Date(pedido.data_previsao_entrega).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) :
+                                      'N/A'
+                                    }
+                                  </span>
+                                  <span className={`text-xs font-medium ${
+                                    calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 2 
+                                      ? 'text-red-600' 
+                                      : calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 5
+                                      ? 'text-yellow-600'
+                                      : 'text-gray-500'
+                                  }`}>
+                                    {getTextoUrgencia(pedido.data_previsao_entrega)}
+                                  </span>
+                                </div>
                               </div>
 
                               {/* Espuma */}
-                              <div className="col-span-1">
-                                <span className="text-sm text-gray-900">{pedido.espuma || 'D33'}</span>
+                              <div className="col-span-1 min-w-0">
+                                <span className="text-sm text-gray-900 block truncate" title={pedido.espuma || 'D33'}>{pedido.espuma || 'D33'}</span>
                               </div>
 
                               {/* Tecido */}
-                              <div className="col-span-1">
-                                <span className="text-sm text-gray-900 truncate">{pedido.tecido || 'Suede Premium'}</span>
+                              <div className="col-span-1 min-w-0">
+                                <span className="text-sm text-gray-900 block truncate" title={pedido.tecido || 'Suede Premium'}>{pedido.tecido || 'Suede Premium'}</span>
                               </div>
 
                               {/* Tipo de Pé */}
-                              <div className="col-span-1">
-                                <span className="text-sm text-gray-900 truncate">{pedido.pe || 'Madeira Escura'}</span>
+                              <div className="col-span-1 min-w-0">
+                                <span className="text-sm text-gray-900 block truncate" title={pedido.pe || 'Madeira Escura'}>{pedido.pe || 'Madeira Escura'}</span>
                               </div>
 
                               {/* Braço */}
-                              <div className="col-span-1">
-                                <span className="text-sm text-gray-900 truncate">{pedido.braco || 'Reto'}</span>
+                              <div className="col-span-1 min-w-0">
+                                <span className="text-sm text-gray-900 block truncate" title={pedido.braco || 'Reto'}>{pedido.braco || 'Reto'}</span>
                               </div>
 
                               {/* Status de Produção */}
                               <div className="col-span-3">
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1.5">
                                   {pedido.itensProducao?.map((item) => {
                                     const IconComponent = getEtapaIcon(item.etapa);
                                     const currentStatus = item.status || 'pendente';
                                     
                                     return (
-                                      <div key={item.id} className="flex items-center space-x-1 bg-gray-100 rounded-md px-2 py-1">
+                                      <div key={item.id} className="flex items-center space-x-1 bg-gray-50 rounded-lg px-2 py-1.5 border border-gray-200">
                                         <IconComponent className="w-3 h-3 text-gray-600" />
                                         <div 
                                           className={`w-2 h-2 rounded-full ${
@@ -314,8 +410,8 @@ const Dashboard = () => {
                                 </div>
                               </div>
 
-                              {/* Cliente (escondido por padrão) */}
-                              <div className="col-span-1">
+                              {/* Cliente (oculto na impressão) */}
+                              <div className="col-span-1 print-hide">
                                 <button 
                                   className="text-gray-400 hover:text-gray-600 transition-colors"
                                   title={pedido.cliente_nome}
@@ -326,9 +422,18 @@ const Dashboard = () => {
                                 </button>
                               </div>
 
-                              {/* Ações */}
-                              <div className="col-span-1">
+                              {/* Ações (oculto na impressão) */}
+                              <div className="col-span-1 print-hide">
                                 <div className="flex items-center space-x-2">
+                                  {/* Ícone para fotos */}
+                                  <button 
+                                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                                    title="Ver fotos do pedido"
+                                    onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: pedido.id })}
+                                  >
+                                    <Camera className="w-4 h-4" />
+                                  </button>
+
                                   {/* Ícone para observações */}
                                   {pedido.observacoes && (
                                     <Dialog>
@@ -393,16 +498,23 @@ const Dashboard = () => {
                               </div>
                             )}
                           </div>
-                          ))
-                        )}
-                      </div>
+                        ))
+                      )}
                     </div>
                   </div>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Fotos do Pedido */}
+      <PedidoPhotosModal
+        isOpen={pedidoPhotosModal.isOpen}
+        onClose={() => setPedidoPhotosModal({ isOpen: false, pedidoId: null })}
+        pedidoId={pedidoPhotosModal.pedidoId}
+      />
     </DashboardLayout>
   );
 };

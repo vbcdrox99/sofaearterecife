@@ -8,12 +8,14 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
   title?: string;
   description?: string;
+  rightContent?: React.ReactNode;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
   children, 
   title,
-  description 
+  description,
+  rightContent 
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -70,10 +72,19 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               animate={{ opacity: 1, y: 0 }}
               className="mb-8"
             >
-              <h1 className="text-3xl font-bold text-gradient mb-2">{title || 'Painel de Controle - Sofá e Arte'}</h1>
-              {description && (
-                <p className="text-muted-foreground">{description}</p>
-              )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold text-gradient mb-2">{title || 'Painel de Controle - Sofá e Arte'}</h1>
+                  {description && (
+                    <p className="text-muted-foreground">{description}</p>
+                  )}
+                </div>
+                {rightContent && (
+                  <div className="flex-shrink-0">
+                    {rightContent}
+                  </div>
+                )}
+              </div>
             </motion.div>
           )}
           
