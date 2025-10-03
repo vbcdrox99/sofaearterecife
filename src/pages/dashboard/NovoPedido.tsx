@@ -11,8 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector';
 
@@ -49,6 +49,8 @@ interface FormData {
 }
 
 const NovoPedido = () => {
+  const { id: pedidoIdParam } = useParams();
+  const isEditMode = !!pedidoIdParam;
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -147,6 +149,184 @@ const NovoPedido = () => {
     fotosPedido: [],
     fotosControle: []
   });
+
+  // Guardar anexos originais para comparação em edição
+  const [anexosOriginaisPedido, setAnexosOriginaisPedido] = useState<UploadedImage[]>([]);
+  const [anexosOriginaisControle, setAnexosOriginaisControle] = useState<UploadedImage[]>([]);
+
+  const converterDataISOParaBR = (dataISO?: string) => {
+    if (!dataISO) return '';
+    const [ano, mes, dia] = dataISO.split('-');
+    if (!ano || !mes || !dia) return '';
+    return `${dia.padStart(2,'0')}/${mes.padStart(2,'0')}/${ano}`;
+  };
+
+  useEffect(() => {
+    const carregarPedido = async () => {
+      if (!isEditMode || !pedidoIdParam) return;
+      try {
+        const { data: pedido, error } = await supabase
+          .from('pedidos')
+          .select('*')
+          .eq('id', pedidoIdParam)
+          .single();
+        if (error) throw error;
+
+        setClienteSelecionado({
+          id: pedido.cliente_id || '',
+          nome: pedido.cliente_nome || '',
+          email: pedido.cliente_email || '',
+          telefone: pedido.cliente_telefone || ''
+        });
+
+        if (pedido.etapas_necessarias && Array.isArray(pedido.etapas_necessarias)) {
+          setEtapasSelecionadas(pedido.etapas_necessarias);
+        }
+
+        // Parse robusto de dimensões salvas, aceitando 'x', 'X', '×', espaços e ponto/vírgula
+        const dimensoesStr: string = pedido.dimensoes || '';
+        const matches = dimensoesStr.match(/\d+[.,]?\d*/g) || [];
+        const largura = matches[0] ? matches[0].replace('.', ',') : '';
+        const comprimento = matches[1] ? matches[1].replace('.', ',') : '';
+        const dimensoesNormalizadas = largura && comprimento
+          ? `${largura} x ${comprimento}`
+          : pedido.dimensoes || '';
+
+        setFormData(prev => ({
+          ...prev,
+          clienteId: pedido.cliente_id || '',
+          clienteNome: pedido.cliente_nome || '',
+          clienteEmail: pedido.cliente_email || '',
+          clienteTelefone: pedido.cliente_telefone || '',
+          clienteEndereco: pedido.cliente_endereco || '',
+          numeroPedido: pedido.numero_pedido ? String(pedido.numero_pedido) : '',
+          dataEntrega: converterDataISOParaBR(pedido.data_previsao_entrega),
+          descricao: pedido.descricao_sofa || '',
+          tipoSofa: pedido.tipo_sofa || '',
+          cor: pedido.cor || '',
+          dimensoes: dimensoesNormalizadas,
+          dimensaoLargura: largura,
+          dimensaoComprimento: comprimento,
+          tipoServico: pedido.tipo_servico || '',
+          observacoes: pedido.observacoes || '',
+          espuma: pedido.espuma || '',
+          tecido: pedido.tecido || '',
+          braco: pedido.braco || '',
+          tipoPe: pedido.tipo_pe || '',
+          valorTotal: pedido.valor_total ? String(pedido.valor_total) : '',
+          valorPago: pedido.valor_pago ? String(pedido.valor_pago) : '',
+          prioridade: pedido.prioridade || 'media',
+          etapasNecessarias: pedido.etapas_necessarias || [],
+          fotosPedido: [],
+          fotosControle: []
+        }));
+
+        // Garantir que os selects exibam o valor salvo mesmo que não esteja nas listas
+        if (pedido.tipo_sofa) {
+          setTiposSofaDisponiveis(prev => prev.includes(pedido.tipo_sofa) ? prev : [...prev, pedido.tipo_sofa]);
+        }
+        if (pedido.cor) {
+          setCoresDisponiveis(prev => prev.includes(pedido.cor) ? prev : [...prev, pedido.cor]);
+        }
+        if (pedido.espuma) {
+          setEspumasDisponiveis(prev => prev.includes(pedido.espuma) ? prev : [...prev, pedido.espuma]);
+        }
+        if (pedido.braco) {
+          setBracosDisponiveis(prev => prev.includes(pedido.braco) ? prev : [...prev, pedido.braco]);
+        }
+        if (pedido.tipo_pe) {
+          setTiposPeDisponiveis(prev => prev.includes(pedido.tipo_pe) ? prev : [...prev, pedido.tipo_pe]);
+        }
+        if (pedido.tipo_servico) {
+          setTiposServicoDisponiveis(prev => prev.includes(pedido.tipo_servico) ? prev : [...prev, pedido.tipo_servico]);
+        }
+
+        // Carregar dados completos do cliente (endereço detalhado) se existir cliente_id
+        if (pedido.cliente_id) {
+          const { data: clienteData, error: clienteError } = await supabase
+            .from('clientes')
+            .select('*')
+            .eq('id', pedido.cliente_id)
+            .single();
+
+          if (!clienteError && clienteData) {
+            // Atualizar seleção de cliente com dados completos
+            setClienteSelecionado({
+              id: clienteData.id,
+              nome: clienteData.nome,
+              email: clienteData.email || '',
+              telefone: clienteData.telefone || '',
+              endereco_completo: clienteData.endereco_completo || '',
+              cep: clienteData.cep || '',
+              bairro: clienteData.bairro || '',
+              cidade: clienteData.cidade || '',
+              estado: clienteData.estado || '',
+            });
+
+            // Preencher campos de endereço detalhado no formulário
+            setFormData(prev => ({
+              ...prev,
+              clienteEndereco: clienteData.endereco_completo || prev.clienteEndereco || '',
+              clienteCep: clienteData.cep || prev.clienteCep || '',
+              clienteBairro: clienteData.bairro || prev.clienteBairro || '',
+              clienteCidade: clienteData.cidade || prev.clienteCidade || '',
+              clienteEstado: clienteData.estado || prev.clienteEstado || '',
+            }));
+          }
+        }
+
+        // Buscar anexos existentes para pré-carregar no formulário
+        const { data: anexosData, error: anexosError } = await supabase
+          .from('pedido_anexos')
+          .select('*')
+          .eq('pedido_id', pedidoIdParam)
+          .order('created_at', { ascending: true });
+
+        if (anexosError) {
+          console.error('Erro ao carregar anexos do pedido:', anexosError);
+        } else {
+          const fotosPedidoExistentes: UploadedImage[] = (anexosData || [])
+            .filter(a => a.descricao === 'foto_pedido')
+            .map(a => ({
+              id: a.id,
+              file: new File([new Blob()], a.nome_arquivo, { type: a.tipo_arquivo || 'image/jpeg' }),
+              preview: a.url_arquivo,
+              uploaded: true,
+              url: a.url_arquivo,
+              name: a.nome_arquivo,
+              size: 0,
+              type: a.tipo_arquivo || 'image/jpeg',
+              existing: true,
+            }));
+
+          const fotosControleExistentes: UploadedImage[] = (anexosData || [])
+            .filter(a => a.descricao === 'foto_controle')
+            .map(a => ({
+              id: a.id,
+              file: new File([new Blob()], a.nome_arquivo, { type: a.tipo_arquivo || 'image/jpeg' }),
+              preview: a.url_arquivo,
+              uploaded: true,
+              url: a.url_arquivo,
+              name: a.nome_arquivo,
+              size: 0,
+              type: a.tipo_arquivo || 'image/jpeg',
+              existing: true,
+            }));
+
+          setFormData(prev => ({
+            ...prev,
+            fotosPedido: fotosPedidoExistentes,
+            fotosControle: fotosControleExistentes,
+          }));
+          setAnexosOriginaisPedido(fotosPedidoExistentes);
+          setAnexosOriginaisControle(fotosControleExistentes);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar pedido para edição:', err);
+      }
+    };
+    carregarPedido();
+  }, [isEditMode, pedidoIdParam]);
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -318,11 +498,13 @@ const NovoPedido = () => {
     }
   };
 
-  // Gerar número do pedido automaticamente
+  // Gerar número do pedido automaticamente apenas em modo de criação
   useEffect(() => {
-    const numeroPedido = generatePedidoNumber();
-    setFormData(prev => ({ ...prev, numeroPedido }));
-  }, []);
+    if (!isEditMode) {
+      const numeroPedido = generatePedidoNumber();
+      setFormData(prev => ({ ...prev, numeroPedido }));
+    }
+  }, [isEditMode]);
 
   // Carregar categorias do banco de dados
   useEffect(() => {
@@ -359,6 +541,40 @@ const NovoPedido = () => {
 
     carregarCategorias();
   }, []);
+
+  // Garantir que os selects sempre incluam o valor atual do formulário
+  useEffect(() => {
+    const { tipoSofa, cor, espuma, braco, tipoPe, tipoServico } = formData;
+    if (tipoSofa) setTiposSofaDisponiveis(prev => prev.includes(tipoSofa) ? prev : [...prev, tipoSofa]);
+    if (cor) setCoresDisponiveis(prev => prev.includes(cor) ? prev : [...prev, cor]);
+    if (espuma) setEspumasDisponiveis(prev => prev.includes(espuma) ? prev : [...prev, espuma]);
+    if (braco) setBracosDisponiveis(prev => prev.includes(braco) ? prev : [...prev, braco]);
+    if (tipoPe) setTiposPeDisponiveis(prev => prev.includes(tipoPe) ? prev : [...prev, tipoPe]);
+    if (tipoServico) setTiposServicoDisponiveis(prev => prev.includes(tipoServico) ? prev : [...prev, tipoServico]);
+  }, [formData.tipoSofa, formData.cor, formData.espuma, formData.braco, formData.tipoPe, formData.tipoServico]);
+
+  // Reforçar que os valores atuais permaneçam visíveis quando listas são recarregadas
+  useEffect(() => {
+    const { tipoSofa, cor, espuma, braco, tipoPe, tipoServico } = formData;
+    if (tipoSofa && !tiposSofaDisponiveis.includes(tipoSofa)) {
+      setTiposSofaDisponiveis(prev => [...prev, tipoSofa]);
+    }
+    if (cor && !coresDisponiveis.includes(cor)) {
+      setCoresDisponiveis(prev => [...prev, cor]);
+    }
+    if (espuma && !espumasDisponiveis.includes(espuma)) {
+      setEspumasDisponiveis(prev => [...prev, espuma]);
+    }
+    if (braco && !bracosDisponiveis.includes(braco)) {
+      setBracosDisponiveis(prev => [...prev, braco]);
+    }
+    if (tipoPe && !tiposPeDisponiveis.includes(tipoPe)) {
+      setTiposPeDisponiveis(prev => [...prev, tipoPe]);
+    }
+    if (tipoServico && !tiposServicoDisponiveis.includes(tipoServico)) {
+      setTiposServicoDisponiveis(prev => [...prev, tipoServico]);
+    }
+  }, [tiposSofaDisponiveis, coresDisponiveis, espumasDisponiveis, bracosDisponiveis, tiposPeDisponiveis, tiposServicoDisponiveis]);
 
   const generatePedidoNumber = () => {
     const now = new Date();
@@ -806,7 +1022,20 @@ const NovoPedido = () => {
         throw new Error('Por favor, informe uma data válida no formato DD/MM/AAAA');
       }
 
-      if (!formData.tipoSofa || !formData.cor || !formData.dimensoes) {
+      // Garantir dimensões combinadas mesmo se o usuário não tocar nos inputs
+      // Extrai dois números (com vírgula ou ponto) dos campos existentes e salva no formato "Largura Comprimento"
+      const extrairDimensoes = (entrada: string) => {
+        const nums = (entrada || '').match(/\d+[.,]?\d*/g) || [];
+        const [l, c] = [nums[0] || '', nums[1] || ''];
+        return { l: l.replace('.', ','), c: c.replace('.', ',') };
+      };
+      const { l: l1, c: c1 } = extrairDimensoes(formData.dimensoes);
+      const { l: l2, c: c2 } = extrairDimensoes(`${formData.dimensaoLargura} ${formData.dimensaoComprimento}`);
+      const larguraFinal = l1 || l2;
+      const comprimentoFinal = c1 || c2;
+      const dimensoesCombinadas = (larguraFinal && comprimentoFinal) ? `${larguraFinal} ${comprimentoFinal}` : '';
+
+      if (!formData.tipoSofa || !formData.cor || !dimensoesCombinadas) {
         throw new Error('Preencha o tipo, cor e dimensões do sofá');
       }
 
@@ -843,7 +1072,7 @@ const NovoPedido = () => {
         tipo_sofa: formData.tipoSofa,
         tipo_servico: formData.tipoServico,
         cor: formData.cor,
-        dimensoes: formData.dimensoes,
+        dimensoes: dimensoesCombinadas,
         observacoes: formData.observacoes,
         espuma: formData.espuma,
         tecido: formData.tecido,
@@ -866,27 +1095,37 @@ const NovoPedido = () => {
         }
       }
 
-      // Inserir pedido no Supabase
-      const { data, error } = await supabase
-        .from('pedidos')
-        .insert([pedidoData])
-        .select();
-
-      if (error) {
-        throw error;
+      let pedidoAtualId = pedidoIdParam || '';
+      let pedidoCriado = null as any;
+      if (!isEditMode) {
+        const { data, error } = await supabase
+          .from('pedidos')
+          .insert([pedidoData])
+          .select();
+        if (error) throw error;
+        pedidoCriado = data[0];
+        pedidoAtualId = pedidoCriado.id;
+      } else {
+        const { data, error } = await supabase
+          .from('pedidos')
+          .update(pedidoData)
+          .eq('id', pedidoAtualId)
+          .select();
+        if (error) throw error;
+        pedidoCriado = data[0];
       }
 
-      const pedidoCriado = data[0];
-
-      // Salvar imagens anexadas
+      // Salvar/atualizar anexos (evita duplicar existentes e permite exclusão em edição)
       const todasImagens = [
         ...formData.fotosPedido.map(img => ({ ...img, tipo: 'foto_pedido' })),
         ...formData.fotosControle.map(img => ({ ...img, tipo: 'foto_controle' }))
       ];
 
-      if (todasImagens.length > 0) {
-        const anexosData = todasImagens.map(img => ({
-          pedido_id: pedidoCriado.id,
+      // Inserir apenas imagens novas (não existentes) que já possuem URL (upload concluído)
+      const novasImagens = todasImagens.filter(img => !img.existing && img.uploaded && !!img.url);
+      if (novasImagens.length > 0) {
+        const anexosData = novasImagens.map(img => ({
+          pedido_id: pedidoAtualId,
           nome_arquivo: img.name,
           url_arquivo: img.url,
           tipo_arquivo: img.type,
@@ -901,36 +1140,81 @@ const NovoPedido = () => {
 
         if (anexosError) {
           console.error('Erro ao salvar anexos:', anexosError);
-          // Não falha o pedido por causa dos anexos, apenas loga o erro
         }
       }
 
-      // Criar etapas de produção para as etapas selecionadas
-      try {
-        const { producaoService } = await import('@/lib/supabase');
-        await producaoService.criarEtapasPedido(pedidoCriado.id, etapasSelecionadas);
-        
-        // Atualizar status do pedido para 'em_producao'
-        await supabase
-          .from('pedidos')
-          .update({ status: 'em_producao' })
-          .eq('id', pedidoCriado.id);
+      // Em modo edição, remover anexos que foram excluídos pelo usuário
+      if (isEditMode) {
+        const atuaisExistentes = todasImagens.filter(img => img.existing).map(img => img.id);
+        const origPedidoIds = anexosOriginaisPedido.map(a => a.id);
+        const origControleIds = anexosOriginaisControle.map(a => a.id);
 
+        const removidosPedido = anexosOriginaisPedido.filter(a => !atuaisExistentes.includes(a.id));
+        const removidosControle = anexosOriginaisControle.filter(a => !atuaisExistentes.includes(a.id));
+        const removidos = [...removidosPedido, ...removidosControle];
+
+        for (const rem of removidos) {
+          try {
+            // Remover registro do banco
+            const { error: delError } = await supabase
+              .from('pedido_anexos')
+              .delete()
+              .eq('id', rem.id);
+            if (delError) {
+              console.error('Erro ao remover registro de anexo:', delError);
+            }
+
+            // Remover arquivo do storage
+            if (rem.url) {
+              const marker = '/pedido-imagens/';
+              const idx = rem.url.indexOf(marker);
+              if (idx !== -1) {
+                const path = rem.url.substring(idx + marker.length);
+                const { error: storageErr } = await supabase.storage
+                  .from('pedido-imagens')
+                  .remove([path]);
+                if (storageErr) {
+                  console.error('Erro ao remover arquivo do storage:', storageErr);
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Erro ao remover anexo:', e);
+          }
+        }
+      }
+
+      if (!isEditMode) {
+        try {
+          const { producaoService } = await import('@/lib/supabase');
+          await producaoService.criarEtapasPedido(pedidoAtualId, etapasSelecionadas);
+          await supabase
+            .from('pedidos')
+            .update({ status: 'em_producao' })
+            .eq('id', pedidoAtualId);
+
+          toast({
+            title: "Pedido Criado com Sucesso!",
+            description: `Pedido #${pedidoCriado.numero_pedido} foi cadastrado e enviado para produção.`,
+          });
+        } catch (producaoError) {
+          console.error('Erro ao criar etapas de produção:', producaoError);
+          toast({
+            title: "Pedido Criado com Aviso",
+            description: `Pedido #${pedidoCriado.numero_pedido} foi cadastrado, mas houve erro ao criar etapas de produção.`,
+            variant: "destructive"
+          });
+        }
+      } else {
         toast({
-          title: "Pedido Criado com Sucesso!",
-          description: `Pedido #${pedidoCriado.numero_pedido} foi cadastrado e enviado para produção.`,
-        });
-      } catch (producaoError) {
-        console.error('Erro ao criar etapas de produção:', producaoError);
-        toast({
-          title: "Pedido Criado com Aviso",
-          description: `Pedido #${pedidoCriado.numero_pedido} foi cadastrado, mas houve erro ao criar etapas de produção.`,
-          variant: "destructive"
+          title: "Pedido Atualizado",
+          description: `Pedido #${pedidoCriado.numero_pedido} foi atualizado com sucesso.`,
         });
       }
 
-      // Reset form
-      setFormData({
+      // Reset e redirecionamento
+      if (!isEditMode) {
+        setFormData({
         clienteId: '',
         clienteNome: '',
         clienteEmail: '',
@@ -961,20 +1245,19 @@ const NovoPedido = () => {
         fotosPedido: [],
         fotosControle: []
       });
-      
-      // Limpar cliente selecionado e etapas
-      setClienteSelecionado(null);
-      setEtapasSelecionadas([]);
-
-      // Redirecionar para a lista de pedidos após 2 segundos
-      setTimeout(() => {
+        setClienteSelecionado(null);
+        setEtapasSelecionadas([]);
+        setTimeout(() => {
+          navigate('/dashboard/pedidos');
+        }, 2000);
+      } else {
         navigate('/dashboard/pedidos');
-      }, 2000);
+      }
 
     } catch (error: any) {
       console.error('Erro ao criar pedido:', error);
       toast({
-        title: "Erro ao Criar Pedido",
+        title: isEditMode ? "Erro ao Atualizar Pedido" : "Erro ao Criar Pedido",
         description: error.message || "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive"
       });
@@ -985,8 +1268,8 @@ const NovoPedido = () => {
 
   return (
     <DashboardLayout
-      title="Novo Pedido"
-      description="Cadastrar novo pedido de sofá personalizado"
+      title={isEditMode ? "Editar Pedido" : "Novo Pedido"}
+      description={isEditMode ? "Atualize os dados do pedido" : "Cadastrar novo pedido de sofá personalizado"}
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1949,12 +2232,12 @@ const NovoPedido = () => {
               {isLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Salvando...
+                  {isEditMode ? 'Atualizando...' : 'Salvando...'}
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  Salvar Pedido
+                  {isEditMode ? 'Atualizar Pedido' : 'Salvar Pedido'}
                 </>
               )}
             </Button>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, Eye, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,11 +8,14 @@ import { useImageOptimization } from '../hooks/useImageOptimization';
 
 interface ImageUploadProps {
   onImagesChange: (images: UploadedImage[]) => void;
+  images?: UploadedImage[];
   maxImages?: number;
-  label: string;
+  label?: string;
   description?: string;
   acceptedTypes?: string[];
   maxSizeInMB?: number;
+  bucketName?: string;
+  folder?: string;
 }
 
 export interface UploadedImage {
@@ -22,22 +25,35 @@ export interface UploadedImage {
   uploaded: boolean;
   url?: string;
   name: string;
+  size: number;
+  type: string;
+  existing?: boolean;
 }
 
 const ImageUpload: React.FC<ImageUploadProps> = ({
   onImagesChange,
+  images: externalImages,
   maxImages = 5,
   label,
   description,
   acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'],
-  maxSizeInMB = 5
+  maxSizeInMB = 5,
+  bucketName = 'pedido-imagens',
+  folder = 'uploads'
 }) => {
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { optimizeImage, isOptimizing } = useImageOptimization();
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Sincronizar imagens externas (pré-carregadas) com o estado interno
+  useEffect(() => {
+    if (externalImages && Array.isArray(externalImages)) {
+      setImages(externalImages);
+    }
+  }, [externalImages]);
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     
     if (files.length + images.length > maxImages) {
@@ -66,18 +82,28 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       file,
       preview: URL.createObjectURL(file),
       uploaded: false,
-      name: file.name
+      name: file.name,
+      size: file.size,
+      type: file.type
     }));
 
     const updatedImages = [...images, ...newImages];
     setImages(updatedImages);
     onImagesChange(updatedImages);
+    // Iniciar upload automaticamente após seleção usando a lista atualizada
+    await uploadAllImages(updatedImages);
   };
 
   const removeImage = (imageId: string) => {
+    const image = images.find(i => i.id === imageId);
+    const shouldDelete = window.confirm('Tem certeza que quer apagar essa imagem?');
+    if (!shouldDelete) return;
+
     const updatedImages = images.filter(img => {
       if (img.id === imageId) {
-        URL.revokeObjectURL(img.preview);
+        if (img.preview && img.preview.startsWith('blob:')) {
+          URL.revokeObjectURL(img.preview);
+        }
         return false;
       }
       return true;
@@ -93,10 +119,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       
       const fileExt = optimizedFile.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-      const filePath = `uploads/${fileName}`;
+      const filePath = `${folder}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('pedido-imagens')
+        .from(bucketName)
         .upload(filePath, optimizedFile, {
           cacheControl: '3600',
           upsert: false
@@ -108,7 +134,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       }
 
       const { data } = supabase.storage
-        .from('pedido-imagens')
+        .from(bucketName)
         .getPublicUrl(filePath);
 
       return data.publicUrl;
@@ -118,9 +144,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     }
   };
 
-  const uploadAllImages = async (): Promise<UploadedImage[]> => {
+  const uploadAllImages = async (imagesToUpload?: UploadedImage[]): Promise<UploadedImage[]> => {
     setUploading(true);
-    const uploadPromises = images.map(async (image) => {
+    const baseImages = imagesToUpload ?? images;
+    const uploadPromises = baseImages.map(async (image) => {
       if (image.uploaded) return image;
 
       const url = await uploadToSupabase(image);
@@ -139,7 +166,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     } catch (error) {
       console.error('Erro no upload das imagens:', error);
       setUploading(false);
-      return images;
+      return baseImages;
     }
   };
 
@@ -150,7 +177,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-sm font-medium text-gray-700">{label}</label>
+        {label && (
+          <label className="text-sm font-medium text-gray-700">{label}</label>
+        )}
         {description && (
           <p className="text-xs text-gray-500 mt-1">{description}</p>
         )}
@@ -247,28 +276,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         </div>
       )}
 
-      {/* Botão de upload */}
-      {images.length > 0 && !images.every(img => img.uploaded) && (
-        <Button
-          onClick={uploadAllImages}
-          disabled={uploading || isOptimizing}
-          className="w-full"
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Fazendo upload...
-            </>
-          ) : isOptimizing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Otimizando imagens...
-            </>
-          ) : (
-            'Fazer Upload das Imagens'
-          )}
-        </Button>
-      )}
+      {/* Upload automático: sem botão de confirmação */}
     </div>
   );
 };

@@ -29,7 +29,15 @@ const Producao = () => {
     try {
       setCarregando(true);
       const dados = await producaoService.getByEtapa(abaAtiva as ItemProducao['etapa']);
-      setItensProducao(dados);
+      const dadosOrdenados = [...dados].sort((a, b) => {
+        const diasA = calcularDiasRestantes(a.pedidos?.data_previsao_entrega);
+        const diasB = calcularDiasRestantes(b.pedidos?.data_previsao_entrega);
+        if (diasA === null && diasB === null) return 0;
+        if (diasA === null) return 1;
+        if (diasB === null) return -1;
+        return diasA - diasB;
+      });
+      setItensProducao(dadosOrdenados);
       
       // Inicializar status dos itens baseado no banco
       const initialStatus: {[key: string]: StatusProducao} = {};
@@ -72,6 +80,34 @@ const Producao = () => {
   const truncateText = (text: string, maxLength: number = 50) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  };
+
+  // Urgência por data de entrega (igual ao Dashboard)
+  const calcularDiasRestantes = (dataEntrega: string | undefined) => {
+    if (!dataEntrega) return null;
+    const hoje = new Date();
+    const entrega = new Date(dataEntrega);
+    const diffTime = entrega.getTime() - hoje.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const getCorUrgencia = (dataEntrega: string | undefined) => {
+    const diasRestantes = calcularDiasRestantes(dataEntrega);
+    if (diasRestantes === null) return 'bg-gray-300';
+    if (diasRestantes <= 2) return 'bg-red-500';
+    if (diasRestantes <= 5) return 'bg-yellow-500';
+    if (diasRestantes <= 10) return 'bg-green-500';
+    return 'bg-blue-500';
+  };
+
+  const getTextoUrgencia = (dataEntrega: string | undefined) => {
+    const diasRestantes = calcularDiasRestantes(dataEntrega);
+    if (diasRestantes === null) return 'Sem data';
+    if (diasRestantes < 0) return `${Math.abs(diasRestantes)} dias atrasado`;
+    if (diasRestantes === 0) return 'Entrega hoje';
+    if (diasRestantes === 1) return '1 dia restante';
+    return `${diasRestantes} dias restantes`;
   };
 
   const handleStatusChange = async (itemId: string, novoStatus: StatusProducao) => {
@@ -177,7 +213,9 @@ const Producao = () => {
                   const currentStatus = statusItems[item.id] || item.status || 'pendente';
                   
                   return (
-                    <Card key={item.id} className={`p-4 hover:shadow-md transition-shadow border-l-4 border-l-blue-500 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50/30'}`}>
+                    <Card key={item.id} className={`relative p-4 hover:shadow-md transition-shadow ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50/30'}`}>
+                      {/* Barra de urgência na lateral esquerda */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(item.pedidos?.data_previsao_entrega)}`}></div>
                       {/* Primeira linha - Informações Principais */}
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-8 flex-1">
@@ -204,6 +242,15 @@ const Producao = () => {
                                 new Date(item.pedidos.data_previsao_entrega).toLocaleDateString('pt-BR') : 
                                 'N/A'
                               }
+                            </span>
+                            <span className={`text-xs font-medium ${
+                              calcularDiasRestantes(item.pedidos?.data_previsao_entrega) !== null && calcularDiasRestantes(item.pedidos?.data_previsao_entrega)! <= 2 
+                                ? 'text-red-600' 
+                                : calcularDiasRestantes(item.pedidos?.data_previsao_entrega) !== null && calcularDiasRestantes(item.pedidos?.data_previsao_entrega)! <= 5
+                                ? 'text-yellow-600'
+                                : 'text-gray-500'
+                            }`}>
+                              {getTextoUrgencia(item.pedidos?.data_previsao_entrega)}
                             </span>
                           </div>
                         </div>

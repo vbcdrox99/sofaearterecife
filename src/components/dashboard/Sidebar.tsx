@@ -65,10 +65,14 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
       description: 'Cadastrar novo pedido',
     },
     {
+      // Temporariamente desativado: manter item visível mas não clicável.
+      // Futuro: remover 'disabled' e voltar a usar NavLink para navegação.
       name: 'Pedidos',
       href: '/dashboard/pedidos',
       icon: ClipboardList,
       description: 'Gerenciar pedidos',
+      disabled: true,
+      disabledNote: 'Em breve',
     },
     {
       name: 'Produção',
@@ -80,13 +84,21 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
       name: 'Finalizados',
       href: '/dashboard/finalizados',
       icon: CheckCircle,
+      // Temporariamente desativado: manter item visível mas não clicável.
+      // Futuro: remover 'disabled' e voltar a usar NavLink para navegação.
       description: 'Produtos finalizados',
+      disabled: true,
+      disabledNote: 'Em breve',
     },
     {
       name: 'Entrega',
       href: '/dashboard/entrega',
       icon: Truck,
+      // Temporariamente desativado: manter item visível mas não clicável.
+      // Futuro: remover 'disabled' e voltar a usar NavLink para navegação.
       description: 'Controle de entregas',
+      disabled: true,
+      disabledNote: 'Em breve',
     },
   ];
 
@@ -198,31 +210,53 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
             {allItems.map((item) => (
               <motion.div
                 key={item.href}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={item.disabled ? {} : { scale: 1.02 }}
+                whileTap={item.disabled ? {} : { scale: 0.98 }}
               >
-                <NavLink
-                  to={item.href}
-                  onClick={handleLinkClick}
-                  className={({ isActive }) =>
-                    cn(
+                {item.disabled ? (
+                  <div
+                    className={cn(
                       "flex items-center rounded-lg transition-all duration-200 group relative",
                       isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-md"
-                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                    )
-                  }
-                  title={isCollapsed ? item.name : undefined}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {!isCollapsed && (
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{item.name}</div>
-                      <div className="text-xs opacity-75">{item.description}</div>
-                    </div>
-                  )}
-                </NavLink>
+                      "bg-muted text-muted-foreground cursor-not-allowed"
+                    )}
+                    title={isCollapsed ? `${item.name} — ${item.disabledNote || 'Em breve'}` : undefined}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {!isCollapsed && (
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">{item.name}</div>
+                        <div className="text-xs opacity-75">{item.description}</div>
+                        {item.disabledNote && (
+                          <div className="text-xs italic opacity-75">{item.disabledNote}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <NavLink
+                    to={item.href}
+                    onClick={handleLinkClick}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center rounded-lg transition-all duration-200 group relative",
+                        isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-md"
+                          : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                      )
+                    }
+                    title={isCollapsed ? item.name : undefined}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {!isCollapsed && (
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">{item.name}</div>
+                        <div className="text-xs opacity-75">{item.description}</div>
+                      </div>
+                    )}
+                  </NavLink>
+                )}
               </motion.div>
             ))}
           </nav>

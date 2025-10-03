@@ -81,16 +81,14 @@ const Pedidos = () => {
     return matchStatus && matchPrioridade && matchBusca;
   });
 
+
   const handleVisualizarPedido = (pedido: Pedido) => {
     setPedidoSelecionado(pedido);
     setDialogAberto(true);
   };
 
   const handleEditarPedido = (pedido: Pedido) => {
-    toast({
-      title: "Editar Pedido",
-      description: `Funcionalidade de edição do pedido ${pedido.numero_pedido} será implementada.`,
-    });
+    navigate(`/dashboard/editar-pedido/${pedido.id}`);
   };
 
   const handleExcluirPedido = async (pedido: Pedido) => {

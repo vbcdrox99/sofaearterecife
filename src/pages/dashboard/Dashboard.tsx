@@ -5,9 +5,9 @@ import {
   Hammer,
   Scissors,
   Shirt,
+  ClipboardList,
   Eye,
-  ChevronDown,
-  ChevronUp,
+  Edit,
   Calendar,
   FileText,
   Play,
@@ -15,6 +15,7 @@ import {
   Camera,
   Printer
 } from 'lucide-react';
+import { User } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,14 +25,17 @@ import { usePedidos } from '@/hooks/usePedidos';
 import { usePDFGenerator } from '@/hooks/usePDFGenerator';
 import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import PedidoPhotosModal from '@/components/PedidoPhotosModal';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { pedidos } = usePedidos();
+  const navigate = useNavigate();
   const { printRef, printCurrentView, isPrinting } = usePDFGenerator();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [loadingProducao, setLoadingProducao] = useState(true);
   const [datasVisiveis, setDatasVisiveis] = useState<{[key: string]: boolean}>({});
   const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'novos' | 'iniciados' | 'finalizados'>('todos');
+  const [filtroArea, setFiltroArea] = useState<'todos' | 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido'>('todos');
   const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null }>({
     isOpen: false,
     pedidoId: null
@@ -131,7 +135,7 @@ const Dashboard = () => {
 
   // Impressão nativa em A4 horizontal da visualização atual
   const handleGerarPDF = () => {
-    const titulo =
+    const tituloBase =
       filtroAtivo === 'todos'
         ? 'Relatório de Todos os Pedidos'
         : filtroAtivo === 'novos'
@@ -140,8 +144,48 @@ const Dashboard = () => {
         ? 'Relatório de Pedidos em Andamento'
         : 'Relatório de Pedidos Finalizados';
 
+    const areaLabel = filtroArea === 'todos' ? 'GERAL/TODOS' : getEtapaLabel(filtroArea);
+    const titulo = `${tituloBase} — Área: ${areaLabel}`;
+
     // Usa react-to-print para imprimir a tabela como está na tela
     printCurrentView(titulo);
+  };
+
+  const getIconeArea = (area: string) => {
+    const commonClass = 'w-5 h-5 text-white';
+    switch (area) {
+      case 'marcenaria':
+        return <Hammer className={commonClass} />;
+      case 'corte_costura':
+        return <Scissors className={commonClass} />;
+      case 'espuma':
+        return <Package className={commonClass} />;
+      case 'bancada':
+        return <Wrench className={commonClass} />;
+      case 'tecido':
+        return <Shirt className={commonClass} />;
+      case 'todos':
+      default:
+        return <ClipboardList className={commonClass} />;
+    }
+  };
+
+  const getCorArea = (area: string) => {
+    switch (area) {
+      case 'marcenaria':
+        return '#8B4513'; // marrom madeira
+      case 'corte_costura':
+        return '#D94646'; // vermelho costura
+      case 'espuma':
+        return '#14B8A6'; // teal espuma
+      case 'bancada':
+        return '#6B7280'; // cinza bancada
+      case 'tecido':
+        return '#8B5CF6'; // roxo tecido
+      case 'todos':
+      default:
+        return '#334155'; // slate para geral
+    }
   };
 
   const pedidosComProducao = pedidos.map(pedido => {
@@ -180,7 +224,7 @@ const Dashboard = () => {
   ).length;
 
   // Filtrar pedidos baseado no filtro ativo
-  const pedidosFiltrados = pedidosComProducao.filter(pedido => {
+  let pedidosFiltrados = pedidosComProducao.filter(pedido => {
     if (filtroAtivo === 'todos') return true;
     if (filtroAtivo === 'novos') {
       return pedido.itensProducao.every(item => item.status === 'pendente');
@@ -194,6 +238,13 @@ const Dashboard = () => {
     }
     return true;
   });
+
+  // Filtro por área de produção
+  if (filtroArea !== 'todos') {
+    pedidosFiltrados = pedidosFiltrados.filter(pedido =>
+      pedido.itensProducao?.some(item => item.etapa === filtroArea)
+    );
+  }
 
   return (
     <DashboardLayout 
@@ -292,8 +343,44 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="space-y-6">
+                {/* Filtro por Área de Produção */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-700">Filtro por área de produção</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      {key: 'todos', label: 'GERAL/TODOS'},
+                      {key: 'marcenaria', label: 'Marcenaria'},
+                      {key: 'corte_costura', label: 'Corte Costura'},
+                      {key: 'espuma', label: 'Espuma'},
+                      {key: 'bancada', label: 'Bancada'},
+                      {key: 'tecido', label: 'Tecido'},
+                    ].map(({key, label}) => (
+                      <Button
+                        key={key}
+                        variant={filtroArea === (key as typeof filtroArea) ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setFiltroArea(key as typeof filtroArea)}
+                        className="h-8"
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
                 {/* Tabela de Pedidos */}
                 <div ref={printRef} className="bg-white rounded-lg border border-gray-200 overflow-hidden print-table" data-table="pedidos-table">
+                  {/* Cabeçalho de impressão (apenas no PDF) */}
+                  <div className="hidden print:block">
+                    <div className="px-4 py-3" style={{ backgroundColor: getCorArea(filtroArea) }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-white">
+                          {getIconeArea(filtroArea)}
+                          <span className="text-base font-bold uppercase tracking-wide">Área: {filtroArea === 'todos' ? 'GERAL/TODOS' : getEtapaLabel(filtroArea)}</span>
+                        </div>
+                        <span className="text-xs text-white">{new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    </div>
+                  </div>
                   {/* Cabeçalho da Tabela */}
                   <div className="overflow-x-auto">
                     {/* Header */}
@@ -303,10 +390,10 @@ const Dashboard = () => {
                         <div className="col-span-1">Tipo</div>
                         <div className="col-span-1">Entrega</div>
                         <div className="col-span-1">Espuma</div>
-                        <div className="col-span-1">Tecido</div>
+                        <div className="col-span-1 print:col-span-2">Tecido</div>
                         <div className="col-span-1">Tipo Pé</div>
                         <div className="col-span-1">Braço</div>
-                        <div className="col-span-3">Status Produção</div>
+                        <div className="col-span-3 print:col-span-2">Status Produção</div>
                         <div className="col-span-1 print-hide">Cliente</div>
                         <div className="col-span-1 print-hide">Ações</div>
                       </div>
@@ -370,8 +457,8 @@ const Dashboard = () => {
                               </div>
 
                               {/* Tecido */}
-                              <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate" title={pedido.tecido || 'Suede Premium'}>{pedido.tecido || 'Suede Premium'}</span>
+                              <div className="col-span-1 print:col-span-2 min-w-0">
+                                <span className="text-sm text-gray-900 block truncate print:whitespace-normal print:break-words print:overflow-visible" title={pedido.tecido || 'Suede Premium'}>{pedido.tecido || 'Suede Premium'}</span>
                               </div>
 
                               {/* Tipo de Pé */}
@@ -385,7 +472,7 @@ const Dashboard = () => {
                               </div>
 
                               {/* Status de Produção */}
-                              <div className="col-span-3">
+                              <div className="col-span-3 print:col-span-2">
                                 <div className="flex items-center space-x-1.5">
                                   {pedido.itensProducao?.map((item) => {
                                     const IconComponent = getEtapaIcon(item.etapa);
@@ -412,14 +499,44 @@ const Dashboard = () => {
 
                               {/* Cliente (oculto na impressão) */}
                               <div className="col-span-1 print-hide">
-                                <button 
-                                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                                  title={pedido.cliente_nome}
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                  </svg>
-                                </button>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <button 
+                                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                                      title={pedido.cliente_nome}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                      </svg>
+                                    </button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-md">
+                                    <DialogHeader>
+                                      <DialogTitle className="flex items-center gap-2">
+                                        <User className="w-4 h-4" />
+                                        Informações do Cliente
+                                      </DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-3">
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Nome</p>
+                                        <p className="text-sm font-medium">{pedido.cliente_nome || 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Telefone</p>
+                                        <p className="text-sm font-medium">{pedido.cliente_telefone || 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Email</p>
+                                        <p className="text-sm font-medium">{pedido.cliente_email || 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Endereço</p>
+                                        <p className="text-sm font-medium">{pedido.cliente_endereco || 'N/A'}</p>
+                                      </div>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
                               </div>
 
                               {/* Ações (oculto na impressão) */}
@@ -432,6 +549,15 @@ const Dashboard = () => {
                                     onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: pedido.id })}
                                   >
                                     <Camera className="w-4 h-4" />
+                                  </button>
+
+                                  {/* Ícone para editar pedido */}
+                                  <button
+                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="Editar pedido"
+                                    onClick={() => navigate(`/dashboard/editar-pedido/${pedido.id}`)}
+                                  >
+                                    <Edit className="w-4 h-4" />
                                   </button>
 
                                   {/* Ícone para observações */}
@@ -465,10 +591,7 @@ const Dashboard = () => {
                                     <Calendar className="w-4 h-4" />
                                   </button>
                                   
-                                  {/* Ícone para expandir detalhes */}
-                                  <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                                    <ChevronDown className="w-4 h-4" />
-                                  </button>
+                                  {/* Ícone sem função removido */}
                                 </div>
                               </div>
                             </div>

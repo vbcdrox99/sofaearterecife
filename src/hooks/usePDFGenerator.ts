@@ -39,14 +39,46 @@ export const usePDFGenerator = () => {
       tempDiv.style.padding = '20px';
       tempDiv.style.fontFamily = 'Arial, sans-serif';
 
-      // Cabeçalho compacto para formato horizontal
+      // Ícone por área com fallback por label no título (— Área: ...)
+      const getAreaEmojiFromTitle = (t: string) => {
+        const match = t.match(/Área:\s(.+)$/);
+        const label = match?.[1]?.toLowerCase() || '';
+        if (label.includes('geral/todos')) return '📋';
+        if (label.includes('marcenaria')) return '🔨';
+        if (label.includes('corte') && label.includes('costura')) return '✂️';
+        if (label.includes('espuma')) return '📦';
+        if (label.includes('bancada')) return '🔧';
+        if (label.includes('tecido')) return '👕';
+        return '📋';
+      };
+
+      const getAreaInfoFromTitle = (t: string) => {
+        const match = t.match(/Área:\s(.+)$/);
+        const label = (match?.[1] || 'GERAL/TODOS').toLowerCase();
+        if (label.includes('marcenaria')) return { label: 'Marcenaria', emoji: '🔨', color: '#8B4513' };
+        if (label.includes('corte') && label.includes('costura')) return { label: 'Corte Costura', emoji: '✂️', color: '#D94646' };
+        if (label.includes('espuma')) return { label: 'Espuma', emoji: '📦', color: '#14B8A6' };
+        if (label.includes('bancada')) return { label: 'Bancada', emoji: '🔧', color: '#6B7280' };
+        if (label.includes('tecido')) return { label: 'Tecido', emoji: '👕', color: '#8B5CF6' };
+        return { label: 'GERAL/TODOS', emoji: '📋', color: '#334155' };
+      };
+
+      const areaInfo = getAreaInfoFromTitle(titulo);
+
+      // Cabeçalho com ícone por área e fontes em dobro (título/subtítulo/data)
       const header = `
-        <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px;">
-          <h1 style="color: #8B4513; margin: 0; font-size: 24px; font-weight: bold;">Sofá & Arte Recife</h1>
-          <h2 style="color: #333; margin: 8px 0; font-size: 18px;">${titulo}</h2>
-          <p style="color: #666; margin: 5px 0; font-size: 12px;">
-            Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-          </p>
+        <div style="margin-bottom: 24px;">
+          <div style="display:flex; align-items:center; justify-content:center; gap:12px; background-color:${areaInfo.color}; color:#fff; padding:14px 16px; border-radius:10px;">
+            <span style="font-size: 56px; line-height: 1;">${areaInfo.emoji}</span>
+            <div style="text-align:center;">
+              <div style="font-size: 36px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;">Área de Produção: ${areaInfo.label}</div>
+              <div style="font-size: 20px; opacity: .95;">${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</div>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top: 14px; border-bottom: 2px solid #333; padding-bottom: 12px;">
+            <h1 style="color: #8B4513; margin: 0; font-size: 56px; font-weight: bold;">Sofá & Arte Recife</h1>
+            <h2 style="color: #333; margin: 8px 0; font-size: 40px;">${titulo}</h2>
+          </div>
         </div>
       `;
 
@@ -198,6 +230,8 @@ export const usePDFGenerator = () => {
       [data-action], .action-buttons { display: none !important; }
       .print-table { width: 100%; border-collapse: collapse; font-size: 8px !important; }
       .print-table * { font-size: inherit !important; }
+      /* Neutralizar truncamento/ellipsis na impressão */
+      .print-table .truncate { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
       /* Conteúdo mais compacto */
       .print-table .px-4 { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
       .print-table .py-2 { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }

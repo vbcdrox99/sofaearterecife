@@ -40,6 +40,11 @@ const App = () => (
                     <NovoPedido />
                   </ProtectedRoute>
                 } />
+                <Route path="/dashboard/editar-pedido/:id" element={
+                  <ProtectedRoute>
+                    <NovoPedido />
+                  </ProtectedRoute>
+                } />
                 <Route path="/dashboard/pedidos" element={
                   <ProtectedRoute>
                     <Pedidos />
