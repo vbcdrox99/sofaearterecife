@@ -8,6 +8,7 @@ export interface Pedido {
   cliente_nome: string;
   cliente_telefone: string;
   cliente_endereco?: string;
+  cliente_email?: string;
   descricao_sofa: string;
   observacoes?: string;
   valor_total?: number;
@@ -16,6 +17,15 @@ export interface Pedido {
   created_by: string;
   created_at: string;
   updated_at: string;
+  // Campos do produto
+  tipo_sofa?: string;
+  tipo_servico?: string;
+  cor?: string;
+  dimensoes?: string;
+  espuma?: string;
+  tecido?: string;
+  tipo_pe?: string;
+  braco?: string;
 }
 
 export interface NovoPedidoData {

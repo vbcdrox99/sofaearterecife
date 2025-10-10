@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Save, User, Phone, MapPin, Package, Calendar, DollarSign, Mail, AlertCircle, Plus, X, Trash2, Camera } from 'lucide-react';
 import ImageUpload, { UploadedImage } from '@/components/ImageUpload';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import ProdutoCampos from '@/components/dashboard/ProdutoCampos';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +19,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector';
 
-interface FormData {
+  interface FormData {
   clienteId: string;
   clienteNome: string;
   clienteEmail: string;
@@ -39,14 +42,23 @@ interface FormData {
   espuma: string;
   tecido: string;
   braco: string;
-  tipoPe: string;
-  valorTotal: string;
-  valorPago: string;
-  prioridade: string;
-  etapasNecessarias: string[];
-  fotosPedido: UploadedImage[];
-  fotosControle: UploadedImage[];
-}
+    tipoPe: string;
+    frete: string;
+    precoUnitario: string;
+    valorTotal: string;
+    valorPago: string;
+    condicaoPagamento: string;
+    meioPagamento: string;
+    prioridade: string;
+    garantiaTipo: string;
+    garantiaValor: string;
+    garantiaTexto: string;
+    termoEntregaAtivo: boolean;
+    termoEntregaTexto: string;
+    etapasNecessarias: string[];
+    fotosPedido: UploadedImage[];
+    fotosControle: UploadedImage[];
+  }
 
 const NovoPedido = () => {
   const { id: pedidoIdParam } = useParams();
@@ -108,6 +120,8 @@ const NovoPedido = () => {
   // Estados para etapas necessárias
   const etapasDisponiveis = ['marcenaria', 'corte_costura', 'espuma', 'bancada', 'tecido'];
   const [etapasSelecionadas, setEtapasSelecionadas] = useState<string[]>([]);
+  // Estado do wizard de etapas (1: Cliente, 2: Produto, 3: Detalhes)
+  const [wizardStep, setWizardStep] = useState(1);
   
   const toggleEtapa = (etapa: string) => {
     setEtapasSelecionadas(prev => {
@@ -117,6 +131,11 @@ const NovoPedido = () => {
         return [...prev, etapa];
       }
     });
+  };
+
+  // Avançar no wizard (fase 1 - sem validações bloqueantes)
+  const handleAvancarWizard = () => {
+    setWizardStep((prev) => Math.min(3, prev + 1));
   };
   const [formData, setFormData] = useState<FormData>({
     clienteId: '',
@@ -142,9 +161,18 @@ const NovoPedido = () => {
     tecido: '',
     braco: '',
     tipoPe: '',
+    frete: '',
+    precoUnitario: '',
     valorTotal: '',
     valorPago: '',
+    condicaoPagamento: '',
+    meioPagamento: '',
     prioridade: 'media',
+    garantiaTipo: 'dias',
+    garantiaValor: '',
+    garantiaTexto: '',
+    termoEntregaAtivo: false,
+    termoEntregaTexto: '',
     etapasNecessarias: [],
     fotosPedido: [],
     fotosControle: []
@@ -153,6 +181,124 @@ const NovoPedido = () => {
   // Guardar anexos originais para comparação em edição
   const [anexosOriginaisPedido, setAnexosOriginaisPedido] = useState<UploadedImage[]>([]);
   const [anexosOriginaisControle, setAnexosOriginaisControle] = useState<UploadedImage[]>([]);
+
+  // Itens adicionais do pedido (suporte a múltiplos produtos)
+  type PedidoItemForm = {
+    descricao: string;
+    fotosPedido: UploadedImage[];
+    tipoSofa: string;
+    cor: string;
+    dimensoes: string;
+    dimensaoLargura?: string;
+    dimensaoComprimento?: string;
+    tipoServico: string;
+    precoUnitario: string;
+    observacoes: string;
+    espuma: string;
+    tecido: string;
+    braco: string;
+    tipoPe: string;
+    etapasNecessarias: string[];
+  };
+
+  const defaultItem: PedidoItemForm = {
+    descricao: '',
+    fotosPedido: [],
+    tipoSofa: '',
+    cor: '',
+    dimensoes: '',
+    dimensaoLargura: '',
+    dimensaoComprimento: '',
+    tipoServico: '',
+    precoUnitario: '',
+    observacoes: '',
+    espuma: '',
+    tecido: '',
+    braco: '',
+    tipoPe: '',
+    etapasNecessarias: []
+  };
+
+  const [itensAdicionais, setItensAdicionais] = useState<PedidoItemForm[]>([]);
+
+  const addItem = () => {
+    setItensAdicionais((prev) => [...prev, { ...defaultItem }]);
+  };
+
+  const removeItem = (index: number) => {
+    setItensAdicionais((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleItemChange = <K extends keyof PedidoItemForm>(index: number, key: K, value: PedidoItemForm[K]) => {
+    setItensAdicionais((prev) => prev.map((item, i) => (i === index ? { ...item, [key]: value } : item)));
+  };
+
+  const handleItemDimensaoChange = (index: number, field: 'dimensaoLargura' | 'dimensaoComprimento', value: string) => {
+    const valorFormatado = formatarDimensao(value);
+    setItensAdicionais(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const largura = field === 'dimensaoLargura' ? valorFormatado : (item.dimensaoLargura || '');
+      const comprimento = field === 'dimensaoComprimento' ? valorFormatado : (item.dimensaoComprimento || '');
+      return {
+        ...item,
+        [field]: valorFormatado,
+        dimensoes: `${largura} x ${comprimento}`.trim()
+      };
+    }));
+  };
+
+  const handleItemFotosChange = (index: number, images: UploadedImage[]) => {
+    setItensAdicionais((prev) => prev.map((item, i) => (i === index ? { ...item, fotosPedido: images } : item)));
+  };
+
+  const toggleEtapaItem = (index: number, etapa: string) => {
+    setItensAdicionais(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const selecionadas = item.etapasNecessarias || [];
+      const novas = selecionadas.includes(etapa)
+        ? selecionadas.filter(e => e !== etapa)
+        : [...selecionadas, etapa];
+      return { ...item, etapasNecessarias: novas };
+    }));
+  };
+
+  // Texto padrão do Termo de entrega e recebimento
+  const TERMO_ENTREGA_PADRAO = `Recebi o produto em perfeito estado, sem defeito ou avaria.
+
+Nome:_______________________________________________CPF_________________________ DATA: _____._____._______
+
+O serviço de FRETE E MONTAGEM é realizado por empresa terceirizada, indicada pela loja, caso o cliente opte por retirar por meios próprios, fica a empresa isenta de responsabilidade sobre possíveis danos ao produto.
+
+O cliente deve informar durante o atendimento às condições do local de entrega do produto.
+Ex: Quantos andares de escada, tamanho de elevador, porta e corredores…
+
+Caso o produto precise ser entregue por escadas, será cobrado além da taxa de montagem (caso haja necessidade), 10,00 por andar.
+
+Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguintes casos:
+
+* produto quebrado, amassado, riscado ou danificado;
+* produto completamente diferente do que você comprou;
+  * faltam peças ou acessórios.
+
+  Após assinatura de recebimento de mercadoria em perfeito estado, não serão aceitas quaisquer devoluções ou reposições posteriores.`;
+
+  // Cálculo do valor total do pedido somando os preços dos produtos (etapa 2/3)
+  const parseValor = (v: string) => {
+    if (!v) return 0;
+    const n = parseFloat(v.replace(/\./g, '').replace(',', '.'));
+    return isNaN(n) ? 0 : n;
+  };
+
+  const totalProdutos = useMemo(() => {
+    const principal = parseValor(formData.precoUnitario);
+    const adicionais = itensAdicionais.reduce((acc, it) => acc + parseValor(it.precoUnitario || ''), 0);
+    return principal + adicionais;
+  }, [formData.precoUnitario, itensAdicionais]);
+
+  const totalComFrete = useMemo(() => {
+    const frete = parseValor(formData.frete || '');
+    return totalProdutos + frete;
+  }, [totalProdutos, formData.frete]);
 
   const converterDataISOParaBR = (dataISO?: string) => {
     if (!dataISO) return '';
@@ -213,9 +359,18 @@ const NovoPedido = () => {
           tecido: pedido.tecido || '',
           braco: pedido.braco || '',
           tipoPe: pedido.tipo_pe || '',
+          frete: pedido.frete ? String(pedido.frete) : '',
+          precoUnitario: pedido.preco_unitario ? String(pedido.preco_unitario) : '',
           valorTotal: pedido.valor_total ? String(pedido.valor_total) : '',
           valorPago: pedido.valor_pago ? String(pedido.valor_pago) : '',
+          condicaoPagamento: pedido.condicao_pagamento || '',
+          meioPagamento: Array.isArray(pedido.meios_pagamento) ? (pedido.meios_pagamento[0] || '') : '',
           prioridade: pedido.prioridade || 'media',
+          garantiaTipo: 'dias',
+          garantiaValor: '',
+          garantiaTexto: '',
+          termoEntregaAtivo: false,
+          termoEntregaTexto: '',
           etapasNecessarias: pedido.etapas_necessarias || [],
           fotosPedido: [],
           fotosControle: []
@@ -239,6 +394,50 @@ const NovoPedido = () => {
         }
         if (pedido.tipo_servico) {
           setTiposServicoDisponiveis(prev => prev.includes(pedido.tipo_servico) ? prev : [...prev, pedido.tipo_servico]);
+        }
+
+        // Carregar itens do pedido (produtos) e popular itens adicionais (exclui o primeiro)
+        try {
+          const { data: itensDb, error: itensErr } = await supabase
+            .from('pedido_itens')
+            .select('*')
+            .eq('pedido_id', pedidoIdParam)
+            .order('created_at', { ascending: true });
+
+          if (!itensErr && Array.isArray(itensDb)) {
+            if (itensDb.length > 1) {
+              const adicionais = itensDb.slice(1).map((it: any) => ({
+                descricao: it.descricao || '',
+                tipoSofa: it.tipo_sofa || '',
+                cor: it.cor || '',
+                dimensoes: it.dimensoes || '',
+                dimensaoLargura: (() => {
+                  const d = (it.dimensoes || '').replace('×', 'x');
+                  const parts = d.split('x').map((p: string) => p.trim());
+                  return parts[0] || '';
+                })(),
+                dimensaoComprimento: (() => {
+                  const d = (it.dimensoes || '').replace('×', 'x');
+                  const parts = d.split('x').map((p: string) => p.trim());
+                  return parts[1] || '';
+                })(),
+                tipoServico: it.tipo_servico || '',
+                observacoes: it.observacoes || '',
+                espuma: it.espuma || '',
+                tecido: it.tecido || '',
+                braco: it.braco || '',
+                tipoPe: it.tipo_pe || '',
+                precoUnitario: it.preco_unitario != null ? String(it.preco_unitario) : '',
+                fotosPedido: [],
+                etapasNecessarias: []
+              }));
+              setItensAdicionais(adicionais);
+            } else {
+              setItensAdicionais([]);
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao carregar itens do pedido:', e);
         }
 
         // Carregar dados completos do cliente (endereço detalhado) se existir cliente_id
@@ -405,6 +604,8 @@ const NovoPedido = () => {
   const handleFotosControleChange = (images: UploadedImage[]) => {
     setFormData(prev => ({ ...prev, fotosControle: images }));
   };
+
+  // Seleção única de meio de pagamento controlada por Select
 
   // Função para lidar com a seleção de cliente
   const handleClienteSelect = (cliente: Cliente | null) => {
@@ -1051,8 +1252,8 @@ const NovoPedido = () => {
         throw new Error('Selecione pelo menos uma etapa necessária para o pedido');
       }
 
-      // Valores padrão para campos comerciais removidos
-      const valorTotal = 0;
+      // Calcular valor_total a partir dos preços dos produtos
+      const valorTotal = totalProdutos;
       const valorPago = 0;
 
       // Verificar se o usuário está autenticado
@@ -1095,6 +1296,32 @@ const NovoPedido = () => {
         }
       }
 
+      // Incluir preco_unitario se informado e válido
+      if (formData.precoUnitario.trim()) {
+        const valor = parseFloat(formData.precoUnitario.replace(',', '.'));
+        if (!isNaN(valor)) {
+          pedidoData.preco_unitario = valor;
+        }
+      }
+
+      // Incluir frete se informado e válido
+      if (formData.frete.trim()) {
+        const valorFrete = parseFloat(formData.frete.replace(',', '.'));
+        if (!isNaN(valorFrete)) {
+          pedidoData.frete = valorFrete;
+        }
+      }
+
+      // Incluir condicao_pagamento se selecionada
+      if (formData.condicaoPagamento.trim()) {
+        pedidoData.condicao_pagamento = formData.condicaoPagamento.trim();
+      }
+
+      // Incluir meios_pagamento se houver seleção
+      if (formData.meioPagamento.trim()) {
+        pedidoData.meios_pagamento = [formData.meioPagamento.trim()];
+      }
+
       let pedidoAtualId = pedidoIdParam || '';
       let pedidoCriado = null as any;
       if (!isEditMode) {
@@ -1115,33 +1342,13 @@ const NovoPedido = () => {
         pedidoCriado = data[0];
       }
 
-      // Salvar/atualizar anexos (evita duplicar existentes e permite exclusão em edição)
+      // Preparar lista total de imagens para processamento posterior (após salvar itens)
       const todasImagens = [
         ...formData.fotosPedido.map(img => ({ ...img, tipo: 'foto_pedido' })),
+        // Fotos dos produtos adicionais (associadas ao pedido)
+        ...itensAdicionais.flatMap(it => it.fotosPedido.map(img => ({ ...img, tipo: 'foto_pedido' }))),
         ...formData.fotosControle.map(img => ({ ...img, tipo: 'foto_controle' }))
       ];
-
-      // Inserir apenas imagens novas (não existentes) que já possuem URL (upload concluído)
-      const novasImagens = todasImagens.filter(img => !img.existing && img.uploaded && !!img.url);
-      if (novasImagens.length > 0) {
-        const anexosData = novasImagens.map(img => ({
-          pedido_id: pedidoAtualId,
-          nome_arquivo: img.name,
-          url_arquivo: img.url,
-          tipo_arquivo: img.type,
-          tamanho_arquivo: img.size,
-          descricao: img.tipo,
-          uploaded_by: user.id
-        }));
-
-        const { error: anexosError } = await supabase
-          .from('pedido_anexos')
-          .insert(anexosData);
-
-        if (anexosError) {
-          console.error('Erro ao salvar anexos:', anexosError);
-        }
-      }
 
       // Em modo edição, remover anexos que foram excluídos pelo usuário
       if (isEditMode) {
@@ -1184,27 +1391,193 @@ const NovoPedido = () => {
         }
       }
 
-      if (!isEditMode) {
-        try {
-          const { producaoService } = await import('@/lib/supabase');
-          await producaoService.criarEtapasPedido(pedidoAtualId, etapasSelecionadas);
-          await supabase
-            .from('pedidos')
-            .update({ status: 'em_producao' })
-            .eq('id', pedidoAtualId);
+      // Persistir itens do pedido (múltiplos produtos)
+      const primeiroItem = {
+        descricao: formData.descricao,
+        tipoSofa: formData.tipoSofa,
+        cor: formData.cor,
+        dimensoes: dimensoesCombinadas,
+        tipoServico: formData.tipoServico,
+        espuma: formData.espuma,
+        tecido: formData.tecido,
+        braco: formData.braco,
+        tipoPe: formData.tipoPe,
+        precoUnitario: formData.precoUnitario,
+        observacoes: formData.observacoes,
+      } as PedidoItemForm;
 
-          toast({
-            title: "Pedido Criado com Sucesso!",
-            description: `Pedido #${pedidoCriado.numero_pedido} foi cadastrado e enviado para produção.`,
-          });
-        } catch (producaoError) {
-          console.error('Erro ao criar etapas de produção:', producaoError);
-          toast({
-            title: "Pedido Criado com Aviso",
-            description: `Pedido #${pedidoCriado.numero_pedido} foi cadastrado, mas houve erro ao criar etapas de produção.`,
-            variant: "destructive"
-          });
+      const todosItens = [primeiroItem, ...itensAdicionais];
+
+      // Em modo edição, remover itens antigos para recriar do zero
+      if (isEditMode) {
+        const { error: delItensError } = await supabase
+          .from('pedido_itens')
+          .delete()
+          .eq('pedido_id', pedidoAtualId);
+        if (delItensError) {
+          console.error('Erro ao remover itens antigos do pedido:', delItensError);
         }
+
+        // Remover etapas de produção antigas para recriar conforme seleção atual
+        const { error: delEtapasError } = await supabase
+          .from('itens_producao')
+          .delete()
+          .eq('pedido_id', pedidoAtualId);
+        if (delEtapasError) {
+          console.error('Erro ao remover etapas antigas de produção:', delEtapasError);
+        }
+      }
+
+      let itensInseridos: any[] = [];
+      if (todosItens.length > 0) {
+        const itensData = todosItens.map((it, idx) => ({
+          pedido_id: pedidoAtualId,
+          descricao: it.descricao || null,
+          tipo_sofa: it.tipoSofa || null,
+          cor: it.cor || null,
+          dimensoes: it.dimensoes || null,
+          tipo_servico: it.tipoServico || null,
+          espuma: it.espuma || null,
+          tecido: it.tecido || null,
+          braco: it.braco || null,
+          tipo_pe: it.tipoPe || null,
+          created_by: user.id,
+          observacoes: it.observacoes || null,
+          sequencia: (idx + 1),
+          preco_unitario: (() => {
+            const v = (it.precoUnitario || '').toString().replace(',', '.');
+            const n = parseFloat(v);
+            return isNaN(n) ? null : n;
+          })()
+        }));
+
+        const { data: itensSalvos, error: itensError } = await supabase
+          .from('pedido_itens')
+          .insert(itensData)
+          .select();
+
+        if (itensError) {
+          console.error('Erro ao salvar itens do pedido:', itensError);
+        } else {
+          itensInseridos = itensSalvos || [];
+        }
+      }
+
+      // Inserir anexos novos (após termos os IDs dos itens) e linkar fotos de produto ao item correspondente
+      const novasImagens = todasImagens.filter(img => !img.existing && img.uploaded && !!img.url);
+      if (novasImagens.length > 0) {
+        // Mapear fotos de produto por índice de item: primeiro conjunto é do item 1 (formData), demais seguem a ordem de itensAdicionais
+        // Construção de anexos com vinculação ao item (apenas para tipo 'foto_pedido')
+        let itemIndex = 0;
+        const anexosData = novasImagens.map(img => {
+          let pedido_item_id: string | null = null;
+          if (img.tipo === 'foto_pedido' && itensInseridos[itemIndex]) {
+            pedido_item_id = itensInseridos[itemIndex].id;
+          }
+          // Avançar o índice quando estivermos processando a última foto de um grupo? Simples: assumir fotos agrupadas por item em ordem.
+          // Como não temos marcador de agrupamento aqui, avançaremos manualmente na criação abaixo quando forem usados por item.
+          return {
+            pedido_id: pedidoAtualId,
+            pedido_item_id,
+            nome_arquivo: img.name,
+            url_arquivo: img.url,
+            tipo_arquivo: img.type,
+            tamanho_arquivo: img.size,
+            descricao: img.tipo,
+            uploaded_by: user.id
+          };
+        });
+
+        // Ajuste de pedido_item_id por agrupamento: redistribuir corretamente fotos por item usando contagem baseada nas fontes
+        // Reconstituir grupos: primeiro as fotos do primeiro item, depois de cada item adicional, por fim fotos de controle
+        const gruposFotosItens: UploadedImage[][] = [
+          formData.fotosPedido.filter(img => !img.existing && img.uploaded && !!img.url),
+          ...itensAdicionais.map(it => it.fotosPedido.filter(img => !img.existing && img.uploaded && !!img.url))
+        ];
+        const fotosControleNovas = formData.fotosControle.filter(img => !img.existing && img.uploaded && !!img.url);
+
+        const anexosPorItens: any[] = [];
+        gruposFotosItens.forEach((grupo, idx) => {
+          const itemRow = itensInseridos[idx];
+          const itemId = itemRow ? itemRow.id : null;
+          grupo.forEach(img => {
+            anexosPorItens.push({
+              pedido_id: pedidoAtualId,
+              pedido_item_id: itemId,
+              nome_arquivo: img.name,
+              url_arquivo: img.url,
+              tipo_arquivo: img.type,
+              tamanho_arquivo: img.size,
+              descricao: 'foto_pedido',
+              uploaded_by: user.id
+            });
+          });
+        });
+
+        const anexosControle: any[] = fotosControleNovas.map(img => ({
+          pedido_id: pedidoAtualId,
+          pedido_item_id: null,
+          nome_arquivo: img.name,
+          url_arquivo: img.url,
+          tipo_arquivo: img.type,
+          tamanho_arquivo: img.size,
+          descricao: 'foto_controle',
+          uploaded_by: user.id
+        }));
+
+        const anexosFinal = [...anexosPorItens, ...anexosControle];
+
+        if (anexosFinal.length > 0) {
+          const { error: anexosError } = await supabase
+            .from('pedido_anexos')
+            .insert(anexosFinal);
+
+          if (anexosError) {
+            console.error('Erro ao salvar anexos:', anexosError);
+          }
+        }
+      }
+
+      // Criar etapas de produção por produto (inclui Produto 1 e adicionais)
+      try {
+        const etapasPorItem: { pedido_item_id: string; etapas: string[] }[] = itensInseridos.map((it, idx) => {
+          const etapas = idx === 0 ? (etapasSelecionadas || []) : (itensAdicionais[idx - 1]?.etapasNecessarias || []);
+          return { pedido_item_id: it.id, etapas };
+        });
+
+        const itensProducaoData = etapasPorItem.flatMap(({ pedido_item_id, etapas }) => {
+          if (!etapas || etapas.length === 0) return [] as any[];
+          return etapas.map((etapa) => ({
+            pedido_id: pedidoAtualId,
+            pedido_item_id,
+            etapa,
+            concluida: false
+          }));
+        });
+
+        if (itensProducaoData.length > 0) {
+          const { error: etapasInsertError } = await supabase
+            .from('itens_producao')
+            .insert(itensProducaoData);
+          if (etapasInsertError) {
+            console.error('Erro ao criar etapas de produção por produto:', etapasInsertError);
+          }
+        }
+
+        // Atualizar status do pedido para em_producao como antes
+        await supabase
+          .from('pedidos')
+          .update({ status: 'em_producao' })
+          .eq('id', pedidoAtualId);
+      } catch (producaoError) {
+        console.error('Erro ao criar etapas de produção por produto:', producaoError);
+      }
+
+      if (!isEditMode) {
+        toast({
+          title: "Pedido Criado com Sucesso!",
+          description: `Pedido #${pedidoCriado.numero_pedido} foi cadastrado e enviado para produção.`,
+        });
       } else {
         toast({
           title: "Pedido Atualizado",
@@ -1213,7 +1586,7 @@ const NovoPedido = () => {
       }
 
       // Reset e redirecionamento
-      if (!isEditMode) {
+  if (!isEditMode) {
         setFormData({
         clienteId: '',
         clienteNome: '',
@@ -1238,15 +1611,25 @@ const NovoPedido = () => {
         tecido: '',
         braco: '',
         tipoPe: '',
+        frete: '',
+        precoUnitario: '',
         valorTotal: '',
         valorPago: '',
+        condicaoPagamento: '',
+        meioPagamento: '',
         prioridade: 'media',
+        garantiaTipo: 'dias',
+        garantiaValor: '',
+        garantiaTexto: '',
+        termoEntregaAtivo: false,
+        termoEntregaTexto: '',
         etapasNecessarias: [],
         fotosPedido: [],
         fotosControle: []
       });
         setClienteSelecionado(null);
         setEtapasSelecionadas([]);
+        setItensAdicionais([]);
         setTimeout(() => {
           navigate('/dashboard/pedidos');
         }, 2000);
@@ -1277,7 +1660,27 @@ const NovoPedido = () => {
         className="max-w-4xl mx-auto"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Navegação do Wizard */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex gap-2 text-sm">
+              <span className="font-medium">Passo {wizardStep} de 3</span>
+              <span className="text-muted-foreground">{wizardStep === 1 ? 'Entrega e Dados do Cliente' : wizardStep === 2 ? 'Dados do Produto' : 'Detalhes'}</span>
+            </div>
+            <div className="flex gap-2">
+              {wizardStep > 1 && (
+                <Button type="button" variant="outline" onClick={() => setWizardStep(prev => Math.max(1, prev - 1))}>
+                  Voltar
+                </Button>
+              )}
+              {wizardStep < 3 && (
+                <Button type="button" onClick={handleAvancarWizard}>
+                  Avançar
+                </Button>
+              )}
+            </div>
+          </div>
           {/* Dados do Cliente */}
+          {wizardStep === 1 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1368,13 +1771,14 @@ const NovoPedido = () => {
               )}
             </CardContent>
           </Card>
-
-          {/* Dados do Pedido */}
+          )}
+          {/* Número do Pedido e Data de Entrega (bloco separado entre Cliente e Pedido) */}
+          {wizardStep === 1 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Dados do Pedido
+                <Calendar className="w-5 h-5" />
+                Número e Entrega
               </CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1388,17 +1792,48 @@ const NovoPedido = () => {
                 />
               </div>
               <div className="space-y-2">
-                 <Label htmlFor="dataEntrega">Data de Entrega</Label>
-                 <Input
-                   id="dataEntrega"
-                   type="text"
-                   placeholder="DD/MM/AAAA"
-                   value={formData.dataEntrega}
-                   onChange={(e) => handleDataChange(e.target.value)}
-                   maxLength={10}
-                   required
-                 />
-               </div>
+                <Label htmlFor="dataEntrega">Data de Entrega</Label>
+                <Input
+                  id="dataEntrega"
+                  type="text"
+                  placeholder="DD/MM/AAAA"
+                  value={formData.dataEntrega}
+                  onChange={(e) => handleDataChange(e.target.value)}
+                  maxLength={10}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="frete">Frete</Label>
+                <Input
+                  id="frete"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  placeholder="Valor do frete (se houver)"
+                  value={formData.frete}
+                  onChange={(e) => handleInputChange('frete', e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          )}
+
+          {/* Dados do Pedido */}
+          {wizardStep === 2 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Dados do Produto
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Cabeçalho para o Produto 1 */}
+              <div className="md:col-span-2">
+                <Label className="text-base font-medium">Produto 1</Label>
+              </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="descricao">Descrição</Label>
                 <Textarea
@@ -1748,36 +2183,24 @@ const NovoPedido = () => {
                   </Dialog>
                 </div>
               </div>
-              <Dialog open={tipoServicoParaExcluir !== null} onOpenChange={() => setTipoServicoParaExcluir(null)}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Confirmar Exclusão</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <p>Tem certeza que deseja excluir o tipo de serviço "{tipoServicoParaExcluir}"?</p>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setTipoServicoParaExcluir(null)}
-                        className="flex-1"
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        className="flex-1"
-                        onClick={() => tipoServicoParaExcluir && excluirTipoServico(tipoServicoParaExcluir)}
-                      >
-                        Excluir
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              
-              {/* Etapas Necessárias */}
+              <div className="space-y-2">
+                <Label htmlFor="precoUnitario" className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Preço Unitário
+                </Label>
+                <Input
+                  id="precoUnitario"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  placeholder="Ex: 199.90"
+                  value={formData.precoUnitario}
+                  onChange={(e) => handleInputChange('precoUnitario', e.target.value)}
+                />
+              </div>
+
+              {/* Etapas Necessárias (Produto 1) */}
               <div className="space-y-2 md:col-span-2">
                 <Label>Etapas Necessárias</Label>
                 <p className="text-sm text-muted-foreground mb-3">
@@ -1843,7 +2266,8 @@ const NovoPedido = () => {
                   </div>
                 )}
               </div>
-              
+
+              {/* Observações (Produto 1) */}
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="observacoes">Observações</Label>
                 <Textarea
@@ -1854,21 +2278,8 @@ const NovoPedido = () => {
                   rows={2}
                 />
               </div>
-              
-              {/* Campo de Fotos de Controle */}
-              <div className="space-y-2 md:col-span-2">
-                <Label className="flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  Fotos de Controle
-                </Label>
-                <ImageUpload
-                  images={formData.fotosControle}
-                  onImagesChange={handleFotosControleChange}
-                  maxImages={3}
-                  bucketName="pedido-imagens"
-                  folder="fotos-controle"
-                />
-              </div>
+
+              {/* Espuma (Produto 1) */}
               <div className="space-y-2">
                 <Label htmlFor="espuma">Espuma</Label>
                 <div className="flex gap-2">
@@ -1947,7 +2358,6 @@ const NovoPedido = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
-                  
                   {/* Modal de Confirmação para Excluir Espuma */}
                   <Dialog open={!!espumaParaExcluir} onOpenChange={() => setEspumaParaExcluir(null)}>
                     <DialogContent className="sm:max-w-md">
@@ -1979,6 +2389,8 @@ const NovoPedido = () => {
                   </Dialog>
                 </div>
               </div>
+
+              {/* Tecido (Produto 1) */}
               <div className="space-y-2">
                 <Label htmlFor="tecido">Tecido</Label>
                 <Input
@@ -1989,6 +2401,8 @@ const NovoPedido = () => {
                   required
                 />
               </div>
+
+              {/* Braço (Produto 1) */}
               <div className="space-y-2">
                 <Label htmlFor="braco">Braço</Label>
                 <div className="flex gap-2">
@@ -2067,7 +2481,6 @@ const NovoPedido = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
-                  
                   {/* Modal de Confirmação para Excluir Braço */}
                   <Dialog open={!!bracoParaExcluir} onOpenChange={() => setBracoParaExcluir(null)}>
                     <DialogContent className="sm:max-w-md">
@@ -2099,6 +2512,8 @@ const NovoPedido = () => {
                   </Dialog>
                 </div>
               </div>
+
+              {/* Tipo de Pé (Produto 1) */}
               <div className="space-y-2">
                 <Label htmlFor="tipoPe">Tipo de Pé</Label>
                 <div className="flex gap-2">
@@ -2177,7 +2592,6 @@ const NovoPedido = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
-                  
                   {/* Modal de Confirmação para Excluir Tipo de Pé */}
                   <Dialog open={!!tipoPeParaExcluir} onOpenChange={() => setTipoPeParaExcluir(null)}>
                     <DialogContent className="sm:max-w-md">
@@ -2209,39 +2623,342 @@ const NovoPedido = () => {
                   </Dialog>
                 </div>
               </div>
+
+              {/* Botão para adicionar novo produto (movido para baixo) */}
+              <div className="md:col-span-2 flex justify-end mt-4">
+                <Button type="button" variant="outline" onClick={addItem}>
+                  Adicionar novo produto
+                </Button>
+              </div>
+
+              {/* Produtos adicionais */}
+              {itensAdicionais.length > 0 && (
+                <div className="md:col-span-2 space-y-4">
+                  <Label>Produtos adicionais</Label>
+                  {itensAdicionais.map((item, index) => (
+                    <div key={index} className="border rounded-md p-4 space-y-4 bg-muted/30">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">Produto {index + 2}</span>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+
+                      {/* Descrição do produto adicional */}
+                      <div className="space-y-2">
+                        <Label>Descrição</Label>
+                        <Textarea
+                          value={item.descricao}
+                          onChange={(e) => handleItemChange(index, 'descricao', e.target.value)}
+                          placeholder="Descrição detalhada do produto"
+                          rows={3}
+                        />
+                      </div>
+
+                      {/* Foto do produto adicional */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Camera className="h-4 w-4" />
+                          Foto do Produto
+                        </Label>
+                        <ImageUpload
+                          images={item.fotosPedido}
+                          onImagesChange={(imgs) => handleItemFotosChange(index, imgs)}
+                          maxImages={5}
+                          bucketName="pedido-imagens"
+                          folder={`fotos-pedido/item-${index + 2}`}
+                        />
+                      </div>
+
+                      <ProdutoCampos
+                        titulo={`Produto ${index + 2}`}
+                        values={{
+                          descricao: item.descricao,
+                          fotosPedido: item.fotosPedido || [],
+                          tipoSofa: item.tipoSofa,
+                          cor: item.cor,
+                          dimensaoLargura: item.dimensaoLargura || '',
+                          dimensaoComprimento: item.dimensaoComprimento || '',
+                          tipoServico: item.tipoServico,
+                          precoUnitario: item.precoUnitario,
+                          observacoes: item.observacoes,
+                          espuma: item.espuma,
+                          tecido: item.tecido,
+                          braco: item.braco,
+                          tipoPe: item.tipoPe,
+                        }}
+                        onChange={(field, value) => handleItemChange(index, field as any, value)}
+                        onFotosChange={(imgs) => handleItemFotosChange(index, imgs)}
+                        onDimensaoChange={(field, value) => handleItemDimensaoChange(index, field, value)}
+                        imageFolder={`fotos-pedido/item-${index + 2}`}
+                        tiposSofaDisponiveis={tiposSofaDisponiveis}
+                        coresDisponiveis={coresDisponiveis}
+                        tiposServicoDisponiveis={tiposServicoDisponiveis}
+                        espumasDisponiveis={espumasDisponiveis}
+                        bracosDisponiveis={bracosDisponiveis}
+                        tiposPeDisponiveis={tiposPeDisponiveis}
+                        setModalNovoTipoSofaAberto={setModalNovoTipoSofaAberto}
+                        setModalNovaCorAberto={setModalNovaCorAberto}
+                        setModalNovoTipoServicoAberto={setModalNovoTipoServicoAberto}
+                        setModalNovaEspumaAberto={setModalNovaEspumaAberto}
+                        setModalNovoBracoAberto={setModalNovoBracoAberto}
+                        setModalNovoTipoPeAberto={setModalNovoTipoPeAberto}
+                        setTipoSofaParaExcluir={setTipoSofaParaExcluir}
+                        setCorParaExcluir={setCorParaExcluir}
+                        setTipoServicoParaExcluir={setTipoServicoParaExcluir}
+                        setEspumaParaExcluir={setEspumaParaExcluir}
+                        setBracoParaExcluir={setBracoParaExcluir}
+                        setTipoPeParaExcluir={setTipoPeParaExcluir}
+                        etapasDisponiveis={etapasDisponiveis}
+                        etapasSelecionadas={item.etapasNecessarias || []}
+                        onToggleEtapa={(etapa) => toggleEtapaItem(index, etapa)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Dialog open={tipoServicoParaExcluir !== null} onOpenChange={() => setTipoServicoParaExcluir(null)}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Confirmar Exclusão</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p>Tem certeza que deseja excluir o tipo de serviço "{tipoServicoParaExcluir}"?</p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setTipoServicoParaExcluir(null)}
+                        className="flex-1"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={() => tipoServicoParaExcluir && excluirTipoServico(tipoServicoParaExcluir)}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
+              {/* Blocos do Produto 1 movidos para cima para separação por produto */}
             </CardContent>
           </Card>
+          )}
 
+          {/* Detalhes */}
+          {wizardStep === 3 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Detalhes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Resumo: Total e Total+frete */}
+              <div className="md:col-span-2">
+                <div className="rounded-md border p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Total dos produtos</span>
+                    <span className="text-xl font-semibold">{totalProdutos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Total + frete</span>
+                    <span className="text-xl font-semibold">{totalComFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                  </div>
+                </div>
+              </div>
+              {/* Garantia (Pedido Geral) */}
+              <div className="space-y-3 md:col-span-2">
+                <Label className="text-base font-medium">Garantia</Label>
+                <Tabs value={formData.garantiaTipo} onValueChange={(v) => setFormData(prev => ({ ...prev, garantiaTipo: v, garantiaValor: '' }))}>
+                  <TabsList className="mb-2">
+                    <TabsTrigger value="dias">dias</TabsTrigger>
+                    <TabsTrigger value="meses">meses</TabsTrigger>
+                    <TabsTrigger value="anos">anos</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="dias">
+                    <div className="grid grid-cols-3 gap-3">
+                      <Button type="button" variant={formData.garantiaValor === '30' && formData.garantiaTipo === 'dias' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: '30' }))}>30 dias</Button>
+                      <Button type="button" variant={formData.garantiaValor === '90' && formData.garantiaTipo === 'dias' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: '90' }))}>90 dias</Button>
+                      <Input placeholder="Outros (dias)" value={formData.garantiaTipo === 'dias' && !['30','90'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: e.target.value }))} />
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="meses">
+                    <div className="grid grid-cols-3 gap-3">
+                      <Button type="button" variant={formData.garantiaValor === '3' && formData.garantiaTipo === 'meses' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: '3' }))}>3 meses</Button>
+                      <Button type="button" variant={formData.garantiaValor === '12' && formData.garantiaTipo === 'meses' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: '12' }))}>12 meses</Button>
+                      <Input placeholder="Outros (meses)" value={formData.garantiaTipo === 'meses' && !['3','12'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: e.target.value }))} />
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="anos">
+                    <div className="grid grid-cols-3 gap-3">
+                      <Button type="button" variant={formData.garantiaValor === '1' && formData.garantiaTipo === 'anos' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: '1' }))}>1 ano</Button>
+                      <Button type="button" variant={formData.garantiaValor === '3' && formData.garantiaTipo === 'anos' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: '3' }))}>3 anos</Button>
+                      <Input placeholder="Outros (anos)" value={formData.garantiaTipo === 'anos' && !['1','3'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: e.target.value }))} />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+                <div className="space-y-3">
+                  <Button type="button" variant="secondary" onClick={() => setFormData(prev => ({ ...prev, garantiaTexto: `Este produto está efetivamente garantido contra eventuais defeitos de fabricação conforme prazos indicados abaixo, a partir da data de compra, sem prorrogação.\nReforma: Prazo TOTAL de 3 (três) meses.\nFabricação: Revestimentos: prazo total de 3 (três) meses, desde que o revestimento seja do mostruário da Sofá & Arte. Não será concedida qualquer garantia ao revestimento quando o tecido for fornecido pelo próprio cliente ou tenha sido adquirido de empresa terceira por solicitação do mesmo.\nEstrutura (madeiras, espumas, percintas, mecanismos, pés, fibras naturais): prazo total de 12 (doze) meses.\n\nA garantia perderá a sua validade:\n• Em caso de mau uso, considerando a finalidade a que se destina o móvel e as orientações constantes neste termo:\n• Em caso de limpeza incorreta, falta de manutenção básica ao uso, aplicação de produtos químicos, tratamentos de proteção aplicados pelo comprador, detergentes, condicionadores, fluidos corporais ou danos devidos à exposição direta ou indireta à luz solar, umidade excessiva, calor excessivo, luminosidade intensa, ou condições semelhantes, bem como avaria de transporte, quando o mesmo for realizado pelo próprio consumidor;\n• Em caso de danos causados pela ação de cupins, insetos, broca ou outras pragas;\n• Se forem realizados, sem prévia autorização da fábrica, alterações, reparos ou substituições de partes do móvel, ou por qualquer meio danificar o produto por ato que praticar.\n\nSolicitação de Assistência Técnica:\n• O consumidor deverá entrar em contato através do canal de atendimento (81) 98771-4814 munido do pedido de compra, a fim de formalizar a solicitação de assistência técnica;\n• A Sofá & Arte se reserva o direito de efetuar avaliação técnica da solicitação;\n• Caso seja constatado uso inadequado ou a presença de quaisquer condições que excluem ou não compreendam a garantia do produto, as despesas decorrentes do transporte e da reforma serão por conta do cliente ou consumidor final.` }))}>
+                    gerar as condições da garantia automaticamente
+                  </Button>
+                  <Textarea
+                    value={formData.garantiaTexto}
+                    onChange={(e) => handleInputChange('garantiaTexto', e.target.value)}
+                    rows={8}
+                    placeholder="Condições da garantia"
+                  />
+                  <div className="flex justify-end">
+                    <Button type="button" onClick={() => toast({ title: 'Garantia salva', description: 'Campo de garantia atualizado no pedido.' })}>salvar garantia</Button>
+                  </div>
+                </div>
+              </div>
 
+              {/* Termo de entrega e recebimento */}
+              <div className="space-y-3 md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">Termo de entrega e recebimento</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Habilitar termo</span>
+                    <Switch
+                      checked={formData.termoEntregaAtivo}
+                      onCheckedChange={(checked) =>
+                        setFormData(prev => ({
+                          ...prev,
+                          termoEntregaAtivo: checked,
+                          termoEntregaTexto: checked ? TERMO_ENTREGA_PADRAO : prev.termoEntregaTexto,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setFormData(prev => ({ ...prev, termoEntregaTexto: TERMO_ENTREGA_PADRAO, termoEntregaAtivo: true }))}
+                  >
+                    gerar termo automaticamente
+                  </Button>
+                  <Textarea
+                    value={formData.termoEntregaTexto}
+                    onChange={(e) => handleInputChange('termoEntregaTexto', e.target.value)}
+                    rows={10}
+                    placeholder="Termo de entrega e recebimento"
+                    disabled={!formData.termoEntregaAtivo}
+                  />
+                  <div className="flex justify-end">
+                    <Button type="button" onClick={() => toast({ title: 'Termo salvo', description: 'Termo de entrega atualizado no pedido.' })}>salvar termo</Button>
+                  </div>
+                </div>
+              </div>
+              {/* Condição de Pagamento */}
+              <div className="space-y-2">
+                <Label>Condição de Pagamento</Label>
+                <Select value={formData.condicaoPagamento} onValueChange={(v) => setFormData(prev => ({ ...prev, condicaoPagamento: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a condição" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="à vista">À vista</SelectItem>
+                    <SelectItem value="sinal">Sinal</SelectItem>
+                    <SelectItem value="parcelas">Parcelas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Botões de Ação */}
-          <div className="flex justify-end gap-4">
-            <Button 
-              type="button" 
-              variant="outline"
-              onClick={() => navigate('/dashboard/pedidos')}
-              disabled={isLoading}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              type="submit" 
-              className="flex items-center gap-2"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {isEditMode ? 'Atualizando...' : 'Salvando...'}
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  {isEditMode ? 'Atualizar Pedido' : 'Salvar Pedido'}
-                </>
-              )}
-            </Button>
-          </div>
+              {/* Meios de Pagamento (seleção única) */}
+              <div className="space-y-2">
+                <Label>Meios de Pagamento</Label>
+                <Select value={formData.meioPagamento} onValueChange={(v) => setFormData(prev => ({ ...prev, meioPagamento: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o meio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Boleto">Boleto</SelectItem>
+                    <SelectItem value="Transferência bancária">Transferência bancária</SelectItem>
+                    <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="Cheque">Cheque</SelectItem>
+                    <SelectItem value="Cartão de crédito">Cartão de crédito</SelectItem>
+                    <SelectItem value="Cartão de débito">Cartão de débito</SelectItem>
+                    <SelectItem value="Pix">Pix</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Fotos de Controle */}
+              <div className="space-y-2 md:col-span-2">
+                <Label className="flex items-center gap-2">
+                  <Camera className="h-4 w-4" />
+                  Fotos de Controle
+                </Label>
+                <ImageUpload
+                  images={formData.fotosControle}
+                  onImagesChange={handleFotosControleChange}
+                  maxImages={3}
+                  bucketName="pedido-imagens"
+                  folder="fotos-controle"
+                />
+              </div>
+            </CardContent>
+          </Card>
+          )}
+
+          {/* Botões de Ação por etapa */}
+          {wizardStep < 3 ? (
+            <div className="flex justify-end gap-4">
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => navigate('/dashboard/pedidos')}
+                disabled={isLoading}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="button" 
+                onClick={handleAvancarWizard}
+                disabled={isLoading}
+              >
+                Avançar
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-end gap-4">
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => navigate('/dashboard/pedidos')}
+                disabled={isLoading}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                className="flex items-center gap-2"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    {isEditMode ? 'Atualizando...' : 'Salvando...'}
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    {isEditMode ? 'Atualizar Pedido' : 'Salvar Pedido'}
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </form>
       </motion.div>
     </DashboardLayout>

@@ -12,6 +12,8 @@ interface ClienteFormData {
   nome: string;
   email: string;
   telefone: string;
+  telefone2?: string;
+  cpf_cnpj?: string;
   endereco_completo: string;
   cep: string;
   bairro: string;
@@ -29,6 +31,8 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
     nome: '',
     email: '',
     telefone: '',
+    telefone2: '',
+    cpf_cnpj: '',
     endereco_completo: '',
     cep: '',
     bairro: '',
@@ -115,6 +119,8 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
             nome: formData.nome.trim(),
             email: formData.email.trim() || null,
             telefone: formData.telefone.trim(),
+            telefone2: (formData.telefone2 || '').trim() || null,
+            cpf_cnpj: (formData.cpf_cnpj || '').trim() || null,
             endereco_completo: formData.endereco_completo.trim() || null,
             cep: formData.cep.trim() || null,
             bairro: formData.bairro.trim() || null,
@@ -174,6 +180,26 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
                 onChange={(e) => handleInputChange('telefone', e.target.value)}
                 placeholder="(11) 99999-9999"
                 required
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="telefone2">Telefone 2 (opcional)</Label>
+              <Input
+                id="telefone2"
+                value={formData.telefone2 || ''}
+                onChange={(e) => handleInputChange('telefone2', e.target.value)}
+                placeholder="(11) 98888-8888"
+              />
+            </div>
+            <div>
+              <Label htmlFor="cpf_cnpj">CPF ou CNPJ</Label>
+              <Input
+                id="cpf_cnpj"
+                value={formData.cpf_cnpj || ''}
+                onChange={(e) => handleInputChange('cpf_cnpj', e.target.value)}
+                placeholder="Digite o CPF ou CNPJ"
               />
             </div>
           </div>

@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +29,15 @@ interface SidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
+
+type NavItem = {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  description: string;
+  disabled?: boolean;
+  disabledNote?: string;
+};
 
 const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollapse }: SidebarProps) => {
   const { profile, signOut, isAdmin } = useAuth();
@@ -51,7 +61,7 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
     }
   };
 
-  const navigationItems = [
+  const navigationItems: NavItem[] = [
     {
       name: 'Dashboard',
       href: '/dashboard',
@@ -103,7 +113,7 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
   ];
 
   // Itens apenas para administradores
-  const adminItems = [
+  const adminItems: NavItem[] = [
     {
       name: 'Estoque',
       href: '/dashboard/estoque',
@@ -118,7 +128,7 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
     },
   ];
 
-  const allItems = isAdmin ? [...navigationItems, ...adminItems] : navigationItems;
+  const allItems: NavItem[] = isAdmin ? [...navigationItems, ...adminItems] : navigationItems;
 
   const isActive = (href: string) => {
     return location.pathname === href;

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { pedidosService, type Pedido } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 // Interface movida para supabase.ts
 
@@ -28,6 +29,7 @@ const Pedidos = () => {
   const [termoBusca, setTermoBusca] = useState('');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
+  const [pedidosItens, setPedidosItens] = useState<Array<{ pedido: Pedido; item: any }>>([]);
 
   // Carregar pedidos do banco de dados
   useEffect(() => {
@@ -39,6 +41,63 @@ const Pedidos = () => {
       setLoading(true);
       const dados = await pedidosService.getAll();
       setPedidos(dados || []);
+      // Carregar itens de todos os pedidos e criar visão por item (#N, #N/2, ...)
+      const ids = (dados || []).map(p => p.id).filter(Boolean);
+      if (ids.length > 0) {
+        const { data: itens, error } = await supabase
+          .from('pedido_itens')
+          .select('*')
+          .in('pedido_id', ids as string[])
+          .order('sequencia', { ascending: true });
+        if (!error && Array.isArray(itens)) {
+          const combinados = itens
+            .map(it => {
+              const pedido = (dados || []).find(p => p.id === it.pedido_id);
+              if (!pedido) return null;
+              return { pedido, item: it };
+            })
+            .filter(Boolean) as Array<{ pedido: Pedido; item: any }>;
+
+          // Garantir que exista uma linha sintética para o item 1 caso não tenha registro em pedido_itens
+          const porPedido: Record<string, Array<{ pedido: Pedido; item: any }>> = {};
+          combinados.forEach(ci => {
+            const key = ci.pedido.id as string;
+            porPedido[key] = porPedido[key] || [];
+            porPedido[key].push(ci);
+          });
+
+          const sinteticos: Array<{ pedido: Pedido; item: any }> = [];
+          (dados || []).forEach(p => {
+            const lista = porPedido[p.id as string] || [];
+            const temSeq1 = lista.some(x => (x.item?.sequencia ?? 0) === 1);
+            if (!temSeq1) {
+              sinteticos.push({
+                pedido: p,
+                item: {
+                  id: `synthetic-${p.id}-1`,
+                  pedido_id: p.id,
+                  sequencia: 1,
+                  descricao: p.descricao || p.tipo_sofa || '',
+                  tipo_sofa: p.tipo_sofa || '',
+                  cor: p.cor || null,
+                  tecido: p.tecido || null,
+                  observacoes: null,
+                  preco_unitario: null
+                }
+              });
+            }
+          });
+
+          setPedidosItens([...combinados, ...sinteticos].sort((a, b) => {
+            if (a.pedido.id === b.pedido.id) {
+              return (a.item?.sequencia ?? 0) - (b.item?.sequencia ?? 0);
+            }
+            return String(a.pedido.numero_pedido).localeCompare(String(b.pedido.numero_pedido));
+          }));
+        }
+      } else {
+        setPedidosItens([]);
+      }
     } catch (error) {
       console.error('Erro ao carregar pedidos:', error);
       toast({
@@ -70,13 +129,17 @@ const Pedidos = () => {
     return cores[prioridade as keyof typeof cores] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  const pedidosFiltrados = pedidos.filter(pedido => {
+  const pedidosFiltrados = pedidosItens.filter(({ pedido, item }) => {
     const matchStatus = filtroStatus === 'todos' || pedido.status === filtroStatus;
     const matchPrioridade = filtroPrioridade === 'todos' || pedido.prioridade === filtroPrioridade;
+    const numeroComposto = `${pedido.numero_pedido}${(item?.sequencia ?? 1) > 1 ? '/' + (item?.sequencia ?? 1) : ''}`;
     const matchBusca = termoBusca === '' || 
-      pedido.numero_pedido.toLowerCase().includes(termoBusca.toLowerCase()) ||
+      String(pedido.numero_pedido).toLowerCase().includes(termoBusca.toLowerCase()) ||
+      numeroComposto.toLowerCase().includes(termoBusca.toLowerCase()) ||
       pedido.cliente_nome.toLowerCase().includes(termoBusca.toLowerCase()) ||
-      pedido.tipo_sofa.toLowerCase().includes(termoBusca.toLowerCase());
+      ((item.descricao || item.tipo_sofa || '') as string).toLowerCase().includes(termoBusca.toLowerCase()) ||
+      ((item.cor || pedido.cor || '') as string).toLowerCase().includes(termoBusca.toLowerCase()) ||
+      ((item.tecido || pedido.tecido || '') as string).toLowerCase().includes(termoBusca.toLowerCase());
     
     return matchStatus && matchPrioridade && matchBusca;
   });
@@ -197,10 +260,20 @@ const Pedidos = () => {
           <CardHeader>
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <CardTitle>Lista de Pedidos</CardTitle>
-              <Button onClick={handleNovoPedido} className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Novo Pedido
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={carregarPedidos} className="flex items-center gap-2">
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Filter className="w-4 h-4" />
+                  )}
+                  Recarregar
+                </Button>
+                <Button onClick={handleNovoPedido} className="flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Novo Pedido
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -254,22 +327,32 @@ const Pedidos = () => {
               </CardContent>
             </Card>
           ) : (
-            pedidosFiltrados.map((pedido, index) => {
+            pedidosFiltrados.map(({ pedido, item }, index) => {
               const saldoDevedor = calcularSaldoDevedor(pedido.valor_orcamento, pedido.valor_pago || 0);
-              
+              const sequencia = (item?.sequencia ?? 1) as number;
+              const isFilho = sequencia > 1;
+              const numeroExibicao = isFilho ? `${pedido.numero_pedido}/${sequencia}` : `${pedido.numero_pedido}`;
+              const produtoExibicao = (item?.descricao || item?.tipo_sofa || pedido.tipo_sofa) as string;
+              const corExibicao = (item?.cor || pedido.cor || 'N/A') as string;
+              const tecidoExibicao = (item?.tecido || pedido.tecido || 'N/A') as string;
+              const valorUnitario = (item?.preco_unitario ?? null) as number | null;
+
               return (
                 <motion.div
-                  key={pedido.id}
+                  key={`${pedido.id}-${item?.id ?? sequencia}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  transition={{ delay: index * 0.08 }}
                 >
-                  <Card>
+                  <Card className={isFilho ? 'border-l-4 border-purple-300 bg-purple-50' : ''}>
                     <CardHeader>
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <CardTitle className="text-lg">{pedido.numero_pedido}</CardTitle>
+                            <CardTitle className="text-lg">Pedido: {numeroExibicao}</CardTitle>
+                            {isFilho && (
+                              <Badge className="bg-purple-100 text-purple-800 border-purple-200">Filho</Badge>
+                            )}
                             <Badge className={getStatusColor(pedido.status)}>
                               {pedido.status.replace('_', ' ').charAt(0).toUpperCase() + pedido.status.replace('_', ' ').slice(1)}
                             </Badge>
@@ -282,10 +365,10 @@ const Pedidos = () => {
                               <strong>Cliente:</strong> {pedido.cliente_nome}
                             </div>
                             <div>
-                              <strong>Produto:</strong> {pedido.tipo_sofa}
+                              <strong>Produto:</strong> {produtoExibicao}
                             </div>
                             <div>
-                              <strong>Cor/Tecido:</strong> {pedido.cor || 'N/A'} - {pedido.tecido || 'N/A'}
+                              <strong>Cor/Tecido:</strong> {corExibicao} - {tecidoExibicao}
                             </div>
                             <div>
                               <strong>Entrega:</strong> {pedido.data_previsao_entrega ? new Date(pedido.data_previsao_entrega).toLocaleDateString('pt-BR') : 'N/A'}
@@ -336,9 +419,19 @@ const Pedidos = () => {
                           </p>
                         </div>
                       </div>
+                      {valorUnitario !== null && (
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm"><strong>Valor Unitário do Produto:</strong> R$ {Number(valorUnitario).toLocaleString('pt-BR')}</p>
+                        </div>
+                      )}
+                      {item?.observacoes && (
+                        <div className="mt-2 p-3 bg-violet-50 border border-violet-200 rounded-lg">
+                          <p className="text-sm"><strong>Observações do Item:</strong> {item.observacoes}</p>
+                        </div>
+                      )}
                       {pedido.observacoes && (
-                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <p className="text-sm"><strong>Observações:</strong> {pedido.observacoes}</p>
+                        <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm"><strong>Observações do Pedido:</strong> {pedido.observacoes}</p>
                         </div>
                       )}
                     </CardContent>

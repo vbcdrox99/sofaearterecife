@@ -590,6 +590,7 @@ export const Constants = {
 
 // Tipos auxiliares para facilitar o uso
 export type StatusProducao = Database["public"]["Enums"]["status_producao"]
-export type ItemProducao = Tables<"itens_producao">
+// Augment ItemProducao to include optional pedido_item_id until types are regenerated
+export type ItemProducao = Tables<"itens_producao"> & { pedido_item_id?: string | null }
 export type ItemProducaoInsert = TablesInsert<"itens_producao">
 export type ItemProducaoUpdate = TablesUpdate<"itens_producao">

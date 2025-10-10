@@ -13,7 +13,8 @@ import {
   Play,
   CheckCircle,
   Camera,
-  Printer
+  Printer,
+  CornerDownRight
 } from 'lucide-react';
 import { User } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
@@ -26,6 +27,7 @@ import { usePDFGenerator } from '@/hooks/usePDFGenerator';
 import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import PedidoPhotosModal from '@/components/PedidoPhotosModal';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard = () => {
   const { pedidos } = usePedidos();
@@ -33,6 +35,7 @@ const Dashboard = () => {
   const { printRef, printCurrentView, isPrinting } = usePDFGenerator();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [loadingProducao, setLoadingProducao] = useState(true);
+  const [pedidoItens, setPedidoItens] = useState<any[]>([]);
   const [datasVisiveis, setDatasVisiveis] = useState<{[key: string]: boolean}>({});
   const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'novos' | 'iniciados' | 'finalizados'>('todos');
   const [filtroArea, setFiltroArea] = useState<'todos' | 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido'>('todos');
@@ -50,6 +53,22 @@ const Dashboard = () => {
       setLoadingProducao(true);
       const dados = await producaoService.getAll();
       setItensProducao(dados);
+      // Carregar itens de pedido (produtos) para expandir em 443, 443/2, etc
+      const pedidoIds = Array.from(new Set((dados || []).map(d => d.pedido_id))).filter(Boolean) as string[];
+      if (pedidoIds.length > 0) {
+        const { data: itens, error } = await supabase
+          .from('pedido_itens')
+          .select('*')
+          .in('pedido_id', pedidoIds)
+          .order('sequencia', { ascending: true });
+        if (!error && Array.isArray(itens)) {
+          setPedidoItens(itens);
+        } else {
+          setPedidoItens([]);
+        }
+      } else {
+        setPedidoItens([]);
+      }
     } catch (error) {
       console.error('Erro ao carregar dados de produção:', error);
     } finally {
@@ -188,17 +207,27 @@ const Dashboard = () => {
     }
   };
 
+  // Expandir pedidos por item (seq 1, 2, ...) para exibir 443 e 443/2
   const pedidosComProducao = pedidos.map(pedido => {
     const itensRelacionados = itensProducao.filter(item => item.pedido_id === pedido.id);
-    return {
-      ...pedido,
-      itensProducao: itensRelacionados
-    };
-  }).filter(pedido => pedido.itensProducao.length > 0)
+    return { pedido, itensProducao: itensRelacionados };
+  })
+  .filter(p => p.itensProducao.length > 0);
+
+  const linhasExpandido = pedidosComProducao.flatMap(({ pedido, itensProducao }) => {
+    const itensDoPedido = pedidoItens.filter(it => it.pedido_id === pedido.id);
+    const base = (seq: number, itemId?: string, item?: any) => ({ pedido, itensProducao, seq, itemId, item });
+    if (itensDoPedido.length === 0) {
+      // Sem registros em pedido_itens: criar linha sintética seq 1 com ID único
+      return [base(1, `synthetic-${pedido.id}-1`, undefined)];
+    }
+    return itensDoPedido.map((it: any) => base(it.sequencia ?? 1, it.id, it));
+  })
+  // Ordenar por urgência da entrega
   // Ordenar por data de entrega (mais urgentes primeiro)
   .sort((a, b) => {
-    const diasA = calcularDiasRestantes(a.data_previsao_entrega);
-    const diasB = calcularDiasRestantes(b.data_previsao_entrega);
+    const diasA = calcularDiasRestantes(a.pedido.data_previsao_entrega);
+    const diasB = calcularDiasRestantes(b.pedido.data_previsao_entrega);
     
     // Pedidos sem data vão para o final
     if (diasA === null && diasB === null) return 0;
@@ -210,39 +239,39 @@ const Dashboard = () => {
   });
 
   // Contadores para os filtros
-  const pedidosNovos = pedidosComProducao.filter(pedido => 
-    pedido.itensProducao.every(item => item.status === 'pendente')
+  const pedidosNovos = pedidosComProducao.filter(p => 
+    p.itensProducao.every(item => item.status === 'pendente')
   ).length;
   
-  const pedidosIniciados = pedidosComProducao.filter(pedido => 
-    pedido.itensProducao.some(item => item.status === 'iniciado' || item.status === 'supervisao') &&
-    !pedido.itensProducao.every(item => item.status === 'finalizado')
+  const pedidosIniciados = pedidosComProducao.filter(p => 
+    p.itensProducao.some(item => item.status === 'iniciado' || item.status === 'supervisao') &&
+    !p.itensProducao.every(item => item.status === 'finalizado')
   ).length;
   
-  const pedidosFinalizados = pedidosComProducao.filter(pedido => 
-    pedido.itensProducao.length > 0 && pedido.itensProducao.every(item => item.status === 'finalizado')
+  const pedidosFinalizados = pedidosComProducao.filter(p => 
+    p.itensProducao.length > 0 && p.itensProducao.every(item => item.status === 'finalizado')
   ).length;
 
   // Filtrar pedidos baseado no filtro ativo
-  let pedidosFiltrados = pedidosComProducao.filter(pedido => {
+  let pedidosFiltrados = linhasExpandido.filter(({ pedido, itensProducao }) => {
     if (filtroAtivo === 'todos') return true;
     if (filtroAtivo === 'novos') {
-      return pedido.itensProducao.every(item => item.status === 'pendente');
+      return itensProducao.every(item => item.status === 'pendente');
     }
     if (filtroAtivo === 'iniciados') {
-      return pedido.itensProducao.some(item => item.status === 'iniciado' || item.status === 'supervisao') &&
-             !pedido.itensProducao.every(item => item.status === 'finalizado');
+      return itensProducao.some(item => item.status === 'iniciado' || item.status === 'supervisao') &&
+             !itensProducao.every(item => item.status === 'finalizado');
     }
     if (filtroAtivo === 'finalizados') {
-      return pedido.itensProducao.length > 0 && pedido.itensProducao.every(item => item.status === 'finalizado');
+      return itensProducao.length > 0 && itensProducao.every(item => item.status === 'finalizado');
     }
     return true;
   });
 
   // Filtro por área de produção
   if (filtroArea !== 'todos') {
-    pedidosFiltrados = pedidosFiltrados.filter(pedido =>
-      pedido.itensProducao?.some(item => item.etapa === filtroArea)
+    pedidosFiltrados = pedidosFiltrados.filter(({ itensProducao }) =>
+      itensProducao?.some(item => item.etapa === filtroArea)
     );
   }
 
@@ -409,25 +438,31 @@ const Dashboard = () => {
                           }
                         </div>
                       ) : (
-                        pedidosFiltrados.map((pedido, index) => (
-                          <div key={pedido.id} className={`relative px-4 py-2 hover:bg-gray-50 transition-colors bg-white ${
+                        pedidosFiltrados.map(({ pedido, itensProducao, seq, itemId, item }, index) => (
+                          <div key={itemId || `${pedido.id}-${seq}-${index}` } className={`relative px-4 py-2 hover:bg-gray-50 transition-colors ${(seq && seq > 1) ? 'bg-gray-100' : 'bg-white'} ${
                             index !== pedidosFiltrados.length - 1 ? 'border-b border-gray-200' : ''
                           }`}>
                             {/* Barra de urgência na lateral esquerda */}
-                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(pedido.data_previsao_entrega)}`}></div>
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(pedido.data_previsao_entrega)} ${(seq && seq > 1) ? 'opacity-70' : ''}`}></div>
                             
                             <div className="grid grid-cols-12 gap-3 items-center">
-                              {/* Número do Pedido */}
+                              {/* Número do Pedido + indicador de mesmo pedido (sub-item) */}
                               <div className="col-span-1">
                                 <div className="flex items-center space-x-2">
-                                  <Package className="w-4 h-4 text-primary" />
-                                  <span className="font-semibold text-sm">#{pedido.numero_pedido}</span>
+                                  {(seq && seq > 1) ? (
+                                    <CornerDownRight className="w-4 h-4 text-primary" />
+                                  ) : (
+                                    <Package className="w-4 h-4 text-primary" />
+                                  )}
+                                  <span className="font-semibold text-sm">#{pedido.numero_pedido}{seq && seq > 1 ? `/${seq}` : ''}</span>
                                 </div>
                               </div>
 
-                              {/* Tipo */}
+                              {/* Produto (Tipo de Sofá) - por item */}
                               <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate" title={pedido.tipo_sofa || 'N/A'}>{pedido.tipo_sofa || 'N/A'}</span>
+                                <span className="text-sm text-gray-900 block truncate" title={(item?.tipo_sofa || pedido.tipo_sofa || 'N/A')}>
+                                  {item?.tipo_sofa || pedido.tipo_sofa || 'N/A'}
+                                </span>
                               </div>
 
                               {/* Data de Entrega */}
@@ -451,49 +486,65 @@ const Dashboard = () => {
                                 </div>
                               </div>
 
-                              {/* Espuma */}
+                              {/* Espuma - por item */}
                               <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate" title={pedido.espuma || 'D33'}>{pedido.espuma || 'D33'}</span>
+                                <span className="text-sm text-gray-900 block truncate" title={(item?.espuma || pedido.espuma || 'D33')}>
+                                  {item?.espuma || pedido.espuma || 'D33'}
+                                </span>
                               </div>
 
-                              {/* Tecido */}
+                              {/* Tecido - por item */}
                               <div className="col-span-1 print:col-span-2 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate print:whitespace-normal print:break-words print:overflow-visible" title={pedido.tecido || 'Suede Premium'}>{pedido.tecido || 'Suede Premium'}</span>
+                                <span className="text-sm text-gray-900 block truncate print:whitespace-normal print:break-words print:overflow-visible" title={(item?.tecido || pedido.tecido || 'Suede Premium')}>
+                                  {item?.tecido || pedido.tecido || 'Suede Premium'}
+                                </span>
                               </div>
 
-                              {/* Tipo de Pé */}
+                              {/* Tipo de Pé - por item */}
                               <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate" title={pedido.pe || 'Madeira Escura'}>{pedido.pe || 'Madeira Escura'}</span>
+                                <span className="text-sm text-gray-900 block truncate" title={(item?.tipo_pe || pedido.tipo_pe || 'Madeira Escura')}>
+                                  {item?.tipo_pe || pedido.tipo_pe || 'Madeira Escura'}
+                                </span>
                               </div>
 
-                              {/* Braço */}
+                              {/* Braço - por item */}
                               <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate" title={pedido.braco || 'Reto'}>{pedido.braco || 'Reto'}</span>
+                                <span className="text-sm text-gray-900 block truncate" title={(item?.braco || pedido.braco || 'Reto')}>
+                                  {item?.braco || pedido.braco || 'Reto'}
+                                </span>
                               </div>
 
-                              {/* Status de Produção */}
+
+                              {/* Status de Produção (por produto) */}
                               <div className="col-span-3 print:col-span-2">
                                 <div className="flex items-center space-x-1.5">
-                                  {pedido.itensProducao?.map((item) => {
-                                    const IconComponent = getEtapaIcon(item.etapa);
-                                    const currentStatus = item.status || 'pendente';
-                                    
-                                    return (
-                                      <div key={item.id} className="flex items-center space-x-1 bg-gray-50 rounded-lg px-2 py-1.5 border border-gray-200">
-                                        <IconComponent className="w-3 h-3 text-gray-600" />
-                                        <div 
-                                          className={`w-2 h-2 rounded-full ${
-                                            currentStatus === 'pendente' ? 'bg-red-500' :
-                                            currentStatus === 'iniciado' ? 'bg-yellow-500' :
-                                            currentStatus === 'supervisao' ? 'bg-blue-500' :
-                                            currentStatus === 'finalizado' ? 'bg-green-500' :
-                                            'bg-gray-400'
-                                          }`}
-                                          title={`${getEtapaLabel(item.etapa)}: ${getStatusText(currentStatus)}`}
-                                        ></div>
-                                      </div>
-                                    );
-                                  })}
+                                  {(itensProducao || [])
+                                    .filter((ip) => {
+                                      const pid = (ip as any)?.pedido_item_id ?? null;
+                                      // Se há vínculo de item, mostrar apenas as etapas do produto correspondente.
+                                      // Se não houver, manter compatibilidade exibindo todas as etapas do pedido.
+                                      return pid == null ? true : pid === itemId;
+                                    })
+                                    .map((item) => {
+                                      const IconComponent = getEtapaIcon(item.etapa);
+                                      const currentStatus = item.status || 'pendente';
+
+                                      return (
+                                        <div key={item.id} className="flex items-center space-x-1 bg-gray-50 rounded-lg px-2 py-1.5 border border-gray-200">
+                                          <IconComponent className="w-3 h-3 text-gray-600" />
+                                          <div
+                                            className={`w-2 h-2 rounded-full ${
+                                              currentStatus === 'pendente' ? 'bg-red-500' :
+                                              currentStatus === 'iniciado' ? 'bg-yellow-500' :
+                                              currentStatus === 'supervisao' ? 'bg-blue-500' :
+                                              currentStatus === 'finalizado' ? 'bg-green-500' :
+                                              'bg-gray-400'
+                                            }`}
+                                            title={`${getEtapaLabel(item.etapa)}: ${getStatusText(currentStatus)}`}
+                                          ></div>
+                                        </div>
+                                      );
+                                    })}
                                 </div>
                               </div>
 
@@ -560,23 +611,25 @@ const Dashboard = () => {
                                     <Edit className="w-4 h-4" />
                                   </button>
 
-                                  {/* Ícone para observações */}
-                                  {pedido.observacoes && (
+                                  {/* Ícone para observações (prioriza observações do produto) */}
+                                  {(item?.observacoes || pedido.observacoes) && (
                                     <Dialog>
                                       <DialogTrigger asChild>
-                                        <button 
+                                        <button
                                           className="text-gray-400 hover:text-gray-600 transition-colors"
-                                          title={pedido.observacoes}
+                                          title={item?.observacoes || pedido.observacoes || ''}
                                         >
                                           <Eye className="w-4 h-4" />
                                         </button>
                                       </DialogTrigger>
                                       <DialogContent>
                                         <DialogHeader>
-                                          <DialogTitle>Observações - Pedido #{pedido.numero_pedido}</DialogTitle>
+                                          <DialogTitle>
+                                            {item?.observacoes ? `Observações - Produto #${pedido.numero_pedido}${seq && seq > 1 ? `/${seq}` : ''}` : `Observações - Pedido #${pedido.numero_pedido}`}
+                                          </DialogTitle>
                                         </DialogHeader>
                                         <div className="mt-4">
-                                          <p className="text-gray-700">{pedido.observacoes}</p>
+                                          <p className="text-gray-700">{item?.observacoes || pedido.observacoes}</p>
                                         </div>
                                       </DialogContent>
                                     </Dialog>
@@ -597,10 +650,10 @@ const Dashboard = () => {
                             </div>
                             
                             {/* Datas expandidas */}
-                            {datasVisiveis[pedido.id] && (
+                              {datasVisiveis[pedido.id] && (
                               <div className="mt-3 pt-3 border-t border-gray-200 bg-gray-50 rounded-lg p-3">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-                                  {pedido.itensProducao.map((item) => (
+                                  {itensProducao.map((item) => (
                                     <div key={item.id} className="space-y-1">
                                       <h4 className="font-medium text-gray-900">{getEtapaLabel(item.etapa)}</h4>
                                       {pedido.created_at && (
