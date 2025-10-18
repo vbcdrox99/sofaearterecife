@@ -9,16 +9,19 @@ import { useToast } from '@/hooks/use-toast';
 import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import PedidoPhotosModal from '@/components/PedidoPhotosModal';
+import { supabase } from '@/integrations/supabase/client';
 
 const Producao = () => {
   const { toast } = useToast();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
+  const [pedidoItens, setPedidoItens] = useState<any[]>([]);
   const [abaAtiva, setAbaAtiva] = useState('marcenaria');
   const [carregando, setCarregando] = useState(true);
   const [statusItems, setStatusItems] = useState<{[key: string]: StatusProducao}>({});
-  const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null }>({
+  const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null; pedidoItemId: string | null }>({
     isOpen: false,
-    pedidoId: null
+    pedidoId: null,
+    pedidoItemId: null,
   });
 
   useEffect(() => {
@@ -38,10 +41,27 @@ const Producao = () => {
         return diasA - diasB;
       });
       setItensProducao(dadosOrdenados);
+
+      // Carregar itens de pedido (produtos) por IDs de itens_producao
+      const pedidoItemIds = Array.from(new Set(dadosOrdenados.map(d => d.pedido_item_id).filter(Boolean))) as string[];
+      if (pedidoItemIds.length > 0) {
+        const { data: itens, error } = await supabase
+          .from('pedido_itens')
+          .select('*')
+          .in('id', pedidoItemIds)
+          .order('sequencia', { ascending: true });
+        if (!error && Array.isArray(itens)) {
+          setPedidoItens(itens);
+        } else {
+          setPedidoItens([]);
+        }
+      } else {
+        setPedidoItens([]);
+      }
       
       // Inicializar status dos itens baseado no banco
       const initialStatus: {[key: string]: StatusProducao} = {};
-      dados.forEach(item => {
+      dadosOrdenados.forEach(item => {
         initialStatus[item.id] = item.status || 'pendente';
       });
       setStatusItems(initialStatus);
@@ -77,9 +97,28 @@ const Producao = () => {
     return texts[status];
   };
 
+  const getStatusBadgeVariant = (status: StatusProducao) => {
+    const variants = {
+      'pendente': 'destructive',
+      'iniciado': 'secondary',
+      'supervisao': 'outline',
+      'finalizado': 'default'
+    } as const;
+    return variants[status] || 'default';
+  };
+
+  const getStatusLabel = (status: StatusProducao) => getStatusText(status);
+
   const truncateText = (text: string, maxLength: number = 50) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  };
+
+  const formatarDataEntrega = (data: string | null | undefined) => {
+    if (!data) return 'Sem data';
+    const dt = new Date(data);
+    if (isNaN(dt.getTime())) return 'Sem data';
+    return dt.toLocaleDateString('pt-BR');
   };
 
   // Urgência por data de entrega (igual ao Dashboard)
@@ -154,6 +193,77 @@ const Producao = () => {
     return icones[etapa as keyof typeof icones];
   };
 
+  const getEtapaLabel = (etapa: string) => {
+    const labels = {
+      'marcenaria': 'Marcenaria',
+      'corte_costura': 'Corte e Costura',
+      'espuma': 'Espuma',
+      'bancada': 'Bancada',
+      'tecido': 'Tecido'
+    } as const;
+    return labels[etapa as keyof typeof labels] || etapa;
+  };
+
+  const renderEtapaBadge = (etapa: string) => (
+    <Badge variant="outline" className="flex items-center gap-1.5">
+      {getIconeEtapa(etapa)}
+      <span className="text-[11px] uppercase tracking-wide">{getEtapaLabel(etapa)}</span>
+    </Badge>
+  );
+
+  const renderStatusButtons = (itemId: string, status: StatusProducao) => (
+    <div className="flex items-center gap-1.5">
+      <Button
+        size="sm"
+        variant={status === 'pendente' ? 'default' : 'outline'}
+        onClick={() => handleStatusChange(itemId, 'pendente')}
+      >
+        <Clock className="w-4 h-4 mr-2" /> Pendente
+      </Button>
+      <Button
+        size="sm"
+        variant={status === 'iniciado' ? 'default' : 'outline'}
+        onClick={() => handleStatusChange(itemId, 'iniciado')}
+      >
+        <Loader2 className="w-4 h-4 mr-2" /> Iniciado
+      </Button>
+      <Button
+        size="sm"
+        variant={status === 'supervisao' ? 'default' : 'outline'}
+        onClick={() => handleStatusChange(itemId, 'supervisao')}
+      >
+        <Eye className="w-4 h-4 mr-2" /> Supervisão
+      </Button>
+      <Button
+        size="sm"
+        variant={status === 'finalizado' ? 'default' : 'outline'}
+        onClick={() => handleStatusChange(itemId, 'finalizado')}
+      >
+        <CheckCircle className="w-4 h-4 mr-2" /> Finalizar
+      </Button>
+    </div>
+  );
+
+  // Expandir cada item de produção diretamente para seu produto relacionado (sem duplicar por pedido)
+  const itensExpandido = itensProducao
+    .map((item) => {
+      const pedidoItem = pedidoItens.find((pi) => pi.id === item.pedido_item_id);
+      return { item, pedidoItem };
+    })
+    .filter(({ item, pedidoItem }) => {
+      // Se houver pedidoItem, respeitar as etapas_necessarias do produto
+      if (pedidoItem && Array.isArray(pedidoItem.etapas_necessarias)) {
+        return pedidoItem.etapas_necessarias.includes(item.etapa);
+      }
+      // Caso não haja pedido_item vinculado, usar etapas do pedido (fallback)
+      const pedidoEtapas = item.pedidos?.etapas_necessarias as string[] | undefined;
+      if (Array.isArray(pedidoEtapas)) {
+        return pedidoEtapas.includes(item.etapa);
+      }
+      // Sem metadados de etapas, não filtra (mantém visível)
+      return true;
+    });
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -196,7 +306,7 @@ const Producao = () => {
                 <div className="flex justify-center items-center py-8">
                   <Loader2 className="w-8 h-8 animate-spin" />
                 </div>
-              ) : itensProducao.length === 0 ? (
+              ) : itensExpandido.length === 0 ? (
                 <Card>
                   <CardContent className="p-8 text-center">
                     <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -209,11 +319,13 @@ const Producao = () => {
                   </CardContent>
                 </Card>
               ) : (
-                itensProducao.map((item, index) => {
+                itensExpandido.map(({ item, pedidoItem }, index) => {
                   const currentStatus = statusItems[item.id] || item.status || 'pendente';
+                  const numeroPedido = item.pedidos?.numero_pedido || 'N/A';
+                  const sufixoSeq = pedidoItem?.sequencia && pedidoItem.sequencia > 1 ? `/${pedidoItem.sequencia}` : '';
                   
                   return (
-                    <Card key={item.id} className={`relative p-4 hover:shadow-md transition-shadow ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50/30'}`}>
+                    <Card key={`${item.id}-${pedidoItem?.id || 'seq1'}`} className={`relative p-4 hover:shadow-md transition-shadow ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50/30'}`}>
                       {/* Barra de urgência na lateral esquerda */}
                       <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(item.pedidos?.data_previsao_entrega)}`}></div>
                       {/* Primeira linha - Informações Principais */}
@@ -221,7 +333,7 @@ const Producao = () => {
                         <div className="flex items-center space-x-8 flex-1">
                           <div className="flex flex-col">
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pedido</span>
-                            <span className="text-lg font-bold text-gray-900">#{item.pedidos?.numero_pedido || 'N/A'}</span>
+                            <span className="text-lg font-bold text-gray-900">#{numeroPedido}{sufixoSeq}</span>
                           </div>
                           <div className="flex flex-col">
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cliente</span>
@@ -229,138 +341,84 @@ const Producao = () => {
                           </div>
                           <div className="flex flex-col">
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Produto</span>
-                            <span className="text-sm text-gray-900">{item.pedidos?.tipo_sofa || 'N/A'}</span>
+                            <span className="text-sm text-gray-900">{pedidoItem?.tipo_sofa || item.pedidos?.tipo_sofa || 'N/A'}</span>
                           </div>
                           <div className="flex flex-col">
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Serviço</span>
-                            <span className="text-sm text-gray-900">{item.pedidos?.tipo_servico || 'N/A'}</span>
+                            <span className="text-sm text-gray-900">{pedidoItem?.tipo_servico || item.pedidos?.tipo_servico || 'N/A'}</span>
                           </div>
                           <div className="flex flex-col">
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Entrega</span>
                             <span className="text-sm text-gray-900">
                               {item.pedidos?.data_previsao_entrega ? 
-                                new Date(item.pedidos.data_previsao_entrega).toLocaleDateString('pt-BR') : 
-                                'N/A'
-                              }
-                            </span>
-                            <span className={`text-xs font-medium ${
-                              calcularDiasRestantes(item.pedidos?.data_previsao_entrega) !== null && calcularDiasRestantes(item.pedidos?.data_previsao_entrega)! <= 2 
-                                ? 'text-red-600' 
-                                : calcularDiasRestantes(item.pedidos?.data_previsao_entrega) !== null && calcularDiasRestantes(item.pedidos?.data_previsao_entrega)! <= 5
-                                ? 'text-yellow-600'
-                                : 'text-gray-500'
-                            }`}>
-                              {getTextoUrgencia(item.pedidos?.data_previsao_entrega)}
+                                formatarDataEntrega(item.pedidos?.data_previsao_entrega) : 
+                                'Sem data'}
                             </span>
                           </div>
                         </div>
-                        
-                        {/* Status e Observações */}
-                        <div className="flex items-center space-x-3">
-                          <Badge className={`px-3 py-1 text-xs font-medium ${getStatusColor(currentStatus)}`}>
-                            {getStatusText(currentStatus)}
+                        <div className="flex items-center space-x-2">
+                          <Badge variant={getStatusBadgeVariant(currentStatus)} className="uppercase tracking-wide text-[11px]">
+                            {getStatusLabel(currentStatus)}
                           </Badge>
-                          
-                          {/* Ícone para fotos */}
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-gray-400 hover:text-blue-600"
-                            title="Ver fotos do pedido"
-                            onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: item.pedido_id })}
-                          >
-                            <Camera className="w-4 h-4" />
+                          <Button variant="outline" size="sm" onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: item.pedido_id, pedidoItemId: pedidoItem?.id || null })}>
+                            <Camera className="w-4 h-4 mr-2" /> Fotos
                           </Button>
-
-                          {item.pedidos?.observacoes && (
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800">
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Descrição do Pedido #{item.pedidos?.numero_pedido}</DialogTitle>
-                                </DialogHeader>
-                                <div className="mt-4">
-                                  <p className="text-gray-700">{item.pedidos.observacoes}</p>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Eye className="w-4 h-4 mr-2" /> Detalhes
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Detalhes do Produto</DialogTitle>
+                              </DialogHeader>
+                              {(pedidoItem?.observacoes || item.pedidos?.observacoes) ? (
+                                <div className="space-y-2">
+                                  <span className="font-medium">Observações</span>
+                                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                                    {pedidoItem?.observacoes || item.pedidos?.observacoes}
+                                  </p>
                                 </div>
-                              </DialogContent>
-                            </Dialog>
-                          )}
+                              ) : (
+                                <p className="text-sm text-gray-500">Sem observações.</p>
+                              )}
+                            </DialogContent>
+                          </Dialog>
                         </div>
                       </div>
 
-                      {/* Segunda linha - Especificações e Ações */}
-                      <div className="flex items-center justify-between pt-1 mt-1 border-t border-gray-100">
-                        <div className="flex items-center space-x-3 flex-1">
-                          <div className="bg-gray-50 px-1.5 py-0.5 rounded text-xs">
-                            <span className="text-gray-600">Cor: </span>
-                            <span className="font-medium text-gray-900">{item.pedidos?.cor || 'N/A'}</span>
-                          </div>
-                          <div className="bg-gray-50 px-1.5 py-0.5 rounded text-xs">
-                             <span className="text-gray-600">Espuma: </span>
-                             <span className="font-medium text-gray-900">{item.pedidos?.espuma || 'N/A'}</span>
-                           </div>
-                           <div className="bg-gray-50 px-1.5 py-0.5 rounded text-xs">
-                             <span className="text-gray-600">Tecido: </span>
-                             <span className="font-medium text-gray-900">{item.pedidos?.tecido || 'N/A'}</span>
-                           </div>
-                           <div className="bg-gray-50 px-1.5 py-0.5 rounded text-xs">
-                             <span className="text-gray-600">Pé: </span>
-                             <span className="font-medium text-gray-900">{item.pedidos?.tipo_pe || 'N/A'}</span>
-                           </div>
-                           <div className="bg-gray-50 px-1.5 py-0.5 rounded text-xs">
-                             <span className="text-gray-600">Braço: </span>
-                             <span className="font-medium text-gray-900">{item.pedidos?.braco || 'N/A'}</span>
-                           </div>
+                      {/* Linha de detalhes do produto */}
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-2">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cor</span>
+                          <span className="text-sm text-gray-900">{pedidoItem?.cor || item.pedidos?.cor || 'N/A'}</span>
                         </div>
-                        
-                        {/* Botões de Ação */}
-                        <div className="flex space-x-2 ml-4">
-                          <div className="flex space-x-1">
-                            {currentStatus !== 'pendente' && (
-                              <Button 
-                                onClick={() => handleStatusChange(item.id, 'pendente')}
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-3 text-xs border-red-200 text-red-700 hover:bg-red-50"
-                              >
-                                Pendente
-                              </Button>
-                            )}
-                            {currentStatus !== 'iniciado' && (
-                              <Button 
-                                onClick={() => handleStatusChange(item.id, 'iniciado')}
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-3 text-xs border-yellow-200 text-yellow-700 hover:bg-yellow-50"
-                              >
-                                Iniciar
-                              </Button>
-                            )}
-                            {currentStatus !== 'supervisao' && (
-                              <Button 
-                                onClick={() => handleStatusChange(item.id, 'supervisao')}
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-3 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
-                              >
-                                Supervisão
-                              </Button>
-                            )}
-                            {currentStatus !== 'finalizado' && (
-                              <Button 
-                                onClick={() => handleStatusChange(item.id, 'finalizado')}
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-3 text-xs border-green-200 text-green-700 hover:bg-green-50"
-                              >
-                                Finalizar
-                              </Button>
-                            )}
-                          </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Espuma</span>
+                          <span className="text-sm text-gray-900">{pedidoItem?.espuma || item.pedidos?.espuma || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tecido</span>
+                          <span className="text-sm text-gray-900">{pedidoItem?.tecido || item.pedidos?.tecido || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Braço</span>
+                          <span className="text-sm text-gray-900">{pedidoItem?.braco || item.pedidos?.braco || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pé</span>
+                          <span className="text-sm text-gray-900">{pedidoItem?.tipo_pe || item.pedidos?.tipo_pe || 'N/A'}</span>
+                        </div>
+                      </div>
+
+                      {/* Rodapé: Controles rápidos */}
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center space-x-2">
+                          {renderEtapaBadge(abaAtiva)}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {renderStatusButtons(item.id, currentStatus)}
                         </div>
                       </div>
                     </Card>
@@ -375,8 +433,9 @@ const Producao = () => {
       {/* Modal de Fotos do Pedido */}
       <PedidoPhotosModal
         isOpen={pedidoPhotosModal.isOpen}
-        onClose={() => setPedidoPhotosModal({ isOpen: false, pedidoId: null })}
-        pedidoId={pedidoPhotosModal.pedidoId}
+        onClose={() => setPedidoPhotosModal({ isOpen: false, pedidoId: null, pedidoItemId: null })}
+        pedidoId={pedidoPhotosModal.pedidoId!}
+        pedidoItemId={pedidoPhotosModal.pedidoItemId}
       />
     </DashboardLayout>
   );

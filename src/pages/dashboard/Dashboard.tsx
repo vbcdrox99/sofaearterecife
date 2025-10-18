@@ -39,9 +39,10 @@ const Dashboard = () => {
   const [datasVisiveis, setDatasVisiveis] = useState<{[key: string]: boolean}>({});
   const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'novos' | 'iniciados' | 'finalizados'>('todos');
   const [filtroArea, setFiltroArea] = useState<'todos' | 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido'>('todos');
-  const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null }>({
+  const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null; pedidoItemId: string | null }>({
     isOpen: false,
-    pedidoId: null
+    pedidoId: null,
+    pedidoItemId: null,
   });
 
   useEffect(() => {
@@ -594,10 +595,10 @@ const Dashboard = () => {
                               <div className="col-span-1 print-hide">
                                 <div className="flex items-center space-x-2">
                                   {/* Ícone para fotos */}
-                                  <button 
+                                  <button
                                     className="text-gray-400 hover:text-blue-600 transition-colors"
                                     title="Ver fotos do pedido"
-                                    onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: pedido.id })}
+                                    onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: pedido.id, pedidoItemId: item?.id ?? null })}
                                   >
                                     <Camera className="w-4 h-4" />
                                   </button>
@@ -688,8 +689,9 @@ const Dashboard = () => {
       {/* Modal de Fotos do Pedido */}
       <PedidoPhotosModal
         isOpen={pedidoPhotosModal.isOpen}
-        onClose={() => setPedidoPhotosModal({ isOpen: false, pedidoId: null })}
-        pedidoId={pedidoPhotosModal.pedidoId}
+        onClose={() => setPedidoPhotosModal({ isOpen: false, pedidoId: null, pedidoItemId: null })}
+        pedidoId={pedidoPhotosModal.pedidoId!}
+        pedidoItemId={pedidoPhotosModal.pedidoItemId}
       />
     </DashboardLayout>
   );

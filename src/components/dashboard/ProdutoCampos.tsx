@@ -110,12 +110,12 @@ const ProdutoCampos = ({
       <div className="space-y-2 md:col-span-2">
         <Label className="flex items-center gap-2">
           <Camera className="h-4 w-4" />
-          Foto do Pedido
+          Foto do Produto
         </Label>
         <ImageUpload
           images={values.fotosPedido}
           onImagesChange={onFotosChange}
-          maxImages={5}
+          maxImages={1}
           bucketName="pedido-imagens"
           folder={imageFolder}
         />

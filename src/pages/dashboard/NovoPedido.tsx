@@ -366,11 +366,11 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           condicaoPagamento: pedido.condicao_pagamento || '',
           meioPagamento: Array.isArray(pedido.meios_pagamento) ? (pedido.meios_pagamento[0] || '') : '',
           prioridade: pedido.prioridade || 'media',
-          garantiaTipo: 'dias',
-          garantiaValor: '',
-          garantiaTexto: '',
-          termoEntregaAtivo: false,
-          termoEntregaTexto: '',
+          garantiaTipo: pedido.garantia_tipo || 'dias',
+          garantiaValor: pedido.garantia_valor != null ? String(pedido.garantia_valor) : '',
+          garantiaTexto: pedido.garantia_texto || '',
+          termoEntregaAtivo: !!pedido.termo_entrega_ativo,
+          termoEntregaTexto: pedido.termo_entrega_texto || '',
           etapasNecessarias: pedido.etapas_necessarias || [],
           fotosPedido: [],
           fotosControle: []
@@ -1205,6 +1205,11 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Evitar salvar antes da etapa final do wizard
+    if (wizardStep < 3) {
+      handleAvancarWizard();
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -1320,6 +1325,28 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       // Incluir meios_pagamento se houver seleção
       if (formData.meioPagamento.trim()) {
         pedidoData.meios_pagamento = [formData.meioPagamento.trim()];
+      }
+
+      // Incluir garantia
+      if (formData.garantiaTipo) {
+        pedidoData.garantia_tipo = formData.garantiaTipo;
+      }
+      if (formData.garantiaValor.trim()) {
+        const gVal = parseInt(formData.garantiaValor.replace(/\D/g, ''), 10);
+        if (!isNaN(gVal)) {
+          pedidoData.garantia_valor = gVal;
+        }
+      }
+      if (formData.garantiaTexto.trim()) {
+        pedidoData.garantia_texto = formData.garantiaTexto.trim();
+      }
+
+      // Incluir termo de entrega e recebimento
+      pedidoData.termo_entrega_ativo = !!formData.termoEntregaAtivo;
+      if (formData.termoEntregaAtivo && formData.termoEntregaTexto.trim()) {
+        pedidoData.termo_entrega_texto = formData.termoEntregaTexto.trim();
+      } else if (!formData.termoEntregaAtivo) {
+        pedidoData.termo_entrega_texto = null;
       }
 
       let pedidoAtualId = pedidoIdParam || '';
@@ -1458,8 +1485,13 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
 
         if (itensError) {
           console.error('Erro ao salvar itens do pedido:', itensError);
+          throw new Error('Falha ao salvar itens do pedido. Tente novamente.');
         } else {
           itensInseridos = itensSalvos || [];
+          if (!Array.isArray(itensInseridos) || itensInseridos.length === 0) {
+            console.error('Nenhum item foi inserido em pedido_itens. Resposta:', itensSalvos);
+            throw new Error('Nenhum item do pedido foi salvo. Verifique os dados e tente novamente.');
+          }
         }
       }
 
@@ -1649,6 +1681,14 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     }
   };
 
+  // Bloquear Enter nas etapas 1 e 2 para evitar submit prematuro
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter' && wizardStep < 3) {
+      e.preventDefault();
+      handleAvancarWizard();
+    }
+  };
+
   return (
     <DashboardLayout
       title={isEditMode ? "Editar Pedido" : "Novo Pedido"}
@@ -1659,25 +1699,20 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         animate={{ opacity: 1, y: 0 }}
         className="max-w-4xl mx-auto"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
           {/* Navegação do Wizard */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex gap-2 text-sm">
               <span className="font-medium">Passo {wizardStep} de 3</span>
               <span className="text-muted-foreground">{wizardStep === 1 ? 'Entrega e Dados do Cliente' : wizardStep === 2 ? 'Dados do Produto' : 'Detalhes'}</span>
             </div>
-            <div className="flex gap-2">
-              {wizardStep > 1 && (
-                <Button type="button" variant="outline" onClick={() => setWizardStep(prev => Math.max(1, prev - 1))}>
+          <div className="flex gap-2">
+            {wizardStep > 1 && (
+                <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); setWizardStep(prev => Math.max(1, prev - 1)); }}>
                   Voltar
                 </Button>
               )}
-              {wizardStep < 3 && (
-                <Button type="button" onClick={handleAvancarWizard}>
-                  Avançar
-                </Button>
-              )}
-            </div>
+          </div>
           </div>
           {/* Dados do Cliente */}
           {wizardStep === 1 && (
@@ -1846,16 +1881,16 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                 />
               </div>
               
-              {/* Campo de Foto do Pedido */}
+              {/* Foto do Produto (principal) */}
               <div className="space-y-2 md:col-span-2">
                 <Label className="flex items-center gap-2">
                   <Camera className="h-4 w-4" />
-                  Foto do Pedido
+                  Foto do Produto
                 </Label>
                 <ImageUpload
                   images={formData.fotosPedido}
                   onImagesChange={handleFotosPedidoChange}
-                  maxImages={5}
+                  maxImages={1}
                   bucketName="pedido-imagens"
                   folder="fotos-pedido"
                 />
@@ -2644,34 +2679,11 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                         </Button>
                       </div>
 
-                      {/* Descrição do produto adicional */}
-                      <div className="space-y-2">
-                        <Label>Descrição</Label>
-                        <Textarea
-                          value={item.descricao}
-                          onChange={(e) => handleItemChange(index, 'descricao', e.target.value)}
-                          placeholder="Descrição detalhada do produto"
-                          rows={3}
-                        />
-                      </div>
+                      {/* Campo de descrição removido aqui; ProdutoCampos renderiza a descrição do produto */}
 
-                      {/* Foto do produto adicional */}
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <Camera className="h-4 w-4" />
-                          Foto do Produto
-                        </Label>
-                        <ImageUpload
-                          images={item.fotosPedido}
-                          onImagesChange={(imgs) => handleItemFotosChange(index, imgs)}
-                          maxImages={5}
-                          bucketName="pedido-imagens"
-                          folder={`fotos-pedido/item-${index + 2}`}
-                        />
-                      </div>
+                      {/* Upload de foto removido aqui para evitar duplicação; o ProdutoCampos gerencia a foto do produto */}
 
                       <ProdutoCampos
-                        titulo={`Produto ${index + 2}`}
                         values={{
                           descricao: item.descricao,
                           fotosPedido: item.fotosPedido || [],
@@ -2924,7 +2936,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
               </Button>
               <Button 
                 type="button" 
-                onClick={handleAvancarWizard}
+                onClick={(e) => { e.preventDefault(); handleAvancarWizard(); }}
                 disabled={isLoading}
               >
                 Avançar

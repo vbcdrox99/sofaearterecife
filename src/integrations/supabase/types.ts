@@ -263,6 +263,7 @@ export type Database = {
           cliente_id: string | null
           cliente_nome: string
           cliente_telefone: string
+          condicao_pagamento: string | null
           cor: string | null
           created_at: string
           created_by: string
@@ -271,12 +272,20 @@ export type Database = {
           dimensoes: string | null
           espuma: string | null
           etapas_necessarias: string[] | null
+          frete: number | null
+          garantia_texto: string | null
+          garantia_tipo: string | null
+          garantia_valor: number | null
           id: string
+          meios_pagamento: string[] | null
           numero_pedido: number
           observacoes: string | null
+          preco_unitario: number | null
           prioridade: string | null
           status: Database["public"]["Enums"]["status_pedido"]
           tecido: string | null
+          termo_entrega_ativo: boolean | null
+          termo_entrega_texto: string | null
           tipo_pe: string | null
           tipo_servico: string | null
           tipo_sofa: string | null
@@ -292,6 +301,7 @@ export type Database = {
           cliente_id?: string | null
           cliente_nome: string
           cliente_telefone: string
+          condicao_pagamento?: string | null
           cor?: string | null
           created_at?: string
           created_by: string
@@ -300,12 +310,20 @@ export type Database = {
           dimensoes?: string | null
           espuma?: string | null
           etapas_necessarias?: string[] | null
+          frete?: number | null
+          garantia_texto?: string | null
+          garantia_tipo?: string | null
+          garantia_valor?: number | null
           id?: string
+          meios_pagamento?: string[] | null
           numero_pedido?: number
           observacoes?: string | null
+          preco_unitario?: number | null
           prioridade?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
           tecido?: string | null
+          termo_entrega_ativo?: boolean | null
+          termo_entrega_texto?: string | null
           tipo_pe?: string | null
           tipo_servico?: string | null
           tipo_sofa?: string | null
@@ -321,6 +339,7 @@ export type Database = {
           cliente_id?: string | null
           cliente_nome?: string
           cliente_telefone?: string
+          condicao_pagamento?: string | null
           cor?: string | null
           created_at?: string
           created_by?: string
@@ -329,12 +348,20 @@ export type Database = {
           dimensoes?: string | null
           espuma?: string | null
           etapas_necessarias?: string[] | null
+          frete?: number | null
+          garantia_texto?: string | null
+          garantia_tipo?: string | null
+          garantia_valor?: number | null
           id?: string
+          meios_pagamento?: string[] | null
           numero_pedido?: number
           observacoes?: string | null
+          preco_unitario?: number | null
           prioridade?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
           tecido?: string | null
+          termo_entrega_ativo?: boolean | null
+          termo_entrega_texto?: string | null
           tipo_pe?: string | null
           tipo_servico?: string | null
           tipo_sofa?: string | null
