@@ -32,7 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 const Dashboard = () => {
   const { pedidos } = usePedidos();
   const navigate = useNavigate();
-  const { printRef, printCurrentView, isPrinting } = usePDFGenerator();
+  const { printRef, printCurrentView, isPrinting, generatePedidoPDF } = usePDFGenerator();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [loadingProducao, setLoadingProducao] = useState(true);
   const [pedidoItens, setPedidoItens] = useState<any[]>([]);
@@ -601,6 +601,15 @@ const Dashboard = () => {
                                     onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: pedido.id, pedidoItemId: item?.id ?? null })}
                                   >
                                     <Camera className="w-4 h-4" />
+                                  </button>
+
+                                  {/* Ícone para gerar PDF do Pedido */}
+                                  <button
+                                    className="text-gray-400 hover:text-red-600 transition-colors"
+                                    title="PDF do Pedido"
+                                    onClick={() => generatePedidoPDF(pedido.id)}
+                                  >
+                                    <FileText className="w-4 h-4" />
                                   </button>
 
                                   {/* Ícone para editar pedido */}
