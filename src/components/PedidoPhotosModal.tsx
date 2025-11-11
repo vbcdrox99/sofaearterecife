@@ -61,6 +61,8 @@ interface PedidoItem {
   preco_unitario?: number;
   observacoes?: string;
   sequencia?: number;
+  visita_tecnica?: boolean;
+  data_visita_tecnica?: string | null;
 }
 
 interface PedidoPhotosModalProps {
@@ -295,6 +297,28 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
                           <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded">{produtoSelecionado.observacoes}</p>
                         </div>
                       )}
+
+                      {/* Visita técnica */}
+                      <div className="mt-2">
+                        <span className="text-xs text-gray-500">Visita técnica</span>
+                        <div className="text-sm text-gray-700 bg-gray-50 p-2 rounded">
+                          <p>Status: {produtoSelecionado.visita_tecnica ? 'Sim' : 'Não'}</p>
+                          {produtoSelecionado.visita_tecnica && (
+                            <p>
+                              Data: {(() => {
+                                const d = produtoSelecionado.data_visita_tecnica;
+                                if (!d) return '—';
+                                try {
+                                  const [ano, mes, dia] = d.split('-');
+                                  return `${dia}/${mes}/${ano}`;
+                                } catch {
+                                  return d;
+                                }
+                              })()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-sm text-gray-500">Nenhum produto selecionado para este pedido</div>

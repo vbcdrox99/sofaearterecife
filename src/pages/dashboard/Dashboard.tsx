@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { usePedidos } from '@/hooks/usePedidos';
 import { usePDFGenerator } from '@/hooks/usePDFGenerator';
 import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
@@ -32,7 +33,7 @@ import { supabase } from '@/integrations/supabase/client';
 const Dashboard = () => {
   const { pedidos } = usePedidos();
   const navigate = useNavigate();
-  const { printRef, printCurrentView, isPrinting, generatePedidoPDF } = usePDFGenerator();
+  const { printRef, printCurrentView, isPrinting, generatePedidoPDF, generatePedidoClientePDF } = usePDFGenerator();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [loadingProducao, setLoadingProducao] = useState(true);
   const [pedidoItens, setPedidoItens] = useState<any[]>([]);
@@ -603,14 +604,27 @@ const Dashboard = () => {
                                     <Camera className="w-4 h-4" />
                                   </button>
 
-                                  {/* Ícone para gerar PDF do Pedido */}
-                                  <button
-                                    className="text-gray-400 hover:text-red-600 transition-colors"
-                                    title="PDF do Pedido"
-                                    onClick={() => generatePedidoPDF(pedido.id)}
-                                  >
-                                    <FileText className="w-4 h-4" />
-                                  </button>
+                                  {/* Menu para gerar PDF (duas opções) */}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <button
+                                        className="text-gray-400 hover:text-red-600 transition-colors"
+                                        title="Gerar PDF"
+                                      >
+                                        <FileText className="w-4 h-4" />
+                                      </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => generatePedidoPDF(pedido.id)}>
+                                        Ordem de Serviço
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => generatePedidoClientePDF(pedido.id)}>
+                                        Pedido do Cliente
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+
+                                  {/* Removido: botão pdfmake, seguimos com gerador SVG */}
 
                                   {/* Ícone para editar pedido */}
                                   <button

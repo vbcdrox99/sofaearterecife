@@ -539,6 +539,39 @@ const Pedidos = () => {
                 </CardContent>
               </Card>
 
+              {/* Visita técnica por item */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Visita técnica
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {pedidosItens.filter(pi => pi.pedido.id === pedidoSelecionado?.id).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Sem itens ou dados de visita técnica.</p>
+                  ) : (
+                    pedidosItens
+                      .filter(pi => pi.pedido.id === pedidoSelecionado?.id)
+                      .map(({ item }, idx) => (
+                        <div key={item.id || idx} className="border rounded-md p-3">
+                          <p className="text-sm"><strong>Produto {item.sequencia || idx + 1}:</strong> {item.visita_tecnica ? 'Sim' : 'Não'}</p>
+                          {item.visita_tecnica && (
+                            <p className="text-sm">
+                              <strong>Data:</strong> {(() => {
+                                const d = (item.data_visita_tecnica as string | null | undefined);
+                                if (!d) return '—';
+                                const [ano, mes, dia] = d.split('-');
+                                return `${dia}/${mes}/${ano}`;
+                              })()}
+                            </p>
+                          )}
+                        </div>
+                      ))
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Informações de Datas */}
               <Card>
                 <CardHeader>

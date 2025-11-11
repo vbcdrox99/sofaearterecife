@@ -58,6 +58,8 @@ import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector
     etapasNecessarias: string[];
     fotosPedido: UploadedImage[];
     fotosControle: UploadedImage[];
+    visitaTecnicaAtiva: boolean;
+    visitaTecnicaData: string;
   }
 
 const NovoPedido = () => {
@@ -175,7 +177,9 @@ const NovoPedido = () => {
     termoEntregaTexto: '',
     etapasNecessarias: [],
     fotosPedido: [],
-    fotosControle: []
+    fotosControle: [],
+    visitaTecnicaAtiva: false,
+    visitaTecnicaData: ''
   });
 
   // Guardar anexos originais para comparação em edição
@@ -199,6 +203,8 @@ const NovoPedido = () => {
     braco: string;
     tipoPe: string;
     etapasNecessarias: string[];
+    visitaTecnicaAtiva?: boolean;
+    visitaTecnicaData?: string;
   };
 
   const defaultItem: PedidoItemForm = {
@@ -216,7 +222,9 @@ const NovoPedido = () => {
     tecido: '',
     braco: '',
     tipoPe: '',
-    etapasNecessarias: []
+    etapasNecessarias: [],
+    visitaTecnicaAtiva: false,
+    visitaTecnicaData: ''
   };
 
   const [itensAdicionais, setItensAdicionais] = useState<PedidoItemForm[]>([]);
@@ -405,6 +413,15 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
             .order('created_at', { ascending: true });
 
           if (!itensErr && Array.isArray(itensDb)) {
+            // Preencher campos do Produto 1 relacionados à visita técnica, se existirem
+            if (itensDb.length >= 1) {
+              const primeiro = itensDb[0];
+              setFormData(prev => ({
+                ...prev,
+                visitaTecnicaAtiva: !!primeiro.visita_tecnica,
+                visitaTecnicaData: converterDataISOParaBR(primeiro.data_visita_tecnica)
+              }));
+            }
             if (itensDb.length > 1) {
               const adicionais = itensDb.slice(1).map((it: any) => ({
                 descricao: it.descricao || '',
@@ -1471,6 +1488,12 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           created_by: user.id,
           observacoes: it.observacoes || null,
           sequencia: (idx + 1),
+          visita_tecnica: idx === 0 ? !!formData.visitaTecnicaAtiva : !!it.visitaTecnicaAtiva,
+          data_visita_tecnica: (() => {
+            const dataBR = idx === 0 ? (formData.visitaTecnicaData || '') : (it.visitaTecnicaData || '');
+            const dataISO = converterDataParaISO(dataBR);
+            return dataISO || null;
+          })(),
           preco_unitario: (() => {
             const v = (it.precoUnitario || '').toString().replace(',', '.');
             const n = parseFloat(v);
@@ -1657,7 +1680,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         termoEntregaTexto: '',
         etapasNecessarias: [],
         fotosPedido: [],
-        fotosControle: []
+        fotosControle: [],
+        visitaTecnicaAtiva: false,
+        visitaTecnicaData: ''
       });
         setClienteSelecionado(null);
         setEtapasSelecionadas([]);
@@ -1879,6 +1904,35 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                   rows={3}
                   required
                 />
+              </div>
+
+              {/* Visita técnica (Produto 1) */}
+              <div className="space-y-2 md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">Visita técnica</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">{formData.visitaTecnicaAtiva ? 'Sim' : 'Não'}</span>
+                    <Switch
+                      checked={formData.visitaTecnicaAtiva}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, visitaTecnicaAtiva: checked }))}
+                    />
+                  </div>
+                </div>
+                {formData.visitaTecnicaAtiva && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2 md:col-span-1">
+                      <Label htmlFor="dataVisitaTecnica">Data da visita técnica</Label>
+                      <Input
+                        id="dataVisitaTecnica"
+                        type="text"
+                        placeholder="DD/MM/AAAA"
+                        maxLength={10}
+                        value={formData.visitaTecnicaData}
+                        onChange={(e) => setFormData(prev => ({ ...prev, visitaTecnicaData: formatarData(e.target.value) }))}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Foto do Produto (principal) */}

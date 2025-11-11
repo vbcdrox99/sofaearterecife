@@ -383,6 +383,25 @@ const Producao = () => {
                               ) : (
                                 <p className="text-sm text-gray-500">Sem observações.</p>
                               )}
+                              {/* Visita técnica */}
+                              <div className="mt-3 space-y-1">
+                                <span className="font-medium">Visita técnica</span>
+                                <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                                  <p>
+                                    Status: {pedidoItem?.visita_tecnica ? 'Sim' : 'Não'}
+                                  </p>
+                                  {pedidoItem?.visita_tecnica && (
+                                    <p>
+                                      Data: {(() => {
+                                        const d = pedidoItem?.data_visita_tecnica as string | null | undefined;
+                                        if (!d) return '—';
+                                        const [ano, mes, dia] = d.split('-');
+                                        return `${dia}/${mes}/${ano}`;
+                                      })()}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
                             </DialogContent>
                           </Dialog>
                         </div>

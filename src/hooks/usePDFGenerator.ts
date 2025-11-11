@@ -20,6 +20,26 @@ interface Pedido {
 }
 
 export const usePDFGenerator = () => {
+  // Helper: formata número de telefone no padrão brasileiro
+  const formatPhoneBR = (raw?: string) => {
+    const onlyDigits = (raw || '').replace(/\D/g, '');
+    if (!onlyDigits) return raw || '';
+    let d = onlyDigits;
+    // Remove código do país (55) se presente
+    if (d.length >= 12 && d.startsWith('55')) {
+      d = d.slice(2);
+    }
+    // Celular com 11 dígitos: (AA) N NNNN-NNNN
+    if (d.length === 11) {
+      return `(${d.slice(0,2)}) ${d.slice(2,3)} ${d.slice(3,7)}-${d.slice(7,11)}`;
+    }
+    // Fixo com 10 dígitos: (AA) NNNN-NNNN
+    if (d.length === 10) {
+      return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6,10)}`;
+    }
+    // Caso não bata, retorna como informado
+    return raw || '';
+  };
   // Modo captura por imagem (html2canvas + jsPDF) — permanece disponível como fallback
   const generatePDF = useCallback(async (pedidos: Pedido[], titulo: string) => {
     try {
@@ -218,6 +238,573 @@ export const usePDFGenerator = () => {
     }
   }, []);
 
+  // PDF "Pedido do Cliente" alinhado ao layout da OS, adicionando apenas a seção Pagamento
+  const generatePedidoClientePDF = useCallback(async (pedidoId: string) => {
+    try {
+      const { data: pedido, error: pedidoError } = await supabase
+        .from('pedidos')
+        .select('*')
+        .eq('id', pedidoId)
+        .single();
+      if (pedidoError) throw pedidoError;
+
+      // Buscar dados completos do cliente (se houver cliente_id)
+      let clienteDetalhes: any | null = null;
+      if (pedido.cliente_id) {
+        const { data: clienteData, error: clienteError } = await supabase
+          .from('clientes')
+          .select('*')
+          .eq('id', pedido.cliente_id)
+          .single();
+        if (!clienteError && clienteData) {
+          clienteDetalhes = clienteData;
+        }
+      }
+
+      const { data: itens, error: itensError } = await supabase
+        .from('pedido_itens')
+        .select('*')
+        .eq('pedido_id', pedidoId)
+        .order('sequencia', { ascending: true });
+      if (itensError) throw itensError;
+
+      const { data: anexos, error: anexosError } = await supabase
+        .from('pedido_anexos')
+        .select('*')
+        .eq('pedido_id', pedidoId)
+        .order('created_at', { ascending: true });
+      if (anexosError) throw anexosError;
+
+      const numero = pedido.numero_pedido || '—';
+      const anoAtual = new Date().getFullYear();
+
+      // Mapear fotos por item como na OS
+      const fotosPedido = (anexos || []).filter((a: any) => a.descricao === 'foto_pedido');
+      const fotosPorItem: Record<string, any[]> = {};
+      (fotosPedido || []).forEach((f: any) => {
+        const chave = f.pedido_item_id ? String(f.pedido_item_id) : 'sem_item';
+        (fotosPorItem[chave] ||= []).push(f);
+      });
+      const usedPhotoIds: string[] = [];
+
+      const currency = (v?: number | null) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const safe = (s?: string | null) => s || '—';
+
+      const produtosHTML = (Array.isArray(itens) && itens.length > 0 ? itens : [{
+        descricao: pedido.descricao_sofa,
+        tipo_sofa: pedido.tipo_sofa,
+        tipo_servico: pedido.tipo_servico,
+        cor: pedido.cor,
+        dimensoes: pedido.dimensoes,
+        espuma: pedido.espuma,
+        tecido: pedido.tecido,
+        braco: pedido.braco,
+        tipo_pe: pedido.tipo_pe,
+        preco_unitario: pedido.preco_unitario || pedido.valor_total || 0,
+        observacoes: pedido.observacoes,
+      }]).map((it: any, idx: number) => {
+        const descricao = [safe(it.tipo_sofa), safe(it.tipo_servico)].filter(Boolean).join(' - ');
+        const detalhes = [
+          it.cor ? `Cor: ${it.cor}` : '',
+          it.tecido ? `Tecido: ${it.tecido}` : '',
+          it.espuma ? `Espuma: ${it.espuma}` : '',
+          it.braco ? `Braço: ${it.braco}` : '',
+          it.tipo_pe ? `Tipo Pé: ${it.tipo_pe}` : '',
+          it.dimensoes ? `Dimensões: ${it.dimensoes}` : ''
+        ].filter(Boolean).join(' • ');
+        const preco = currency(it.preco_unitario || 0);
+        const total = currency((it.preco_unitario || 0) * 1);
+
+        const fotosItem = it.id ? (fotosPorItem[it.id] || []) : (idx === 0 ? (fotosPorItem['sem_item'] || []) : []);
+        const primeiraFoto = fotosItem && fotosItem.length > 0 ? fotosItem[0] : null;
+        if (primeiraFoto?.id) usedPhotoIds.push(primeiraFoto.id);
+        const imagemItemHTML = primeiraFoto ? `
+              <div style="width:120px; min-width:120px;">
+                <img src="${primeiraFoto.url_arquivo}" style="width:120px; height:90px; object-fit:cover; border-radius:6px;" crossorigin="anonymous" />
+              </div>
+            ` : '';
+
+        return `
+          <tr>
+            <td style="padding:10px; border-bottom:1px solid #eee;">
+              <div style="display:flex; gap:12px; align-items:flex-start;">
+                ${imagemItemHTML}
+                <div style="flex:1;">
+                  <div style="font-weight:600;">${descricao || safe(it.descricao)}</div>
+                  ${detalhes ? `<div style="color:#555; font-size:12px; margin-top:4px;">${detalhes}</div>` : ''}
+                  ${it.observacoes ? `<div style="color:#885; font-size:12px; margin-top:4px;">Obs.: ${it.observacoes}</div>` : ''}
+                </div>
+              </div>
+            </td>
+            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${preco}</td>
+            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">1</td>
+            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${total}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const somaTotal = (Array.isArray(itens) ? itens.reduce((acc: number, it: any) => acc + (it.preco_unitario || 0), 0) : (pedido.valor_total || 0));
+
+      const garantiasTexto = pedido.garantia_texto || `
+        • Garantia contra defeitos de fabricação nas condições indicadas acima.
+        • A garantia não cobre danos causados por mau uso, acidentes ou exposição indevida.
+        • Em caso de necessidade, acione nossa assistência técnica pelos canais informados.
+      `;
+      const termoEntregaAtivo = pedido.termo_entrega_ativo ?? true;
+      const termoEntregaTexto = pedido.termo_entrega_texto || `
+        Recebi o produto em perfeito estado, sem defeitos de montagem ou avaria.
+        Declaro que o ITEM É FUNCIONAL e não apresenta vício aparente.
+      `;
+
+      // Preparar logo oficial com fallback igual ao da OS
+      const envLogo = (import.meta as any).env?.VITE_BRANDING_LOGO_URL as string | undefined;
+      const lsLogo = typeof window !== 'undefined' ? window.localStorage.getItem('brandingLogoUrl') : null;
+      const candidateLogos = ['/logo-sofaearte-oficial.png', '/logo-sofaearte-oficial.svg', lsLogo, envLogo].filter(Boolean) as string[];
+      const resolveLogoSrc = async (): Promise<string> => {
+        for (const url of candidateLogos) {
+          const ok = await new Promise<boolean>((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = url;
+          });
+          if (ok) return url;
+        }
+        return '/placeholder.svg';
+      };
+      const logoSrc = await resolveLogoSrc();
+      const logoImgTag = `<img src="${logoSrc}" crossorigin="anonymous" referrerpolicy="no-referrer" style="height:84px; width:auto;" />`;
+
+      const brandRed = '#B91C1C';
+      const headerHTML = `
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:20px;">
+          <div style="display:flex; align-items:center; gap:24px;">
+            ${logoImgTag}
+            <div>
+              <div style="color:${brandRed}; font-size:18px; font-weight:700; margin-bottom:2px;">Sofá & Arte Home Decor</div>
+              <div style="display:flex; flex-direction:column; gap:0; color:#222; font-size:12px;">
+                <div style="padding:2px 6px; line-height:14px;">SOFÁ & ARTE HOME DECOR LTDA</div>
+                <div style="padding:2px 6px; line-height:14px;">CNPJ: 38.827.698/0001-96</div>
+                <div style="padding:2px 6px; line-height:14px;">Rua do Aragão, 70</div>
+                <div style="padding:2px 6px; line-height:14px;">Boa Vista, Recife-PE</div>
+                <div style="padding:2px 6px; line-height:14px;">CEP 50060-150</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:220px;">
+            <div style="background:#f5f5f5; color:#111; border-radius:8px; padding:6px 10px; font-size:12px; display:flex; align-items:center; gap:6px;">
+              <!-- calendar icon -->
+              <svg style="display:block; overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              ${format(new Date(), 'dd/MM/yyyy', { locale: ptBR })}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:0; font-size:12px; color:#333; overflow:visible; min-width:260px;">
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">sofaearterecife@gmail.com</span>
+              </div>
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 97910-6729</span>
+              </div>
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 98222-6725</span>
+              </div>
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/></svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">(81) 98222-6725</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const followWhatsHTML = `
+        <div style="margin-top:10px; color:#333; font-size:12px;">Acompanhe o status do seu pedido no WhatsApp (81) 98222-6725 ou (81) 97910-6729</div>
+      `;
+
+      const instagramHTML = `
+        <div style="margin-top:2px; margin-bottom:2px; color:#444; font-size:12px; display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; width:fit-content; line-height:16px;">
+          <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"/></svg>
+          <span style="display:flex; align-items:center; height:16px; line-height:16px;">@sofaearterecife</span>
+        </div>
+      `;
+
+      const pedidoHeaderHTML = `
+        <div style="margin-top:12px; background:${brandRed}; color:#fff; border-radius:4px; padding:8px 12px; display:flex; align-items:center; justify-content:center; width:100%; text-align:center;">
+          <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; transform: translateY(-7px);">Pedido do cliente ${numero}-${anoAtual}</div>
+        </div>
+      `;
+
+      const cli = clienteDetalhes || {};
+      const cpfCnpj = cli.cpf_cnpj || '';
+      const telefone1 = pedido.cliente_telefone || cli.telefone || '';
+      const telefone2 = cli.telefone2 || '';
+      const emailCliente = pedido.cliente_email || cli.email || '';
+      const enderecoCompleto = cli.endereco_completo || pedido.cliente_endereco || '';
+      const bairro = cli.bairro || '';
+      const cidadeEstado = [cli.cidade, cli.estado].filter(Boolean).join('-');
+      const cep = cli.cep || '';
+
+      const clienteHTML = `
+        <div style="margin-top:16px; border:1px solid #eee; border-radius:8px; padding:12px; background:#fafafa;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <div style="color:#111; font-size:13px; font-weight:600;">Cliente: ${pedido.cliente_nome}</div>
+              ${cpfCnpj ? `<div style="color:#111; font-size:12px;">CPF: ${cpfCnpj}</div>` : ''}
+              ${enderecoCompleto ? `<div style="color:#111; font-size:12px;">${enderecoCompleto}</div>` : ''}
+              ${bairro || cidadeEstado ? `<div style="color:#111; font-size:12px;">${[bairro, cidadeEstado].filter(Boolean).join(', ')}</div>` : ''}
+              ${cep ? `<div style="color:#111; font-size:12px;">CEP ${cep}</div>` : ''}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end; text-align:right; color:#444; font-size:12px;">
+              ${telefone1 ? `<div style="min-height:16px; line-height:16px;">${formatPhoneBR(telefone1)}</div>` : ''}
+              ${telefone2 ? `<div style="min-height:16px; line-height:16px;">${formatPhoneBR(telefone2)}</div>` : ''}
+              ${emailCliente ? `<div style="color:#555; font-size:12px;">${emailCliente}</div>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+
+      const infosBasicasHTML = `
+        <div style="margin-top:18px;">
+          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Informações básicas</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; color:#555;">Previsão de entrega</div>
+              <div style="font-size:13px; font-weight:600;">${pedido.data_previsao_entrega ? format(new Date(pedido.data_previsao_entrega), 'dd/MM/yyyy', { locale: ptBR }) : 'A definir'}</div>
+            </div>
+            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; color:#555;">Observações</div>
+              <div style="font-size:13px;">${safe(pedido.observacoes)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const meiosPagamento = Array.isArray(pedido.meios_pagamento)
+        ? (pedido.meios_pagamento as any[]).filter(Boolean).join(', ')
+        : (pedido.meio_pagamento || pedido.meios_pagamento || '');
+
+      const pagamentoHTML = `
+        <div style="margin-top:18px;">
+          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Pagamento</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; color:#555;">Condição de pagamento</div>
+              <div style="font-size:13px; font-weight:600;">${safe(pedido.condicao_pagamento)}</div>
+            </div>
+            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; color:#555;">Meio(s) de pagamento</div>
+              <div style="font-size:13px; font-weight:600;">${meiosPagamento || '—'}</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const produtosTabelaHTML = `
+        <div style="margin-top:20px;">
+          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Produtos</div>
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr style="background:#F3F4F6;">
+                <th style="text-align:left; padding:10px; font-size:12px;">Descrição</th>
+                <th style="text-align:right; padding:10px; font-size:12px;">Preço unitário</th>
+                <th style="text-align:center; padding:10px; font-size:12px;">Qtde</th>
+                <th style="text-align:right; padding:10px; font-size:12px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${produtosHTML}
+              <tr>
+                <td colspan="3" style="padding:10px; text-align:right; font-weight:700;">Total</td>
+                <td style="padding:10px; text-align:right; font-weight:700;">${currency(somaTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      const garantiaHTML = `
+        <div style="margin-top:18px;">
+          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Garantia</div>
+          <div style="font-size:12px; color:#333; white-space:pre-line;">${garantiasTexto}</div>
+        </div>
+      `;
+
+      const termoHTML = termoEntregaAtivo ? `
+        <div style="margin-top:18px;">
+          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Termo de Entrega e Recebimento</div>
+          <div style="font-size:12px; color:#333; white-space:pre-line;">${termoEntregaTexto}</div>
+        </div>
+      ` : '';
+
+      // Monta container capturável (idêntico ao da OS, com Pagamento inserido)
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '-9999px';
+      tempDiv.style.width = '800px';
+      tempDiv.style.backgroundColor = '#fff';
+      tempDiv.style.padding = '24px';
+      tempDiv.style.fontFamily = 'Arial, sans-serif';
+      tempDiv.innerHTML = `
+        ${headerHTML}
+        ${followWhatsHTML}
+        ${instagramHTML}
+        ${pedidoHeaderHTML}
+        ${clienteHTML}
+        ${infosBasicasHTML}
+        ${pagamentoHTML}
+        ${produtosTabelaHTML}
+        ${garantiaHTML}
+        ${termoHTML}
+      `;
+      document.body.appendChild(tempDiv);
+
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: tempDiv.scrollWidth,
+        height: tempDiv.scrollHeight,
+        logging: false,
+        imageTimeout: 0
+      });
+      document.body.removeChild(tempDiv);
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = 210;
+      const pageHeight = 297;
+
+      const marginLeft = 10;
+      const marginRight = 10;
+      const marginTop = 8;    // mesma margem da OS
+      const marginBottom = 10;
+
+      const contentWidthMM = pageWidth - (marginLeft + marginRight);
+      const pageAvailMM = pageHeight - (marginTop + marginBottom);
+      const pageBreakGap = 2;
+      const pageOverlap = 0;
+
+      const pxPerMm = canvas.width / contentWidthMM;
+
+      const findSafeCutRow = (sourceCanvas: HTMLCanvasElement, suggestedEndPx: number, windowPx: number): number => {
+        const ctx = sourceCanvas.getContext('2d');
+        if (!ctx) return suggestedEndPx;
+        const width = sourceCanvas.width;
+        const start = Math.max(0, Math.floor(suggestedEndPx - windowPx));
+        const end = Math.min(sourceCanvas.height - 1, Math.floor(suggestedEndPx + windowPx));
+        const sampleStepX = Math.max(1, Math.floor(width / 96));
+        let bestRow = suggestedEndPx;
+        let bestScore = -1;
+        for (let y = start; y <= end; y++) {
+          const row = ctx.getImageData(0, y, width, 1).data;
+          let whiteCount = 0;
+          let samples = 0;
+          for (let x = 0; x < width; x += sampleStepX) {
+            const idx = x * 4;
+            const r = row[idx], g = row[idx + 1], b = row[idx + 2];
+            const v = (r + g + b) / 3;
+            if (v > 245) whiteCount++;
+            samples++;
+          }
+          const score = whiteCount / Math.max(1, samples);
+          if (score > bestScore) {
+            bestScore = score;
+            bestRow = y;
+          }
+        }
+        return bestRow;
+      };
+
+      const addPagedCanvas = (pdfDoc: jsPDF, sourceCanvas: HTMLCanvasElement): { lastYMM: number } => {
+        const firstSegmentPx = Math.max(0, Math.floor((pageAvailMM - pageBreakGap) * pxPerMm));
+        const otherSegmentPx = Math.max(0, Math.floor((pageAvailMM - pageBreakGap) * pxPerMm));
+        const scanWindowPx = Math.max(12, Math.floor(12 * pxPerMm));
+
+        const makeSlice = (startYpx: number, heightPx: number): string => {
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = sourceCanvas.width;
+          sliceCanvas.height = heightPx;
+          const ctx = sliceCanvas.getContext('2d');
+          if (!ctx) return sourceCanvas.toDataURL('image/png');
+          ctx.drawImage(sourceCanvas, 0, startYpx, sourceCanvas.width, heightPx, 0, 0, sliceCanvas.width, sliceCanvas.height);
+          return sliceCanvas.toDataURL('image/png');
+        };
+
+        let ypx = 0;
+
+        const firstEndPx = findSafeCutRow(sourceCanvas, ypx + firstSegmentPx, scanWindowPx);
+        const firstHeightPx = Math.max(0, firstEndPx - ypx);
+        const firstDataUrl = makeSlice(ypx, firstHeightPx);
+        const firstHeightMM = firstHeightPx / pxPerMm;
+        pdfDoc.addImage(firstDataUrl, 'PNG', marginLeft, marginTop, contentWidthMM, firstHeightMM);
+        pdfDoc.setFillColor(255, 255, 255);
+        pdfDoc.rect(marginLeft, pageHeight - marginBottom - pageBreakGap, contentWidthMM, pageBreakGap, 'F');
+        ypx = firstEndPx;
+        let lastYMM = marginTop + firstHeightMM;
+
+        while (ypx < sourceCanvas.height) {
+          const suggestedEndPx = ypx + otherSegmentPx;
+          const endPx = findSafeCutRow(sourceCanvas, suggestedEndPx, scanWindowPx);
+          const slicePx = Math.max(0, Math.min(endPx - ypx, sourceCanvas.height - ypx));
+          if (slicePx <= 0) break;
+
+          pdfDoc.addPage();
+          const dataUrl = makeSlice(ypx, slicePx);
+          const heightMM = slicePx / pxPerMm;
+          pdfDoc.addImage(dataUrl, 'PNG', marginLeft, marginTop, contentWidthMM, heightMM);
+          pdfDoc.setFillColor(255, 255, 255);
+          pdfDoc.rect(marginLeft, pageHeight - marginBottom - pageBreakGap, contentWidthMM, pageBreakGap, 'F');
+
+          ypx = endPx;
+          lastYMM = marginTop + heightMM;
+        }
+        return { lastYMM };
+      };
+
+      const { lastYMM } = addPagedCanvas(pdf, canvas);
+
+      // Seções de fotos iguais à OS
+      const fotosRestantes = fotosPedido.filter((f: any) => !usedPhotoIds.includes(f.id));
+      const fotosControle = (anexos || []).filter((a: any) => a.descricao === 'foto_controle');
+
+      const loadImageMeta = async (src: string): Promise<{ dataUrl: string; width: number; height: number }> => {
+        return await new Promise((resolve, reject) => {
+          try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.referrerPolicy = 'no-referrer';
+            img.onload = () => {
+              const c = document.createElement('canvas');
+              c.width = img.naturalWidth;
+              c.height = img.naturalHeight;
+              const ctx = c.getContext('2d');
+              if (!ctx) return reject(new Error('Canvas context não disponível'));
+              ctx.drawImage(img, 0, 0);
+              const dataUrl = c.toDataURL('image/jpeg', 0.92);
+              resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+            };
+            img.onerror = async () => {
+              try {
+                const resp = await fetch(src, { mode: 'cors', cache: 'no-cache' });
+                if (!resp.ok) throw new Error('Falha ao buscar imagem');
+                const blob = await resp.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  const dataUrl = reader.result as string;
+                  resolve({ dataUrl, width: 1200, height: 900 });
+                };
+                reader.onerror = (e) => reject(e);
+                reader.readAsDataURL(blob);
+              } catch (e) {
+                reject(e);
+              }
+            };
+            img.src = src;
+          } catch (e) {
+            reject(e);
+          }
+        });
+      };
+
+      const addPhotosSection = async (tituloSecao: string, fotos: any[], startY?: number) => {
+        if (!fotos || fotos.length === 0) return;
+        const cols = 3;
+        const gap = 6;
+        const contentW = pageWidth - (marginLeft + marginRight);
+        const cellW = (contentW - gap * (cols - 1)) / cols;
+        const cellH = 60;
+
+        let y = typeof startY === 'number' ? startY : (marginTop + 8);
+        const titleHeight = 6;
+        if (y + titleHeight > pageHeight - marginBottom) {
+          pdf.addPage();
+          y = marginTop + 8;
+        }
+        pdf.setFontSize(14);
+        pdf.setTextColor(17);
+        pdf.text(tituloSecao, marginLeft, y - 2);
+
+        let x = marginLeft;
+        y += 6;
+        let colIndex = 0;
+
+        for (const f of fotos) {
+          if (y + cellH > pageHeight - marginBottom) {
+            pdf.addPage();
+            pdf.setFontSize(14);
+            pdf.setTextColor(17);
+            pdf.text(tituloSecao, marginLeft, marginTop);
+            y = marginTop + 8;
+            colIndex = 0;
+            x = marginLeft;
+          }
+
+          let meta: { dataUrl: string; width: number; height: number } | null = null;
+          try {
+            meta = await loadImageMeta(f.url_arquivo);
+          } catch (e) {
+            meta = null;
+          }
+
+          try {
+            let imgWmm = cellW;
+            let imgHmm = cellH;
+            if (meta) {
+              const ar = meta.width / meta.height;
+              imgWmm = cellW;
+              imgHmm = cellW / ar;
+              if (imgHmm > cellH) {
+                imgHmm = cellH;
+                imgWmm = cellH * ar;
+              }
+            }
+
+            const drawX = x + (cellW - imgWmm) / 2;
+            const drawY = y + (cellH - imgHmm) / 2;
+
+            pdf.addImage((meta?.dataUrl || f.url_arquivo), 'JPEG', drawX, drawY, imgWmm, imgHmm);
+          } catch (e) {
+            pdf.setFontSize(10);
+            pdf.setTextColor(150);
+            pdf.rect(x, y, cellW, cellH);
+            pdf.text('Imagem não pôde ser carregada', x + 4, y + cellH / 2);
+          }
+
+          try {
+            const dateStr = f.created_at ? format(new Date(f.created_at), 'dd/MM/yyyy', { locale: ptBR }) : '';
+            if (dateStr) {
+              pdf.setFontSize(9);
+              pdf.setTextColor(85);
+              pdf.text(dateStr, x + 2, y + cellH + 4);
+            }
+          } catch {}
+
+          colIndex++;
+          if (colIndex >= cols) {
+            colIndex = 0;
+            x = marginLeft;
+            y += cellH + 12;
+          } else {
+            x += cellW + gap;
+          }
+        }
+      };
+
+      const startYPhotos = Math.min(pageHeight - marginBottom, lastYMM + 10);
+      await addPhotosSection('Fotos do pedido', fotosRestantes, startYPhotos);
+      await addPhotosSection('Fotos de controle', fotosControle, startYPhotos);
+
+      const fileName = `pedido-cliente-${numero}.pdf`;
+      pdf.save(fileName);
+    } catch (err) {
+      console.error('Erro ao gerar PDF do cliente:', err);
+    }
+  }, []);
+
   // PDF por Pedido (busca Supabase e gera layout multi-seções)
   const generatePedidoPDF = useCallback(async (pedidoId: string) => {
     try {
@@ -227,6 +814,19 @@ export const usePDFGenerator = () => {
         .eq('id', pedidoId)
         .single();
       if (pedidoError) throw pedidoError;
+
+      // Buscar dados completos do cliente (se houver cliente_id)
+      let clienteDetalhes: any | null = null;
+      if (pedido.cliente_id) {
+        const { data: clienteData, error: clienteError } = await supabase
+          .from('clientes')
+          .select('*')
+          .eq('id', pedido.cliente_id)
+          .single();
+        if (!clienteError && clienteData) {
+          clienteDetalhes = clienteData;
+        }
+      }
 
       const { data: itens, error: itensError } = await supabase
         .from('pedido_itens')
@@ -346,34 +946,97 @@ export const usePDFGenerator = () => {
         return '/placeholder.svg';
       };
       const logoSrc = await resolveLogoSrc();
-      const logoImgTag = `<img src="${logoSrc}" crossorigin="anonymous" referrerpolicy="no-referrer" style="height:56px; width:auto;" />`;
-      
+      const logoImgTag = `<img src="${logoSrc}" crossorigin="anonymous" referrerpolicy="no-referrer" style="height:84px; width:auto;" />`;
+
+      const brandRed = '#B91C1C';
       const headerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
-          <div style="display:flex; align-items:center; gap:12px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:20px;">
+          <div style="display:flex; align-items:center; gap:24px;">
             ${logoImgTag}
             <div>
-              <div style="color:#222; font-size:12px; line-height:1.4;">
-                <div>SOFÁ & ARTE HOME DECOR LTDA</div>
-                <div>CNPJ: 38.827.698/0001-96</div>
-                <div>Rua do Aragão, 70 • Boa Vista, Recife-PE</div>
-                <div>CEP 50060-150</div>
-                <div>Email: sofaearterecife@gmail.com</div>
-                <div>Telefones: +55 (81) 97910-6729 • +55 (81) 98222-6725</div>
+              <div style="color:${brandRed}; font-size:18px; font-weight:700; margin-bottom:2px;">Sofá & Arte Home Decor</div>
+              <div style="display:flex; flex-direction:column; gap:0; color:#222; font-size:12px;">
+                <div style="padding:2px 6px; line-height:14px;">SOFÁ & ARTE HOME DECOR LTDA</div>
+                <div style="padding:2px 6px; line-height:14px;">CNPJ: 38.827.698/0001-96</div>
+                <div style="padding:2px 6px; line-height:14px;">Rua do Aragão, 70</div>
+                <div style="padding:2px 6px; line-height:14px;">Boa Vista, Recife-PE</div>
+                <div style="padding:2px 6px; line-height:14px;">CEP 50060-150</div>
               </div>
             </div>
           </div>
-          <div style="text-align:right;">
-            <div style="font-size:11px; color:#555;">Recife, ${format(new Date(), 'dd/MM/yyyy', { locale: ptBR })}</div>
-            <div style="font-size:28px; font-weight:700; color:#111;">Orçamento ${numero}-${anoAtual}</div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:220px;">
+            <div style="background:#f5f5f5; color:#111; border-radius:8px; padding:6px 10px; font-size:12px; display:flex; align-items:center; gap:6px;">
+              <!-- calendar icon -->
+              <svg style="display:block; overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              ${format(new Date(), 'dd/MM/yyyy', { locale: ptBR })}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:0; font-size:12px; color:#333; overflow:visible; min-width:260px;">
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">sofaearterecife@gmail.com</span>
+              </div>
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 97910-6729</span>
+              </div>
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 98222-6725</span>
+              </div>
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/></svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">(81) 98222-6725</span>
+              </div>
+            </div>
           </div>
         </div>
       `;
 
+      const followWhatsHTML = `
+        <div style="margin-top:10px; color:#333; font-size:12px;">Acompanhe o status do seu pedido no WhatsApp (81) 98222-6725 ou (81) 97910-6729</div>
+      `;
+
+      const instagramHTML = `
+        <div style="margin-top:2px; margin-bottom:2px; color:#444; font-size:12px; display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; width:fit-content; line-height:16px;">
+          <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"/></svg>
+          <span style="display:flex; align-items:center; height:16px; line-height:16px;">@sofaearterecife</span>
+        </div>
+      `;
+
+      const osHeaderHTML = `
+        <div style="margin-top:12px; background:${brandRed}; color:#fff; border-radius:4px; padding:8px 12px; display:flex; align-items:center; justify-content:center; width:100%; text-align:center;">
+          <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; transform: translateY(-7px);">Ordem de serviço ${numero}-${anoAtual}</div>
+        </div>
+      `;
+
+      const cli = clienteDetalhes || {};
+      const cpfCnpj = cli.cpf_cnpj || '';
+      const telefone1 = pedido.cliente_telefone || cli.telefone || '';
+      const telefone2 = cli.telefone2 || '';
+      const emailCliente = pedido.cliente_email || cli.email || '';
+      const enderecoCompleto = cli.endereco_completo || pedido.cliente_endereco || '';
+      const bairro = cli.bairro || '';
+      const cidadeEstado = [cli.cidade, cli.estado].filter(Boolean).join('-');
+      const cep = cli.cep || '';
+
+      
+
       const clienteHTML = `
-        <div style="margin-top:16px;">
-          <div style="font-size:16px; font-weight:700; color:#111;">Cliente: ${pedido.cliente_nome}</div>
-          <div style="color:#555; font-size:12px;">Telefone: ${safe(pedido.cliente_telefone)} • Email: ${safe(pedido.cliente_email)}</div>
+        <div style="margin-top:16px; border:1px solid #eee; border-radius:8px; padding:12px; background:#fafafa;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <div style="color:#111; font-size:13px; font-weight:600;">Cliente: ${pedido.cliente_nome}</div>
+              ${cpfCnpj ? `<div style="color:#111; font-size:12px;">CPF: ${cpfCnpj}</div>` : ''}
+              ${enderecoCompleto ? `<div style="color:#111; font-size:12px;">${enderecoCompleto}</div>` : ''}
+              ${bairro || cidadeEstado ? `<div style="color:#111; font-size:12px;">${[bairro, cidadeEstado].filter(Boolean).join(', ')}</div>` : ''}
+              ${cep ? `<div style="color:#111; font-size:12px;">CEP ${cep}</div>` : ''}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end; text-align:right; color:#444; font-size:12px;">
+              ${telefone1 ? `<div style="min-height:16px; line-height:16px;">${formatPhoneBR(telefone1)}</div>` : ''}
+              ${telefone2 ? `<div style="min-height:16px; line-height:16px;">${formatPhoneBR(telefone2)}</div>` : ''}
+              ${emailCliente ? `<div style="color:#555; font-size:12px;">${emailCliente}</div>` : ''}
+            </div>
+          </div>
         </div>
       `;
 
@@ -452,7 +1115,7 @@ export const usePDFGenerator = () => {
           <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
             ${fotosControle.map((f: any) => `
               <div style="border:1px solid #eee; border-radius:8px; padding:8px; background:#FAFAFA;">
-                <img src="${f.url_arquivo}" style="width:100%; height:auto; object-fit:cover; border-radius:6px;" crossorigin="anonymous" />
+                <img src="${f.url_arquivo}" style="width:100%; height:auto; object-fit:contain; border-radius:6px;" crossorigin="anonymous" />
                 <div style="font-size:11px; color:#555; margin-top:6px;">${format(new Date(f.created_at), 'dd/MM/yyyy', { locale: ptBR })}</div>
               </div>
             `).join('')}
@@ -470,14 +1133,17 @@ export const usePDFGenerator = () => {
       tempDiv.style.backgroundColor = '#fff';
       tempDiv.style.padding = '24px';
       tempDiv.style.fontFamily = 'Arial, sans-serif';
+      // Removido fotosHTML do bloco capturado para evitar cortes nas imagens ao dividir páginas.
       tempDiv.innerHTML = `
         ${headerHTML}
+        ${followWhatsHTML}
+        ${instagramHTML}
+        ${osHeaderHTML}
         ${clienteHTML}
         ${infosBasicasHTML}
         ${produtosTabelaHTML}
         ${garantiaHTML}
         ${termoHTML}
-        ${fotosHTML}
       `;
       document.body.appendChild(tempDiv);
 
@@ -500,36 +1166,102 @@ export const usePDFGenerator = () => {
 
       const marginLeft = 10;
       const marginRight = 10;
-      const marginTop = 12;  // margem superior ligeiramente maior
-      const marginBottom = 22; // margem inferior maior para evitar conteúdo colado na base
+      const marginTop = 8;    // margem superior (reduzida)
+      const marginBottom = 10; // margem inferior (reduzida)
 
-      const imgWidth = pageWidth - (marginLeft + marginRight);
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const contentWidthMM = pageWidth - (marginLeft + marginRight);
+      const pageAvailMM = pageHeight - (marginTop + marginBottom);
+      const pageBreakGap = 2;  // espaço em branco entre páginas (visível, reduzido)
+      const pageOverlap = 0;   // sem sobreposição para evitar repetição de linha
 
-      let heightLeft = imgHeight;
-      let position = marginTop;
-      const pageBreakGap = 12; // mm de espaço real entre páginas
+      // Relação pixels/mm ao escalar o canvas para a largura útil do PDF
+      const pxPerMm = canvas.width / contentWidthMM;
 
-      if (imgHeight <= pageHeight - (marginTop + marginBottom + pageBreakGap)) {
-        const yPosition = (pageHeight - imgHeight) / 2;
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', marginLeft, yPosition, imgWidth, imgHeight);
-      } else {
-        // Primeira página
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', marginLeft, position, imgWidth, imgHeight);
-        heightLeft -= (pageHeight - (marginTop + marginBottom + pageBreakGap));
-
-        // Páginas subsequentes com gap real
-        while (heightLeft > 0) {
-          pdf.addPage();
-          // Calcular nova posição considerando o gap
-          position = -(imgHeight - heightLeft) + marginTop + pageBreakGap;
-          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', marginLeft, position, imgWidth, imgHeight);
-          heightLeft -= (pageHeight - (marginTop + marginBottom + pageBreakGap));
+      // Encontra uma linha de corte segura (faixa com maioria branca) próxima ao fim sugerido
+      const findSafeCutRow = (sourceCanvas: HTMLCanvasElement, suggestedEndPx: number, windowPx: number): number => {
+        const ctx = sourceCanvas.getContext('2d');
+        if (!ctx) return suggestedEndPx;
+        const width = sourceCanvas.width;
+        const start = Math.max(0, Math.floor(suggestedEndPx - windowPx));
+        const end = Math.min(sourceCanvas.height - 1, Math.floor(suggestedEndPx + windowPx));
+        const sampleStepX = Math.max(1, Math.floor(width / 96));
+        let bestRow = suggestedEndPx;
+        let bestScore = -1;
+        for (let y = start; y <= end; y++) {
+          const row = ctx.getImageData(0, y, width, 1).data;
+          let whiteCount = 0;
+          let samples = 0;
+          for (let x = 0; x < width; x += sampleStepX) {
+            const idx = x * 4;
+            const r = row[idx], g = row[idx + 1], b = row[idx + 2];
+            const v = (r + g + b) / 3; // brilho simples
+            if (v > 245) whiteCount++;
+            samples++;
+          }
+          const score = whiteCount / Math.max(1, samples);
+          if (score > bestScore) {
+            bestScore = score;
+            bestRow = y;
+          }
         }
-      }
+        return bestRow;
+      };
+
+      // Função que recorta o canvas em segmentos e insere no PDF com gap visível
+      const addPagedCanvas = (pdfDoc: jsPDF, sourceCanvas: HTMLCanvasElement): { lastYMM: number } => {
+        const firstSegmentPx = Math.max(0, Math.floor((pageAvailMM - pageBreakGap) * pxPerMm));
+        const otherSegmentPx = Math.max(0, Math.floor((pageAvailMM - pageBreakGap) * pxPerMm));
+        const scanWindowPx = Math.max(12, Math.floor(12 * pxPerMm)); // ~12mm em px
+
+        const makeSlice = (startYpx: number, heightPx: number): string => {
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = sourceCanvas.width;
+          sliceCanvas.height = heightPx;
+          const ctx = sliceCanvas.getContext('2d');
+          if (!ctx) return sourceCanvas.toDataURL('image/png');
+          ctx.drawImage(sourceCanvas, 0, startYpx, sourceCanvas.width, heightPx, 0, 0, sliceCanvas.width, sliceCanvas.height);
+          return sliceCanvas.toDataURL('image/png');
+        };
+
+        let ypx = 0;
+
+        // Primeira página — ajusta o fim para uma linha branca próxima
+        const firstEndPx = findSafeCutRow(sourceCanvas, ypx + firstSegmentPx, scanWindowPx);
+        const firstHeightPx = Math.max(0, firstEndPx - ypx);
+        const firstDataUrl = makeSlice(ypx, firstHeightPx);
+        const firstHeightMM = firstHeightPx / pxPerMm;
+        pdfDoc.addImage(firstDataUrl, 'PNG', marginLeft, marginTop, contentWidthMM, firstHeightMM);
+        // Gap visível no rodapé
+        pdfDoc.setFillColor(255, 255, 255);
+        pdfDoc.rect(marginLeft, pageHeight - marginBottom - pageBreakGap, contentWidthMM, pageBreakGap, 'F');
+        ypx = firstEndPx;
+        let lastYMM = marginTop + firstHeightMM;
+
+        // Demais páginas
+        while (ypx < sourceCanvas.height) {
+          const suggestedEndPx = ypx + otherSegmentPx;
+          const endPx = findSafeCutRow(sourceCanvas, suggestedEndPx, scanWindowPx);
+          const slicePx = Math.max(0, Math.min(endPx - ypx, sourceCanvas.height - ypx));
+          if (slicePx <= 0) break;
+
+          pdfDoc.addPage();
+          const dataUrl = makeSlice(ypx, slicePx);
+          const heightMM = slicePx / pxPerMm;
+          pdfDoc.addImage(dataUrl, 'PNG', marginLeft, marginTop, contentWidthMM, heightMM);
+          // Gap visível no rodapé
+          pdfDoc.setFillColor(255, 255, 255);
+          pdfDoc.rect(marginLeft, pageHeight - marginBottom - pageBreakGap, contentWidthMM, pageBreakGap, 'F');
+
+          ypx = endPx;
+          lastYMM = marginTop + heightMM;
+        }
+        return { lastYMM };
+      };
+
+      const { lastYMM } = addPagedCanvas(pdf, canvas);
 
       // --- NOVO: Páginas de fotos sem cortes ---
-      const loadImageDataUrl = async (src: string): Promise<string> => {
+      const loadImageMeta = async (src: string): Promise<{ dataUrl: string; width: number; height: number }> => {
         return await new Promise((resolve, reject) => {
           try {
             const img = new Image();
@@ -542,9 +1274,25 @@ export const usePDFGenerator = () => {
               const ctx = c.getContext('2d');
               if (!ctx) return reject(new Error('Canvas context não disponível'));
               ctx.drawImage(img, 0, 0);
-              resolve(c.toDataURL('image/jpeg', 0.92));
+              const dataUrl = c.toDataURL('image/jpeg', 0.92);
+              resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
             };
-            img.onerror = (e) => reject(e);
+            img.onerror = async () => {
+              try {
+                const resp = await fetch(src, { mode: 'cors', cache: 'no-cache' });
+                if (!resp.ok) throw new Error('Falha ao buscar imagem');
+                const blob = await resp.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  const dataUrl = reader.result as string;
+                  resolve({ dataUrl, width: 1200, height: 900 });
+                };
+                reader.onerror = (e) => reject(e);
+                reader.readAsDataURL(blob);
+              } catch (e) {
+                reject(e);
+              }
+            };
             img.src = src;
           } catch (e) {
             reject(e);
@@ -552,7 +1300,7 @@ export const usePDFGenerator = () => {
         });
       };
 
-      const addPhotosSection = async (tituloSecao: string, fotos: any[]) => {
+      const addPhotosSection = async (tituloSecao: string, fotos: any[], startY?: number) => {
         if (!fotos || fotos.length === 0) return;
         // Inserir um cabeçalho e grid 3-colunas, mantendo imagens inteiras (contain)
         const cols = 3;
@@ -561,14 +1309,21 @@ export const usePDFGenerator = () => {
         const cellW = (contentW - gap * (cols - 1)) / cols; // mm
         const cellH = 60; // mm por célula (altura suficiente para manter proporções)
 
-        // Começar nova página para a seção
-        pdf.addPage();
+        // Decidir posição inicial: tentar continuar na mesma página logo abaixo do último texto
+        let y = typeof startY === 'number' ? startY : (marginTop + 8);
+        // Espaço necessário para título
+        const titleHeight = 6; // mm aproximado
+        // Se não couber o título na página atual, ir para nova página
+        if (y + titleHeight > pageHeight - marginBottom) {
+          pdf.addPage();
+          y = marginTop + 8;
+        }
         pdf.setFontSize(14);
         pdf.setTextColor(17); // #111
-        pdf.text(tituloSecao, marginLeft, marginTop);
+        pdf.text(tituloSecao, marginLeft, y - 2);
 
         let x = marginLeft;
-        let y = marginTop + 8; // espaço abaixo do título
+        y += 6; // espaço abaixo do título
         let colIndex = 0;
 
         for (const f of fotos) {
@@ -583,13 +1338,13 @@ export const usePDFGenerator = () => {
             x = marginLeft;
           }
 
-          // Pré-carregar imagem como dataURL para evitar CORS
-          let dataUrl: string | null = null;
+          // Pré-carregar imagem e metadados para ajustar proporção
+          let meta: { dataUrl: string; width: number; height: number } | null = null;
           try {
-            dataUrl = await loadImageDataUrl(f.url_arquivo);
+            meta = await loadImageMeta(f.url_arquivo);
           } catch (e) {
             // Se falhar, tentar usar diretamente a URL (pode não funcionar em todos os casos)
-            dataUrl = null;
+            meta = null;
           }
 
           // Tentar adicionar imagem
@@ -598,18 +1353,22 @@ export const usePDFGenerator = () => {
             // Assumir proporção 4:3 como default se não conseguirmos natural sizes
             let imgWmm = cellW;
             let imgHmm = cellH;
-            if (dataUrl) {
-              // Sem metadados de naturalWidth/Height; manter contain por célula
-              // Usamos contain simplificando: caber em cellW x cellH
+            if (meta) {
+              // Ajustar proporção para "contain" dentro da célula
+              const ar = meta.width / meta.height; // width/height
               imgWmm = cellW;
-              imgHmm = cellH;
+              imgHmm = cellW / ar; // altura correspondente
+              if (imgHmm > cellH) {
+                imgHmm = cellH;
+                imgWmm = cellH * ar;
+              }
             }
 
             // Centralizar dentro da célula
             const drawX = x + (cellW - imgWmm) / 2;
             const drawY = y + (cellH - imgHmm) / 2;
 
-            pdf.addImage(dataUrl || f.url_arquivo, 'JPEG', drawX, drawY, imgWmm, imgHmm);
+            pdf.addImage((meta?.dataUrl || f.url_arquivo), 'JPEG', drawX, drawY, imgWmm, imgHmm);
           } catch (e) {
             // Se houver erro na imagem, renderizar um placeholder
             pdf.setFontSize(10);
@@ -643,8 +1402,10 @@ export const usePDFGenerator = () => {
       };
 
       // Construir páginas específicas para fotos (pedido e controle)
-      await addPhotosSection('Fotos do pedido', fotosRestantes);
-      await addPhotosSection('Fotos de controle', fotosControle);
+      // Iniciar "Fotos" logo abaixo do último conteúdo, com uma pequena margem
+      const startYPhotos = Math.min(pageHeight - marginBottom, lastYMM + 10);
+      await addPhotosSection('Fotos do pedido', fotosRestantes, startYPhotos);
+      await addPhotosSection('Fotos de controle', fotosControle, startYPhotos);
 
       const fileName = `pedido-${numero}.pdf`;
       pdf.save(fileName);
@@ -701,5 +1462,5 @@ export const usePDFGenerator = () => {
     doPrint?.();
   };
 
-  return { generatePDF, generatePedidoPDF, printRef, printCurrentView, isPrinting };
+  return { generatePDF, generatePedidoPDF, generatePedidoClientePDF, printRef, printCurrentView, isPrinting };
 };
