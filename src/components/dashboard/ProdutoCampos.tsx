@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ImageUpload, { UploadedImage } from '@/components/ImageUpload';
+import DiscountInput from './DiscountInput';
 
 export interface ProdutoValues {
   descricao: string;
@@ -20,12 +21,14 @@ export interface ProdutoValues {
   tecido: string;
   braco: string;
   tipoPe: string;
+  descontoTipo: 'percentage' | 'fixed';
+  descontoValor: number;
 }
 
 interface ProdutoCamposProps {
   titulo?: string;
   values: ProdutoValues;
-  onChange: (field: keyof ProdutoValues, value: string) => void;
+  onChange: (field: keyof ProdutoValues, value: any) => void;
   onFotosChange: (images: UploadedImage[]) => void;
   onDimensaoChange: (field: 'dimensaoLargura' | 'dimensaoComprimento', value: string) => void;
   imageFolder: string;
@@ -267,8 +270,17 @@ const ProdutoCampos = ({
           value={values.precoUnitario}
           onChange={(e) => onChange('precoUnitario', e.target.value)}
           placeholder="Ex: 199.90"
+          className="w-full"
         />
       </div>
+
+      <DiscountInput
+        price={parseFloat(values.precoUnitario) || 0}
+        discountType={values.descontoTipo || 'percentage'}
+        discountValue={values.descontoValor || 0}
+        onDiscountTypeChange={(type) => onChange('descontoTipo', type)}
+        onDiscountValueChange={(value) => onChange('descontoValor', value)}
+      />
 
       <div className="space-y-2">
         <Label>Espuma</Label>

@@ -277,6 +277,7 @@ export type Database = {
           garantia_tipo: string | null
           garantia_valor: number | null
           id: string
+          loja: Database["public"]["Enums"]["app_store"]
           meios_pagamento: string[] | null
           numero_pedido: number
           observacoes: string | null
@@ -315,6 +316,7 @@ export type Database = {
           garantia_tipo?: string | null
           garantia_valor?: number | null
           id?: string
+          loja?: Database["public"]["Enums"]["app_store"]
           meios_pagamento?: string[] | null
           numero_pedido?: number
           observacoes?: string | null
@@ -353,6 +355,7 @@ export type Database = {
           garantia_tipo?: string | null
           garantia_valor?: number | null
           id?: string
+          loja?: Database["public"]["Enums"]["app_store"]
           meios_pagamento?: string[] | null
           numero_pedido?: number
           observacoes?: string | null
@@ -432,6 +435,9 @@ export type Database = {
           created_at: string
           id: string
           nome_completo: string
+          role: Database["public"]["Enums"]["app_role"]
+          sector: Database["public"]["Enums"]["app_sector"]
+          store: Database["public"]["Enums"]["app_store"]
           tipo: Database["public"]["Enums"]["tipo_usuario"]
           updated_at: string
           user_id: string
@@ -440,6 +446,9 @@ export type Database = {
           created_at?: string
           id?: string
           nome_completo: string
+          role?: Database["public"]["Enums"]["app_role"]
+          sector?: Database["public"]["Enums"]["app_sector"]
+          store?: Database["public"]["Enums"]["app_store"]
           tipo?: Database["public"]["Enums"]["tipo_usuario"]
           updated_at?: string
           user_id: string
@@ -448,6 +457,9 @@ export type Database = {
           created_at?: string
           id?: string
           nome_completo?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          sector?: Database["public"]["Enums"]["app_sector"]
+          store?: Database["public"]["Enums"]["app_store"]
           tipo?: Database["public"]["Enums"]["tipo_usuario"]
           updated_at?: string
           user_id?: string
@@ -465,6 +477,9 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "gerente" | "funcionario"
+      app_store: "loja_1" | "loja_2"
+      app_sector: "geral" | "marcenaria" | "corte_costura" | "espuma" | "bancada" | "tecido"
       etapa_producao:
         | "marcenaria"
         | "corte_costura"
@@ -601,6 +616,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "gerente", "funcionario"],
+      app_store: ["loja_1", "loja_2"],
+      app_sector: ["geral", "marcenaria", "corte_costura", "espuma", "bancada", "tecido"],
       etapa_producao: [
         "marcenaria",
         "corte_costura",

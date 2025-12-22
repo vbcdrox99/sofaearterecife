@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 const Pedidos = () => {
   const { toast } = useToast();
+  const { selectedStore } = useAuth();
   const navigate = useNavigate();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,12 +35,12 @@ const Pedidos = () => {
   // Carregar pedidos do banco de dados
   useEffect(() => {
     carregarPedidos();
-  }, []);
+  }, [selectedStore]);
 
   const carregarPedidos = async () => {
     try {
       setLoading(true);
-      const dados = await pedidosService.getAll();
+      const dados = await pedidosService.getAll(selectedStore);
       setPedidos(dados || []);
       // Carregar itens de todos os pedidos e criar visão por item (#N, #N/2, ...)
       const ids = (dados || []).map(p => p.id).filter(Boolean);

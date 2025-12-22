@@ -14,10 +14,18 @@ import {
   Menu,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Store
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -40,7 +48,7 @@ type NavItem = {
 };
 
 const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollapse }: SidebarProps) => {
-  const { profile, signOut, isAdmin } = useAuth();
+  const { profile, signOut, isAdmin, selectedStore, setSelectedStore } = useAuth();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(false);
 
@@ -63,7 +71,7 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
 
   const navigationItems: NavItem[] = [
     {
-      name: 'Dashboard',
+      name: 'Administração',
       href: '/dashboard',
       icon: BarChart3,
       description: 'Visão geral do sistema',
@@ -119,12 +127,16 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
       href: '/dashboard/estoque',
       icon: Package2,
       description: 'Gerenciar materiais',
+      disabled: true,
+      disabledNote: 'Em breve',
     },
     {
       name: 'Relatórios',
       href: '/dashboard/relatorios',
       icon: BarChart3,
       description: 'Relatórios e análises',
+      disabled: true,
+      disabledNote: 'Em breve',
     },
   ];
 
@@ -174,12 +186,12 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
                   <div>
                     <h1 className="text-lg font-bold text-gradient">Sofá e Arte</h1>
                     <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
-                  </div>
-                )}
-              </div>
-              
-              {/* Close button for mobile */}
-              {isMobile && (
+                </div>
+              )}
+            </div>
+
+            {/* Close button for mobile */}
+            {isMobile && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -202,6 +214,25 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
                 </Button>
               )}
             </div>
+
+            {/* Store Selector for Admin */}
+            {!isCollapsed && isAdmin && (
+              <div className="mb-4">
+                <Select value={selectedStore} onValueChange={(v: any) => setSelectedStore(v)}>
+                  <SelectTrigger className="w-full h-8 text-xs bg-muted/50 border-muted">
+                    <div className="flex items-center gap-2">
+                      <Store className="w-3 h-3" />
+                      <SelectValue placeholder="Selecione a Loja" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas as Lojas</SelectItem>
+                    <SelectItem value="loja_1">Loja 1</SelectItem>
+                    <SelectItem value="loja_2">Loja 2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           
           {/* User info */}
           {!isCollapsed && (

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Pedido {
   id: string;
   numero_pedido: number;
+  loja: 'loja_1' | 'loja_2';
   cliente_nome: string;
   cliente_telefone: string;
   cliente_endereco?: string;
@@ -42,13 +44,20 @@ export const usePedidos = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { selectedStore } = useAuth();
 
   const fetchPedidos = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('pedidos')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (selectedStore && selectedStore !== 'todas') {
+        query = query.eq('loja', selectedStore);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setPedidos(data || []);
@@ -63,6 +72,10 @@ export const usePedidos = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchPedidos();
+  }, [selectedStore]);
 
   const criarPedido = async (dadosPedido: NovoPedidoData) => {
     try {

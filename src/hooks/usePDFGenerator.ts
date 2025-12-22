@@ -290,6 +290,18 @@ export const usePDFGenerator = () => {
       const currency = (v?: number | null) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       const safe = (s?: string | null) => s || '—';
 
+      // Função auxiliar de desconto
+      const calculateFinalPrice = (price: number, type: string, value: number) => {
+        if (!price) return 0;
+        if (type === 'percentage') {
+          return price * (1 - value / 100);
+        } else {
+          return Math.max(0, price - value);
+        }
+      };
+
+      let totalProdutosCalculado = 0;
+
       const produtosHTML = (Array.isArray(itens) && itens.length > 0 ? itens : [{
         descricao: pedido.descricao_sofa,
         tipo_sofa: pedido.tipo_sofa,
@@ -312,8 +324,31 @@ export const usePDFGenerator = () => {
           it.tipo_pe ? `Tipo Pé: ${it.tipo_pe}` : '',
           it.dimensoes ? `Dimensões: ${it.dimensoes}` : ''
         ].filter(Boolean).join(' • ');
-        const preco = currency(it.preco_unitario || 0);
-        const total = currency((it.preco_unitario || 0) * 1);
+
+        // Cálculos de preço item a item
+        const precoUnitario = it.preco_unitario || 0;
+        const descontoTipo = it.desconto_tipo || 'fixed';
+        const descontoValor = it.desconto_valor || 0;
+        const precoFinal = calculateFinalPrice(precoUnitario, descontoTipo, descontoValor);
+        
+        totalProdutosCalculado += precoFinal;
+
+        const precoOriginalStr = currency(precoUnitario);
+        const precoFinalStr = currency(precoFinal);
+
+        // Exibição com strikethrough se houver desconto
+        let priceDisplay = precoFinalStr;
+        let totalDisplay = precoFinalStr; // Assumindo qtde 1
+
+        if (descontoValor > 0) {
+             const discountLabel = descontoTipo === 'percentage' ? `${descontoValor}%` : currency(descontoValor);
+             priceDisplay = `
+               <div style="text-decoration: line-through; color: #999; font-size: 10px;">${precoOriginalStr}</div>
+               <div>${precoFinalStr}</div>
+               <div style="color: #16a34a; font-size: 10px;">(-${discountLabel})</div>
+             `;
+             totalDisplay = precoFinalStr;
+        }
 
         const fotosItem = it.id ? (fotosPorItem[it.id] || []) : (idx === 0 ? (fotosPorItem['sem_item'] || []) : []);
         const primeiraFoto = fotosItem && fotosItem.length > 0 ? fotosItem[0] : null;
@@ -336,20 +371,34 @@ export const usePDFGenerator = () => {
                 </div>
               </div>
             </td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${preco}</td>
+            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${priceDisplay}</td>
             <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">1</td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${total}</td>
+            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${totalDisplay}</td>
           </tr>
         `;
       }).join('');
 
-      const somaTotal = (Array.isArray(itens) ? itens.reduce((acc: number, it: any) => acc + (it.preco_unitario || 0), 0) : (pedido.valor_total || 0));
+      // Cálculos finais do pedido (Frete + Desconto Global)
+      const frete = pedido.frete || 0;
+      const subtotal = totalProdutosCalculado + frete;
+      
+      const pedidoDescontoTipo = pedido.desconto_tipo || 'fixed';
+      const pedidoDescontoValor = pedido.desconto_valor || 0;
+      const totalFinal = calculateFinalPrice(subtotal, pedidoDescontoTipo, pedidoDescontoValor);
+      
+      let discountLabelPedido = '';
+      if (pedidoDescontoValor > 0) {
+        discountLabelPedido = pedidoDescontoTipo === 'percentage' 
+          ? `${pedidoDescontoValor}% (${currency(subtotal - totalFinal)})` 
+          : currency(pedidoDescontoValor);
+      }
 
       const garantiasTexto = pedido.garantia_texto || `
         • Garantia contra defeitos de fabricação nas condições indicadas acima.
         • A garantia não cobre danos causados por mau uso, acidentes ou exposição indevida.
         • Em caso de necessidade, acione nossa assistência técnica pelos canais informados.
       `;
+
       const termoEntregaAtivo = pedido.termo_entrega_ativo ?? true;
       const termoEntregaTexto = pedido.termo_entrega_texto || `
         Recebi o produto em perfeito estado, sem defeitos de montagem ou avaria.
@@ -482,22 +531,12 @@ export const usePDFGenerator = () => {
         </div>
       `;
 
-      const meiosPagamento = Array.isArray(pedido.meios_pagamento)
-        ? (pedido.meios_pagamento as any[]).filter(Boolean).join(', ')
-        : (pedido.meio_pagamento || pedido.meios_pagamento || '');
-
       const pagamentoHTML = `
         <div style="margin-top:18px;">
           <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Pagamento</div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
-              <div style="font-size:12px; color:#555;">Condição de pagamento</div>
-              <div style="font-size:13px; font-weight:600;">${safe(pedido.condicao_pagamento)}</div>
-            </div>
-            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
-              <div style="font-size:12px; color:#555;">Meio(s) de pagamento</div>
-              <div style="font-size:13px; font-weight:600;">${meiosPagamento || '—'}</div>
-            </div>
+          <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
+            <div style="font-size:12px; color:#555;">Forma de pagamento</div>
+            <div style="font-size:13px; font-weight:600;">${safe(pedido.forma_pagamento)}</div>
           </div>
         </div>
       `;
@@ -517,8 +556,30 @@ export const usePDFGenerator = () => {
             <tbody>
               ${produtosHTML}
               <tr>
-                <td colspan="3" style="padding:10px; text-align:right; font-weight:700;">Total</td>
-                <td style="padding:10px; text-align:right; font-weight:700;">${currency(somaTotal)}</td>
+                <td colspan="3" style="padding:10px; text-align:right; color: #666; font-size: 12px;">Soma dos produtos</td>
+                <td style="padding:10px; text-align:right; color: #666; font-size: 12px;">${currency(totalProdutosCalculado)}</td>
+              </tr>
+              ${frete > 0 ? `
+              <tr>
+                <td colspan="3" style="padding:10px; text-align:right; color: #666; font-size: 12px;">Frete</td>
+                <td style="padding:10px; text-align:right; color: #666; font-size: 12px;">${currency(frete)}</td>
+              </tr>
+              ` : ''}
+              ${(frete > 0 || discountLabelPedido) ? `
+              <tr>
+                <td colspan="3" style="padding:10px; text-align:right; font-weight:600; font-size: 12px;">Subtotal</td>
+                <td style="padding:10px; text-align:right; font-weight:600; font-size: 12px;">${currency(subtotal)}</td>
+              </tr>
+              ` : ''}
+              ${discountLabelPedido ? `
+              <tr>
+                <td colspan="3" style="padding:10px; text-align:right; color: #16a34a; font-size: 12px;">Desconto</td>
+                <td style="padding:10px; text-align:right; color: #16a34a; font-size: 12px;">-${discountLabelPedido}</td>
+              </tr>
+              ` : ''}
+              <tr>
+                <td colspan="3" style="padding:10px; text-align:right; font-weight:700; font-size: 14px;">Total Final</td>
+                <td style="padding:10px; text-align:right; font-weight:700; font-size: 14px;">${currency(totalFinal)}</td>
               </tr>
             </tbody>
           </table>
@@ -879,8 +940,6 @@ export const usePDFGenerator = () => {
           it.tipo_pe ? `Tipo Pé: ${it.tipo_pe}` : '',
           it.dimensoes ? `Dimensões: ${it.dimensoes}` : ''
         ].filter(Boolean).join(' • ');
-        const preco = currency(it.preco_unitario || 0);
-        const total = currency((it.preco_unitario || 0) * 1);
 
         const fotosItem = it.id ? (fotosPorItem[it.id] || []) : (idx === 0 ? (fotosPorItem['sem_item'] || []) : []);
         const primeiraFoto = fotosItem && fotosItem.length > 0 ? fotosItem[0] : null;
@@ -903,20 +962,12 @@ export const usePDFGenerator = () => {
                 </div>
               </div>
             </td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${preco}</td>
             <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">1</td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${total}</td>
           </tr>
         `;
       }).join('');
 
       const somaTotal = (Array.isArray(itens) ? itens.reduce((acc: number, it: any) => acc + (it.preco_unitario || 0), 0) : (pedido.valor_total || 0));
-
-      const garantiasTexto = pedido.garantia_texto || `
-        • Garantia contra defeitos de fabricação nas condições indicadas acima.
-        • A garantia não cobre danos causados por mau uso, acidentes ou exposição indevida.
-        • Em caso de necessidade, acione nossa assistência técnica pelos canais informados.
-      `;
 
       const termoEntregaAtivo = pedido.termo_entrega_ativo ?? true;
       const termoEntregaTexto = pedido.termo_entrega_texto || `
@@ -1063,26 +1114,13 @@ export const usePDFGenerator = () => {
             <thead>
               <tr style="background:#F3F4F6;">
                 <th style="text-align:left; padding:10px; font-size:12px;">Descrição</th>
-                <th style="text-align:right; padding:10px; font-size:12px;">Preço unitário</th>
                 <th style="text-align:center; padding:10px; font-size:12px;">Qtde</th>
-                <th style="text-align:right; padding:10px; font-size:12px;">Total</th>
               </tr>
             </thead>
             <tbody>
               ${produtosHTML}
-              <tr>
-                <td colspan="3" style="padding:10px; text-align:right; font-weight:700;">Total</td>
-                <td style="padding:10px; text-align:right; font-weight:700;">${currency(somaTotal)}</td>
-              </tr>
             </tbody>
           </table>
-        </div>
-      `;
-
-      const garantiaHTML = `
-        <div style="margin-top:18px;">
-          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Garantia</div>
-          <div style="font-size:12px; color:#333; white-space:pre-line;">${garantiasTexto}</div>
         </div>
       `;
 
@@ -1142,7 +1180,6 @@ export const usePDFGenerator = () => {
         ${clienteHTML}
         ${infosBasicasHTML}
         ${produtosTabelaHTML}
-        ${garantiaHTML}
         ${termoHTML}
       `;
       document.body.appendChild(tempDiv);

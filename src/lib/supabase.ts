@@ -65,11 +65,17 @@ export interface ItemProducao {
 // Funções auxiliares para interação com o banco
 export const pedidosService = {
   // Buscar todos os pedidos
-  async getAll() {
-    const { data, error } = await supabase
+  async getAll(store?: string) {
+    let query = supabase
       .from('pedidos')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (store && store !== 'todas') {
+      query = query.eq('loja', store);
+    }
+    
+    const { data, error } = await query;
     
     if (error) throw error;
     return data;
@@ -152,32 +158,39 @@ export const producaoService = {
   },
 
   // Buscar todos os itens de produção
-  async getAll(): Promise<ItemProducao[]> {
-    const { data, error } = await supabase
+  async getAll(store?: string): Promise<ItemProducao[]> {
+    let query = supabase
       .from('itens_producao')
       .select(`
         *,
-        pedidos (
+        pedidos!inner (
           numero_pedido,
           cliente_nome,
           tipo_sofa,
           tipo_servico,
-          data_previsao_entrega
+          data_previsao_entrega,
+          loja
         )
       `)
       .order('created_at', { ascending: false });
+
+    if (store && store !== 'todas') {
+      query = query.eq('pedidos.loja', store);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     return data || [];
   },
 
   // Buscar itens por etapa
-  async getByEtapa(etapa: ItemProducao['etapa']): Promise<ItemProducao[]> {
-    const { data, error } = await supabase
+  async getByEtapa(etapa: ItemProducao['etapa'], store?: string): Promise<ItemProducao[]> {
+    let query = supabase
       .from('itens_producao')
       .select(`
         *,
-        pedidos (
+        pedidos!inner (
           numero_pedido,
           cliente_nome,
           tipo_sofa,
@@ -188,11 +201,18 @@ export const producaoService = {
           espuma,
           tecido,
           tipo_pe,
-          braco
+          braco,
+          loja
         )
       `)
       .eq('etapa', etapa)
       .order('created_at', { ascending: false });
+
+    if (store && store !== 'todas') {
+      query = query.eq('pedidos.loja', store);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;

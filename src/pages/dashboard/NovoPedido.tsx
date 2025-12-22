@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Save, User, Phone, MapPin, Package, Calendar, DollarSign, Mail, AlertCircle, Plus, X, Trash2, Camera } from 'lucide-react';
+import { Save, User, Phone, MapPin, Package, Calendar, DollarSign, Mail, AlertCircle, Plus, X, Trash2, Camera, Store } from 'lucide-react';
 import ImageUpload, { UploadedImage } from '@/components/ImageUpload';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import ProdutoCampos from '@/components/dashboard/ProdutoCampos';
@@ -18,37 +18,39 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector';
+import DiscountInput from '@/components/dashboard/DiscountInput';
 
   interface FormData {
-  clienteId: string;
-  clienteNome: string;
-  clienteEmail: string;
-  clienteTelefone: string;
-  clienteEndereco: string;
-  clienteCep: string;
-  clienteBairro: string;
-  clienteCidade: string;
-  clienteEstado: string;
-  numeroPedido: string;
-  dataEntrega: string;
-  descricao: string;
-  tipoSofa: string;
-  cor: string;
-  dimensoes: string;
-  dimensaoLargura: string;
-  dimensaoComprimento: string;
-  tipoServico: string;
-  observacoes: string;
-  espuma: string;
-  tecido: string;
-  braco: string;
+    clienteId: string;
+    clienteNome: string;
+    clienteEmail: string;
+    clienteTelefone: string;
+    clienteEndereco: string;
+    clienteCep: string;
+    clienteBairro: string;
+    clienteCidade: string;
+    clienteEstado: string;
+    numeroPedido: string;
+    dataEntrega: string;
+    descricao: string;
+    tipoSofa: string;
+    cor: string;
+    dimensoes: string;
+    dimensaoLargura: string;
+    dimensaoComprimento: string;
+    tipoServico: string;
+    observacoes: string;
+    espuma: string;
+    tecido: string;
+    braco: string;
     tipoPe: string;
     frete: string;
     precoUnitario: string;
+    descontoTipo: 'percentage' | 'fixed';
+    descontoValor: string;
     valorTotal: string;
     valorPago: string;
-    condicaoPagamento: string;
-    meioPagamento: string;
+    formaPagamento: string;
     prioridade: string;
     garantiaTipo: string;
     garantiaValor: string;
@@ -60,6 +62,8 @@ import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector
     fotosControle: UploadedImage[];
     visitaTecnicaAtiva: boolean;
     visitaTecnicaData: string;
+    pedidoDescontoTipo: 'percentage' | 'fixed';
+    pedidoDescontoValor: string;
   }
 
 const NovoPedido = () => {
@@ -67,7 +71,17 @@ const NovoPedido = () => {
   const isEditMode = !!pedidoIdParam;
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, selectedStore } = useAuth();
+  const [lojaSelecionadaForm, setLojaSelecionadaForm] = useState<string>('');
+  
+  useEffect(() => {
+    if (selectedStore && selectedStore !== 'todas') {
+      setLojaSelecionadaForm(selectedStore);
+    } else {
+      setLojaSelecionadaForm('loja_1');
+    }
+  }, [selectedStore]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [coresDisponiveis, setCoresDisponiveis] = useState<string[]>([
     'Preto', 'Branco', 'Cinza', 'Marrom', 'Bege', 'Azul', 'Verde', 'Vermelho', 'Rosa', 'Amarelo'
@@ -165,10 +179,11 @@ const NovoPedido = () => {
     tipoPe: '',
     frete: '',
     precoUnitario: '',
+    descontoTipo: 'percentage',
+    descontoValor: '',
     valorTotal: '',
     valorPago: '',
-    condicaoPagamento: '',
-    meioPagamento: '',
+    formaPagamento: '',
     prioridade: 'media',
     garantiaTipo: 'dias',
     garantiaValor: '',
@@ -179,7 +194,9 @@ const NovoPedido = () => {
     fotosPedido: [],
     fotosControle: [],
     visitaTecnicaAtiva: false,
-    visitaTecnicaData: ''
+    visitaTecnicaData: '',
+    pedidoDescontoTipo: 'percentage',
+    pedidoDescontoValor: ''
   });
 
   // Guardar anexos originais para comparação em edição
@@ -197,6 +214,8 @@ const NovoPedido = () => {
     dimensaoComprimento?: string;
     tipoServico: string;
     precoUnitario: string;
+    descontoTipo: 'percentage' | 'fixed';
+    descontoValor: number;
     observacoes: string;
     espuma: string;
     tecido: string;
@@ -217,6 +236,8 @@ const NovoPedido = () => {
     dimensaoComprimento: '',
     tipoServico: '',
     precoUnitario: '',
+    descontoTipo: 'percentage',
+    descontoValor: 0,
     observacoes: '',
     espuma: '',
     tecido: '',
@@ -297,16 +318,39 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     return isNaN(n) ? 0 : n;
   };
 
+  const calculateFinalPrice = (price: number, type: 'percentage' | 'fixed', value: number) => {
+    if (!price) return 0;
+    if (type === 'percentage') {
+      return price * (1 - value / 100);
+    } else {
+      return Math.max(0, price - value);
+    }
+  };
+
   const totalProdutos = useMemo(() => {
-    const principal = parseValor(formData.precoUnitario);
-    const adicionais = itensAdicionais.reduce((acc, it) => acc + parseValor(it.precoUnitario || ''), 0);
-    return principal + adicionais;
-  }, [formData.precoUnitario, itensAdicionais]);
+    const principalPreco = parseValor(formData.precoUnitario);
+    const principalDescontoValor = parseFloat(formData.descontoValor) || 0;
+    const principalFinal = calculateFinalPrice(principalPreco, formData.descontoTipo, principalDescontoValor);
+
+    const adicionais = itensAdicionais.reduce((acc, it) => {
+      const preco = parseValor(it.precoUnitario || '');
+      const descontoValor = it.descontoValor || 0;
+      const final = calculateFinalPrice(preco, it.descontoTipo, descontoValor);
+      return acc + final;
+    }, 0);
+
+    return principalFinal + adicionais;
+  }, [formData.precoUnitario, formData.descontoTipo, formData.descontoValor, itensAdicionais]);
 
   const totalComFrete = useMemo(() => {
     const frete = parseValor(formData.frete || '');
     return totalProdutos + frete;
   }, [totalProdutos, formData.frete]);
+
+  const totalFinalPedido = useMemo(() => {
+    const descontoPedidoValor = parseFloat(formData.pedidoDescontoValor) || 0;
+    return calculateFinalPrice(totalComFrete, formData.pedidoDescontoTipo, descontoPedidoValor);
+  }, [totalComFrete, formData.pedidoDescontoTipo, formData.pedidoDescontoValor]);
 
   const converterDataISOParaBR = (dataISO?: string) => {
     if (!dataISO) return '';
@@ -1256,10 +1300,10 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       const { l: l2, c: c2 } = extrairDimensoes(`${formData.dimensaoLargura} ${formData.dimensaoComprimento}`);
       const larguraFinal = l1 || l2;
       const comprimentoFinal = c1 || c2;
-      const dimensoesCombinadas = (larguraFinal && comprimentoFinal) ? `${larguraFinal} ${comprimentoFinal}` : '';
+      const dimensoesCombinadas = [larguraFinal, comprimentoFinal].filter(Boolean).join(' x ');
 
-      if (!formData.tipoSofa || !formData.cor || !dimensoesCombinadas) {
-        throw new Error('Preencha o tipo, cor e dimensões do sofá');
+      if (!formData.tipoSofa || !formData.cor) {
+        throw new Error('Preencha o tipo e cor do sofá');
       }
 
       if (!formData.tipoServico) {
@@ -1274,8 +1318,8 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         throw new Error('Selecione pelo menos uma etapa necessária para o pedido');
       }
 
-      // Calcular valor_total a partir dos preços dos produtos
-      const valorTotal = totalProdutos;
+      // Calcular valor_total a partir dos preços dos produtos com descontos e frete
+      const valorTotal = totalFinalPedido;
       const valorPago = 0;
 
       // Verificar se o usuário está autenticado
@@ -1286,10 +1330,11 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       // Preparar dados do pedido
       const pedidoData: any = {
         cliente_id: clienteSelecionado.id,
-        cliente_nome: clienteSelecionado.nome, // Manter por compatibilidade
+        cliente_nome: clienteSelecionado.nome,
         cliente_email: clienteSelecionado.email,
         cliente_telefone: clienteSelecionado.telefone,
         cliente_endereco: formData.clienteEndereco,
+        loja: lojaSelecionadaForm,
         data_previsao_entrega: dataISO,
         descricao_sofa: formData.descricao,
         tipo_sofa: formData.tipoSofa,
@@ -1306,7 +1351,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         prioridade: formData.prioridade,
         status: 'pendente',
         created_by: user.id,
-        etapas_necessarias: etapasSelecionadas
+        etapas_necessarias: etapasSelecionadas,
+        desconto_tipo: formData.pedidoDescontoTipo,
+        desconto_valor: parseFloat(formData.pedidoDescontoValor) || 0
       };
 
       // Incluir numero_pedido apenas se fornecido pelo usuário
@@ -1334,14 +1381,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         }
       }
 
-      // Incluir condicao_pagamento se selecionada
-      if (formData.condicaoPagamento.trim()) {
-        pedidoData.condicao_pagamento = formData.condicaoPagamento.trim();
-      }
-
-      // Incluir meios_pagamento se houver seleção
-      if (formData.meioPagamento.trim()) {
-        pedidoData.meios_pagamento = [formData.meioPagamento.trim()];
+      // Incluir forma_pagamento
+      if (formData.formaPagamento.trim()) {
+        pedidoData.forma_pagamento = formData.formaPagamento.trim();
       }
 
       // Incluir garantia
@@ -1448,6 +1490,8 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         tipoPe: formData.tipoPe,
         precoUnitario: formData.precoUnitario,
         observacoes: formData.observacoes,
+        descontoTipo: formData.descontoTipo,
+        descontoValor: parseFloat(formData.descontoValor) || 0,
       } as PedidoItemForm;
 
       const todosItens = [primeiroItem, ...itensAdicionais];
@@ -1498,7 +1542,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
             const v = (it.precoUnitario || '').toString().replace(',', '.');
             const n = parseFloat(v);
             return isNaN(n) ? null : n;
-          })()
+          })(),
+          desconto_tipo: it.descontoTipo,
+          desconto_valor: it.descontoValor
         }));
 
         const { data: itensSalvos, error: itensError } = await supabase
@@ -1741,6 +1787,31 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           </div>
           {/* Dados do Cliente */}
           {wizardStep === 1 && (
+            <>
+            {selectedStore === 'todas' && (
+              <Card className="mb-6 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base text-blue-700 dark:text-blue-300">
+                    <Store className="w-5 h-5" />
+                    Selecione a Loja para este Pedido
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Select value={lojaSelecionadaForm} onValueChange={setLojaSelecionadaForm}>
+                    <SelectTrigger className="w-full md:w-[300px] bg-white dark:bg-card">
+                      <SelectValue placeholder="Selecione a loja" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="loja_1">Loja 1</SelectItem>
+                      <SelectItem value="loja_2">Loja 2</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Como administrador, você deve especificar para qual loja este pedido está sendo criado.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1831,6 +1902,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
               )}
             </CardContent>
           </Card>
+          </>
           )}
           {/* Número do Pedido e Data de Entrega (bloco separado entre Cliente e Pedido) */}
           {wizardStep === 1 && (
@@ -2180,7 +2252,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       placeholder="2,20"
                       maxLength={4}
                       className="text-center"
-                      required
                     />
                   </div>
                   <span className="text-lg font-bold text-muted-foreground px-2">×</span>
@@ -2192,7 +2263,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       placeholder="1,10"
                       maxLength={4}
                       className="text-center"
-                      required
                     />
                   </div>
                 </div>
@@ -2286,8 +2356,17 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                   placeholder="Ex: 199.90"
                   value={formData.precoUnitario}
                   onChange={(e) => handleInputChange('precoUnitario', e.target.value)}
+                  className="w-full"
                 />
               </div>
+              
+              <DiscountInput
+                price={parseFloat(formData.precoUnitario) || 0}
+                discountType={formData.descontoTipo}
+                discountValue={parseFloat(formData.descontoValor) || 0}
+                onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, descontoTipo: type }))}
+                onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, descontoValor: value.toString() }))}
+              />
 
               {/* Etapas Necessárias (Produto 1) */}
               <div className="space-y-2 md:col-span-2">
@@ -2752,6 +2831,8 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                           tecido: item.tecido,
                           braco: item.braco,
                           tipoPe: item.tipoPe,
+                          descontoTipo: item.descontoTipo,
+                          descontoValor: item.descontoValor,
                         }}
                         onChange={(field, value) => handleItemChange(index, field as any, value)}
                         onFotosChange={(imgs) => handleItemFotosChange(index, imgs)}
@@ -2829,14 +2910,41 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Resumo: Total e Total+frete */}
               <div className="md:col-span-2">
-                <div className="rounded-md border p-4 space-y-2">
+                <div className="rounded-md border p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total dos produtos</span>
-                    <span className="text-xl font-semibold">{totalProdutos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    <span className="text-sm text-muted-foreground">Total dos produtos (com descontos nos itens)</span>
+                    <span className="text-lg font-semibold">{totalProdutos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                   </div>
+                  
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total + frete</span>
-                    <span className="text-xl font-semibold">{totalComFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                     <span className="text-sm text-muted-foreground">Frete</span>
+                     <span className="text-lg font-medium">{(parseValor(formData.frete || '')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t pt-2">
+                     <span className="text-sm text-muted-foreground font-medium">Subtotal</span>
+                     <span className="text-lg font-semibold">{totalComFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                  </div>
+
+                  <div className="pt-2 border-t">
+                     <div className="flex flex-col gap-2 mb-2">
+                       <Label>Desconto no Total do Pedido</Label>
+                       <div className="w-full">
+                        <DiscountInput
+                          price={totalComFrete}
+                          discountType={formData.pedidoDescontoTipo}
+                          discountValue={parseFloat(formData.pedidoDescontoValor) || 0}
+                          onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, pedidoDescontoTipo: type }))}
+                          onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, pedidoDescontoValor: value.toString() }))}
+                          label=""
+                        />
+                       </div>
+                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t bg-muted/20 -mx-4 px-4 -mb-4 py-4 rounded-b-md">
+                    <span className="text-lg font-bold">Total Final</span>
+                    <span className="text-2xl font-bold text-green-600">{totalFinalPedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                   </div>
                 </div>
               </div>
@@ -2925,38 +3033,14 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                   </div>
                 </div>
               </div>
-              {/* Condição de Pagamento */}
-              <div className="space-y-2">
-                <Label>Condição de Pagamento</Label>
-                <Select value={formData.condicaoPagamento} onValueChange={(v) => setFormData(prev => ({ ...prev, condicaoPagamento: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a condição" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="à vista">À vista</SelectItem>
-                    <SelectItem value="sinal">Sinal</SelectItem>
-                    <SelectItem value="parcelas">Parcelas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Meios de Pagamento (seleção única) */}
-              <div className="space-y-2">
-                <Label>Meios de Pagamento</Label>
-                <Select value={formData.meioPagamento} onValueChange={(v) => setFormData(prev => ({ ...prev, meioPagamento: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o meio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Boleto">Boleto</SelectItem>
-                    <SelectItem value="Transferência bancária">Transferência bancária</SelectItem>
-                    <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                    <SelectItem value="Cheque">Cheque</SelectItem>
-                    <SelectItem value="Cartão de crédito">Cartão de crédito</SelectItem>
-                    <SelectItem value="Cartão de débito">Cartão de débito</SelectItem>
-                    <SelectItem value="Pix">Pix</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Forma de Pagamento */}
+              <div className="space-y-2 md:col-span-2">
+                <Label>Forma de Pagamento</Label>
+                <Input 
+                  value={formData.formaPagamento} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, formaPagamento: e.target.value }))}
+                  placeholder="Descreva a forma de pagamento (Ex: À vista, 50% entrada + 2x, etc)"
+                />
               </div>
 
               {/* Fotos de Controle */}

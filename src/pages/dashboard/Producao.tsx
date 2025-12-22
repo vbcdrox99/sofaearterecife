@@ -10,9 +10,11 @@ import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import PedidoPhotosModal from '@/components/PedidoPhotosModal';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Producao = () => {
   const { toast } = useToast();
+  const { selectedStore } = useAuth();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [pedidoItens, setPedidoItens] = useState<any[]>([]);
   const [abaAtiva, setAbaAtiva] = useState('marcenaria');
@@ -26,12 +28,12 @@ const Producao = () => {
 
   useEffect(() => {
     carregarItensProducao();
-  }, [abaAtiva]);
+  }, [abaAtiva, selectedStore]);
 
   const carregarItensProducao = async () => {
     try {
       setCarregando(true);
-      const dados = await producaoService.getByEtapa(abaAtiva as ItemProducao['etapa']);
+      const dados = await producaoService.getByEtapa(abaAtiva as ItemProducao['etapa'], selectedStore);
       const dadosOrdenados = [...dados].sort((a, b) => {
         const diasA = calcularDiasRestantes(a.pedidos?.data_previsao_entrega);
         const diasB = calcularDiasRestantes(b.pedidos?.data_previsao_entrega);
@@ -309,11 +311,11 @@ const Producao = () => {
               ) : itensExpandido.length === 0 ? (
                 <Card>
                   <CardContent className="p-8 text-center">
-                    <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    <Package className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
                       Nenhum item em produção
                     </h3>
-                    <p className="text-gray-500">
+                    <p className="text-gray-500 dark:text-gray-400">
                       Não há itens na etapa de {etapa.replace('_', ' ')} no momento.
                     </p>
                   </CardContent>
@@ -325,31 +327,31 @@ const Producao = () => {
                   const sufixoSeq = pedidoItem?.sequencia && pedidoItem.sequencia > 1 ? `/${pedidoItem.sequencia}` : '';
                   
                   return (
-                    <Card key={`${item.id}-${pedidoItem?.id || 'seq1'}`} className={`relative p-4 hover:shadow-md transition-shadow ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50/30'}`}>
+                    <Card key={`${item.id}-${pedidoItem?.id || 'seq1'}`} className={`relative p-4 hover:shadow-md transition-shadow ${index % 2 === 0 ? 'bg-white dark:bg-card' : 'bg-blue-50/30 dark:bg-blue-900/10'}`}>
                       {/* Barra de urgência na lateral esquerda */}
                       <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(item.pedidos?.data_previsao_entrega)}`}></div>
                       {/* Primeira linha - Informações Principais */}
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-8 flex-1">
                           <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pedido</span>
-                            <span className="text-lg font-bold text-gray-900">#{numeroPedido}{sufixoSeq}</span>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pedido</span>
+                            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">#{numeroPedido}{sufixoSeq}</span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cliente</span>
-                            <span className="text-sm font-medium text-gray-900">{item.pedidos?.cliente_nome || 'N/A'}</span>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cliente</span>
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.pedidos?.cliente_nome || 'N/A'}</span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Produto</span>
-                            <span className="text-sm text-gray-900">{pedidoItem?.tipo_sofa || item.pedidos?.tipo_sofa || 'N/A'}</span>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Produto</span>
+                            <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.tipo_sofa || item.pedidos?.tipo_sofa || 'N/A'}</span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Serviço</span>
-                            <span className="text-sm text-gray-900">{pedidoItem?.tipo_servico || item.pedidos?.tipo_servico || 'N/A'}</span>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Serviço</span>
+                            <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.tipo_servico || item.pedidos?.tipo_servico || 'N/A'}</span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Entrega</span>
-                            <span className="text-sm text-gray-900">
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Entrega</span>
+                            <span className="text-sm text-gray-900 dark:text-gray-100">
                               {item.pedidos?.data_previsao_entrega ? 
                                 formatarDataEntrega(item.pedidos?.data_previsao_entrega) : 
                                 'Sem data'}
@@ -376,17 +378,17 @@ const Producao = () => {
                               {(pedidoItem?.observacoes || item.pedidos?.observacoes) ? (
                                 <div className="space-y-2">
                                   <span className="font-medium">Observações</span>
-                                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-muted p-3 rounded-lg">
                                     {pedidoItem?.observacoes || item.pedidos?.observacoes}
                                   </p>
                                 </div>
                               ) : (
-                                <p className="text-sm text-gray-500">Sem observações.</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Sem observações.</p>
                               )}
                               {/* Visita técnica */}
                               <div className="mt-3 space-y-1">
                                 <span className="font-medium">Visita técnica</span>
-                                <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                                <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-muted p-3 rounded-lg">
                                   <p>
                                     Status: {pedidoItem?.visita_tecnica ? 'Sim' : 'Não'}
                                   </p>
@@ -410,24 +412,24 @@ const Producao = () => {
                       {/* Linha de detalhes do produto */}
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-2">
                         <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cor</span>
-                          <span className="text-sm text-gray-900">{pedidoItem?.cor || item.pedidos?.cor || 'N/A'}</span>
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cor</span>
+                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.cor || item.pedidos?.cor || 'N/A'}</span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Espuma</span>
-                          <span className="text-sm text-gray-900">{pedidoItem?.espuma || item.pedidos?.espuma || 'N/A'}</span>
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Espuma</span>
+                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.espuma || item.pedidos?.espuma || 'N/A'}</span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tecido</span>
-                          <span className="text-sm text-gray-900">{pedidoItem?.tecido || item.pedidos?.tecido || 'N/A'}</span>
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tecido</span>
+                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.tecido || item.pedidos?.tecido || 'N/A'}</span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Braço</span>
-                          <span className="text-sm text-gray-900">{pedidoItem?.braco || item.pedidos?.braco || 'N/A'}</span>
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Braço</span>
+                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.braco || item.pedidos?.braco || 'N/A'}</span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pé</span>
-                          <span className="text-sm text-gray-900">{pedidoItem?.tipo_pe || item.pedidos?.tipo_pe || 'N/A'}</span>
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pé</span>
+                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.tipo_pe || item.pedidos?.tipo_pe || 'N/A'}</span>
                         </div>
                       </div>
 

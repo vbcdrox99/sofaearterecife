@@ -29,9 +29,11 @@ import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import PedidoPhotosModal from '@/components/PedidoPhotosModal';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
   const { pedidos } = usePedidos();
+  const { selectedStore } = useAuth();
   const navigate = useNavigate();
   const { printRef, printCurrentView, isPrinting, generatePedidoPDF, generatePedidoClientePDF } = usePDFGenerator();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
@@ -48,12 +50,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     carregarDadosProducao();
-  }, []);
+  }, [selectedStore]);
 
   const carregarDadosProducao = async () => {
     try {
       setLoadingProducao(true);
-      const dados = await producaoService.getAll();
+      const dados = await producaoService.getAll(selectedStore);
       setItensProducao(dados);
       // Carregar itens de pedido (produtos) para expandir em 443, 443/2, etc
       const pedidoIds = Array.from(new Set((dados || []).map(d => d.pedido_id))).filter(Boolean) as string[];
@@ -286,46 +288,46 @@ const Dashboard = () => {
             <div className="flex items-center space-x-2">
               <button 
                 onClick={() => setFiltroAtivo('novos')}
-                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-blue-50 ${
-                  filtroAtivo === 'novos' ? 'bg-blue-50 ring-1 ring-blue-200' : ''
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
+                  filtroAtivo === 'novos' ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-200 dark:ring-blue-800' : ''
                 }`}
               >
-                <div className="p-1 bg-blue-100 rounded-full">
-                  <FileText className="w-3 h-3 text-blue-600" />
+                <div className="p-1 bg-blue-100 dark:bg-blue-900/40 rounded-full">
+                  <FileText className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-blue-600 font-medium">Novos</p>
-                  <p className="text-xs font-bold text-blue-700">{pedidosNovos}</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Novos</p>
+                  <p className="text-xs font-bold text-blue-700 dark:text-blue-300">{pedidosNovos}</p>
                 </div>
               </button>
               
               <button 
                 onClick={() => setFiltroAtivo('iniciados')}
-                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-orange-50 ${
-                  filtroAtivo === 'iniciados' ? 'bg-orange-50 ring-1 ring-orange-200' : ''
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 ${
+                  filtroAtivo === 'iniciados' ? 'bg-orange-50 dark:bg-orange-900/20 ring-1 ring-orange-200 dark:ring-orange-800' : ''
                 }`}
               >
-                <div className="p-1 bg-orange-100 rounded-full">
-                  <Play className="w-3 h-3 text-orange-600" />
+                <div className="p-1 bg-orange-100 dark:bg-orange-900/40 rounded-full">
+                  <Play className="w-3 h-3 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-orange-600 font-medium">Iniciados</p>
-                  <p className="text-xs font-bold text-orange-700">{pedidosIniciados}</p>
+                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Iniciados</p>
+                  <p className="text-xs font-bold text-orange-700 dark:text-orange-300">{pedidosIniciados}</p>
                 </div>
               </button>
               
               <button 
                 onClick={() => setFiltroAtivo('finalizados')}
-                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-green-50 ${
-                  filtroAtivo === 'finalizados' ? 'bg-green-50 ring-1 ring-green-200' : ''
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-green-50 dark:hover:bg-green-900/20 ${
+                  filtroAtivo === 'finalizados' ? 'bg-green-50 dark:bg-green-900/20 ring-1 ring-green-200 dark:ring-green-800' : ''
                 }`}
               >
-                <div className="p-1 bg-green-100 rounded-full">
-                  <CheckCircle className="w-3 h-3 text-green-600" />
+                <div className="p-1 bg-green-100 dark:bg-green-900/40 rounded-full">
+                  <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-green-600 font-medium">Finalizados</p>
-                  <p className="text-xs font-bold text-green-700">{pedidosFinalizados}</p>
+                  <p className="text-xs text-green-600 dark:text-green-400 font-medium">Finalizados</p>
+                  <p className="text-xs font-bold text-green-700 dark:text-green-300">{pedidosFinalizados}</p>
                 </div>
               </button>
             </div>
@@ -338,7 +340,7 @@ const Dashboard = () => {
           <div className="mb-4">
             <button 
               onClick={() => setFiltroAtivo('todos')}
-              className="text-sm text-gray-500 hover:text-gray-700 underline"
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
             >
               Mostrar todos os pedidos
             </button>
@@ -376,7 +378,7 @@ const Dashboard = () => {
               <div className="space-y-6">
                 {/* Filtro por Área de Produção */}
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-700">Filtro por área de produção</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filtro por área de produção</h3>
                   <div className="flex flex-wrap gap-2">
                     {[
                       {key: 'todos', label: 'GERAL/TODOS'},
@@ -399,7 +401,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 {/* Tabela de Pedidos */}
-                <div ref={printRef} className="bg-white rounded-lg border border-gray-200 overflow-hidden print-table" data-table="pedidos-table">
+                <div ref={printRef} className="bg-white dark:bg-card rounded-lg border border-gray-200 dark:border-border overflow-hidden print-table" data-table="pedidos-table">
                   {/* Cabeçalho de impressão (apenas no PDF) */}
                   <div className="hidden print:block">
                     <div className="px-4 py-3" style={{ backgroundColor: getCorArea(filtroArea) }}>
@@ -415,8 +417,8 @@ const Dashboard = () => {
                   {/* Cabeçalho da Tabela */}
                   <div className="overflow-x-auto">
                     {/* Header */}
-                    <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 min-w-[1200px]">
-                      <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    <div className="bg-gray-50 dark:bg-muted/50 border-b border-gray-200 dark:border-border px-4 py-2 min-w-[1200px]">
+                      <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
                         <div className="col-span-1">Nº Pedido</div>
                         <div className="col-span-1">Tipo</div>
                         <div className="col-span-1">Entrega</div>
@@ -424,14 +426,15 @@ const Dashboard = () => {
                         <div className="col-span-1 print:col-span-2">Tecido</div>
                         <div className="col-span-1">Tipo Pé</div>
                         <div className="col-span-1">Braço</div>
-                        <div className="col-span-3 print:col-span-2">Status Produção</div>
+                        <div className="col-span-1">Pagamento</div>
+                        <div className="col-span-2 print:col-span-2">Status Produção</div>
                         <div className="col-span-1 print-hide">Cliente</div>
                         <div className="col-span-1 print-hide">Ações</div>
                       </div>
                     </div>
 
                     {/* Conteúdo da Tabela */}
-                    <div className="divide-y divide-gray-200 min-w-[1200px]">
+                    <div className="divide-y divide-gray-200 dark:divide-border min-w-[1200px]">
                       {pedidosFiltrados.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                           {filtroAtivo === 'todos' 
@@ -441,8 +444,8 @@ const Dashboard = () => {
                         </div>
                       ) : (
                         pedidosFiltrados.map(({ pedido, itensProducao, seq, itemId, item }, index) => (
-                          <div key={itemId || `${pedido.id}-${seq}-${index}` } className={`relative px-4 py-2 hover:bg-gray-50 transition-colors ${(seq && seq > 1) ? 'bg-gray-100' : 'bg-white'} ${
-                            index !== pedidosFiltrados.length - 1 ? 'border-b border-gray-200' : ''
+                          <div key={itemId || `${pedido.id}-${seq}-${index}` } className={`relative px-4 py-2 hover:bg-gray-50 dark:hover:bg-muted/50 transition-colors ${(seq && seq > 1) ? 'bg-gray-100 dark:bg-muted' : 'bg-white dark:bg-card'} ${
+                            index !== pedidosFiltrados.length - 1 ? 'border-b border-gray-200 dark:border-border' : ''
                           }`}>
                             {/* Barra de urgência na lateral esquerda */}
                             <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(pedido.data_previsao_entrega)} ${(seq && seq > 1) ? 'opacity-70' : ''}`}></div>
@@ -462,7 +465,7 @@ const Dashboard = () => {
 
                               {/* Produto (Tipo de Sofá) - por item */}
                               <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate" title={(item?.tipo_sofa || pedido.tipo_sofa || 'N/A')}>
+                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={(item?.tipo_sofa || pedido.tipo_sofa || 'N/A')}>
                                   {item?.tipo_sofa || pedido.tipo_sofa || 'N/A'}
                                 </span>
                               </div>
@@ -470,7 +473,7 @@ const Dashboard = () => {
                               {/* Data de Entrega */}
                               <div className="col-span-1">
                                 <div className="flex flex-col">
-                                  <span className="text-sm text-gray-900">
+                                  <span className="text-sm text-gray-900 dark:text-gray-100">
                                     {pedido.data_previsao_entrega ? 
                                       new Date(pedido.data_previsao_entrega).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) :
                                       'N/A'
@@ -478,10 +481,10 @@ const Dashboard = () => {
                                   </span>
                                   <span className={`text-xs font-medium ${
                                     calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 2 
-                                      ? 'text-red-600' 
+                                      ? 'text-red-600 dark:text-red-400' 
                                       : calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 5
-                                      ? 'text-yellow-600'
-                                      : 'text-gray-500'
+                                      ? 'text-yellow-600 dark:text-yellow-400'
+                                      : 'text-gray-500 dark:text-gray-400'
                                   }`}>
                                     {getTextoUrgencia(pedido.data_previsao_entrega)}
                                   </span>
@@ -490,35 +493,41 @@ const Dashboard = () => {
 
                               {/* Espuma - por item */}
                               <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate" title={(item?.espuma || pedido.espuma || 'D33')}>
+                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={(item?.espuma || pedido.espuma || 'D33')}>
                                   {item?.espuma || pedido.espuma || 'D33'}
                                 </span>
                               </div>
 
                               {/* Tecido - por item */}
                               <div className="col-span-1 print:col-span-2 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate print:whitespace-normal print:break-words print:overflow-visible" title={(item?.tecido || pedido.tecido || 'Suede Premium')}>
+                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate print:whitespace-normal print:break-words print:overflow-visible" title={(item?.tecido || pedido.tecido || 'Suede Premium')}>
                                   {item?.tecido || pedido.tecido || 'Suede Premium'}
                                 </span>
                               </div>
 
                               {/* Tipo de Pé - por item */}
                               <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate" title={(item?.tipo_pe || pedido.tipo_pe || 'Madeira Escura')}>
+                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={(item?.tipo_pe || pedido.tipo_pe || 'Madeira Escura')}>
                                   {item?.tipo_pe || pedido.tipo_pe || 'Madeira Escura'}
                                 </span>
                               </div>
 
                               {/* Braço - por item */}
                               <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 block truncate" title={(item?.braco || pedido.braco || 'Reto')}>
+                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={(item?.braco || pedido.braco || 'Reto')}>
                                   {item?.braco || pedido.braco || 'Reto'}
                                 </span>
                               </div>
 
+                              {/* Forma de Pagamento */}
+                              <div className="col-span-1 min-w-0">
+                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={pedido.forma_pagamento || 'N/A'}>
+                                  {pedido.forma_pagamento || 'N/A'}
+                                </span>
+                              </div>
 
                               {/* Status de Produção (por produto) */}
-                              <div className="col-span-3 print:col-span-2">
+                              <div className="col-span-2 print:col-span-2">
                                 <div className="flex items-center space-x-1.5">
                                   {(itensProducao || [])
                                     .filter((ip) => {
@@ -532,8 +541,8 @@ const Dashboard = () => {
                                       const currentStatus = item.status || 'pendente';
 
                                       return (
-                                        <div key={item.id} className="flex items-center space-x-1 bg-gray-50 rounded-lg px-2 py-1.5 border border-gray-200">
-                                          <IconComponent className="w-3 h-3 text-gray-600" />
+                                        <div key={item.id} className="flex items-center space-x-1 bg-gray-50 dark:bg-muted rounded-lg px-2 py-1.5 border border-gray-200 dark:border-border">
+                                          <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                                           <div
                                             className={`w-2 h-2 rounded-full ${
                                               currentStatus === 'pendente' ? 'bg-red-500' :
@@ -555,7 +564,7 @@ const Dashboard = () => {
                                 <Dialog>
                                   <DialogTrigger asChild>
                                     <button 
-                                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                                      className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                                       title={pedido.cliente_nome}
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -8,6 +8,9 @@ interface Profile {
   user_id: string;
   nome_completo: string;
   tipo: 'admin' | 'funcionario';
+  role: 'admin' | 'gerente' | 'funcionario';
+  store: 'loja_1' | 'loja_2';
+  sector: 'geral' | 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido';
   created_at: string;
   updated_at: string;
 }
@@ -18,6 +21,10 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  isGerente: boolean;
+  userStore: 'loja_1' | 'loja_2' | null;
+  selectedStore: 'loja_1' | 'loja_2' | 'todas';
+  setSelectedStore: (store: 'loja_1' | 'loja_2' | 'todas') => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, nomeCompleto: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -38,9 +45,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedStore, setSelectedStore] = useState<'loja_1' | 'loja_2' | 'todas'>('todas');
   const { toast } = useToast();
 
-  const isAdmin = profile?.tipo === 'admin';
+  const isAdmin = profile?.role === 'admin' || profile?.tipo === 'admin';
+  const isGerente = profile?.role === 'gerente';
+  const userStore = profile?.store || null;
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -51,7 +61,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
       
       if (error) throw error;
-      setProfile(data);
+      
+      const profileData = data as unknown as Profile;
+      setProfile(profileData);
+      
+      if (profileData.role === 'admin' || profileData.tipo === 'admin') {
+        setSelectedStore('todas');
+      } else {
+        setSelectedStore(profileData.store);
+      }
     } catch (error) {
       console.error('Erro ao buscar perfil:', error);
     }
@@ -190,6 +208,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     session,
     loading,
     isAdmin,
+    isGerente,
+    userStore,
+    selectedStore,
+    setSelectedStore,
     signIn,
     signUp,
     signOut,
