@@ -31,11 +31,11 @@ export const usePDFGenerator = () => {
     }
     // Celular com 11 dígitos: (AA) N NNNN-NNNN
     if (d.length === 11) {
-      return `(${d.slice(0,2)}) ${d.slice(2,3)} ${d.slice(3,7)}-${d.slice(7,11)}`;
+      return `(${d.slice(0, 2)}) ${d.slice(2, 3)} ${d.slice(3, 7)}-${d.slice(7, 11)}`;
     }
     // Fixo com 10 dígitos: (AA) NNNN-NNNN
     if (d.length === 10) {
-      return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6,10)}`;
+      return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6, 10)}`;
     }
     // Caso não bata, retorna como informado
     return raw || '';
@@ -45,7 +45,7 @@ export const usePDFGenerator = () => {
     try {
       // Encontrar a tabela atual na tela
       const tableElement = document.querySelector('[data-table="pedidos-table"]') as HTMLElement;
-      
+
       if (!tableElement) {
         throw new Error('Tabela não encontrada na tela');
       }
@@ -105,12 +105,12 @@ export const usePDFGenerator = () => {
 
       // Clonar a tabela atual e otimizar para impressão
       const clonedTable = tableElement.cloneNode(true) as HTMLElement;
-      
+
       // Aplicar estilos para impressão horizontal
       clonedTable.style.width = '100%';
       clonedTable.style.fontSize = '10px';
       clonedTable.style.borderCollapse = 'collapse';
-      
+
       // Otimizar células da tabela
       const cells = clonedTable.querySelectorAll('td, th');
       cells.forEach((cell: any, index: number) => {
@@ -122,10 +122,10 @@ export const usePDFGenerator = () => {
         cell.style.wordWrap = 'break-word';
         cell.style.whiteSpace = 'normal';
         cell.style.overflow = 'visible';
-        
+
         // Definir larguras específicas para cada coluna
         const columnIndex = index % 12; // Assumindo 12 colunas
-        switch(columnIndex) {
+        switch (columnIndex) {
           case 0: // Nº Pedido
             cell.style.minWidth = '60px';
             cell.style.maxWidth = '80px';
@@ -202,10 +202,10 @@ export const usePDFGenerator = () => {
       const pdf = new jsPDF('l', 'mm', 'a4'); // 'l' = landscape (horizontal)
       const pageWidth = 297; // A4 landscape width in mm
       const pageHeight = 210; // A4 landscape height in mm
-      
+
       const imgWidth = pageWidth - 20; // Margem de 10mm de cada lado
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
+
       let heightLeft = imgHeight;
       let position = 10; // Margem superior
 
@@ -258,6 +258,19 @@ export const usePDFGenerator = () => {
           .single();
         if (!clienteError && clienteData) {
           clienteDetalhes = clienteData;
+        }
+      }
+
+      // Buscar dados do vendedor
+      let vendedorNome = 'Vinicius Bruno Costa Dantas';
+      if (pedido.vendedor_id) {
+        const { data: vendedorData } = await supabase
+          .from('vendedores')
+          .select('nome')
+          .eq('id', pedido.vendedor_id)
+          .single();
+        if (vendedorData?.nome) {
+          vendedorNome = vendedorData.nome;
         }
       }
 
@@ -330,7 +343,7 @@ export const usePDFGenerator = () => {
         const descontoTipo = it.desconto_tipo || 'fixed';
         const descontoValor = it.desconto_valor || 0;
         const precoFinal = calculateFinalPrice(precoUnitario, descontoTipo, descontoValor);
-        
+
         totalProdutosCalculado += precoFinal;
 
         const precoOriginalStr = currency(precoUnitario);
@@ -341,13 +354,13 @@ export const usePDFGenerator = () => {
         let totalDisplay = precoFinalStr; // Assumindo qtde 1
 
         if (descontoValor > 0) {
-             const discountLabel = descontoTipo === 'percentage' ? `${descontoValor}%` : currency(descontoValor);
-             priceDisplay = `
+          const discountLabel = descontoTipo === 'percentage' ? `${descontoValor}%` : currency(descontoValor);
+          priceDisplay = `
                <div style="text-decoration: line-through; color: #999; font-size: 10px;">${precoOriginalStr}</div>
                <div>${precoFinalStr}</div>
                <div style="color: #16a34a; font-size: 10px;">(-${discountLabel})</div>
              `;
-             totalDisplay = precoFinalStr;
+          totalDisplay = precoFinalStr;
         }
 
         const fotosItem = it.id ? (fotosPorItem[it.id] || []) : (idx === 0 ? (fotosPorItem['sem_item'] || []) : []);
@@ -367,7 +380,6 @@ export const usePDFGenerator = () => {
                 <div style="flex:1;">
                   <div style="font-weight:600;">${descricao || safe(it.descricao)}</div>
                   ${detalhes ? `<div style="color:#555; font-size:12px; margin-top:4px;">${detalhes}</div>` : ''}
-                  ${it.observacoes ? `<div style="color:#885; font-size:12px; margin-top:4px;">Obs.: ${it.observacoes}</div>` : ''}
                 </div>
               </div>
             </td>
@@ -381,15 +393,15 @@ export const usePDFGenerator = () => {
       // Cálculos finais do pedido (Frete + Desconto Global)
       const frete = pedido.frete || 0;
       const subtotal = totalProdutosCalculado + frete;
-      
+
       const pedidoDescontoTipo = pedido.desconto_tipo || 'fixed';
       const pedidoDescontoValor = pedido.desconto_valor || 0;
       const totalFinal = calculateFinalPrice(subtotal, pedidoDescontoTipo, pedidoDescontoValor);
-      
+
       let discountLabelPedido = '';
       if (pedidoDescontoValor > 0) {
-        discountLabelPedido = pedidoDescontoTipo === 'percentage' 
-          ? `${pedidoDescontoValor}% (${currency(subtotal - totalFinal)})` 
+        discountLabelPedido = pedidoDescontoTipo === 'percentage'
+          ? `${pedidoDescontoValor}% (${currency(subtotal - totalFinal)})`
           : currency(pedidoDescontoValor);
       }
 
@@ -481,8 +493,16 @@ export const usePDFGenerator = () => {
       `;
 
       const pedidoHeaderHTML = `
-        <div style="margin-top:12px; background:${brandRed}; color:#fff; border-radius:4px; padding:8px 12px; display:flex; align-items:center; justify-content:center; width:100%; text-align:center;">
-          <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; transform: translateY(-7px);">Pedido do cliente ${numero}-${anoAtual}</div>
+        <div style="margin-top:12px; background:${brandRed}; color:#fff; border-radius:4px; padding:8px 12px; width:100%; text-align:left;">
+          <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;">Pedido do cliente ${numero}-${anoAtual}</div>
+          <div style="font-size:12px; font-weight:400; opacity:0.9; margin-top:2px;">Vendedor: ${vendedorNome}</div>
+        </div>
+      `;
+
+      const osHeaderHTML = `
+        <div style="margin-top:12px; background:${brandRed}; color:#fff; border-radius:4px; padding:8px 12px; width:100%; text-align:left;">
+          <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;">Ordem de serviço ${numero}-${anoAtual}</div>
+           <div style="font-size:12px; font-weight:400; opacity:0.9; margin-top:2px;">Vendedor: ${vendedorNome}</div>
         </div>
       `;
 
@@ -620,6 +640,19 @@ export const usePDFGenerator = () => {
         ${produtosTabelaHTML}
         ${garantiaHTML}
         ${termoHTML}
+        
+        <div style="margin-top:80px; display:flex; justify-content:space-between; align-items:flex-start; gap:20px; page-break-inside:avoid;">
+          <div style="flex:1; text-align:center;">
+            <div style="border-bottom:1px solid #000; margin-bottom:4px;"></div>
+            <div style="font-size:12px; font-weight:600; color:#111;">Sofá & Arte Home Decor</div>
+            <div style="font-size:10px; color:#555;">CNPJ: 38.827.698/0001-96</div>
+          </div>
+          <div style="flex:1; text-align:center;">
+            <div style="border-bottom:1px solid #000; margin-bottom:4px;"></div>
+            <div style="font-size:12px; font-weight:600; color:#111;">${pedido.cliente_nome}</div>
+            <div style="font-size:10px; color:#555;">${cpfCnpj || '111.111.111-01'}</div>
+          </div>
+        </div>
       `;
       document.body.appendChild(tempDiv);
 
@@ -842,7 +875,7 @@ export const usePDFGenerator = () => {
               pdf.setTextColor(85);
               pdf.text(dateStr, x + 2, y + cellH + 4);
             }
-          } catch {}
+          } catch { }
 
           colIndex++;
           if (colIndex >= cols) {
@@ -917,7 +950,7 @@ export const usePDFGenerator = () => {
         }
       });
       const usedPhotoIds: string[] = [];
-      
+
       const produtosHTML = (Array.isArray(itens) && itens.length > 0 ? itens : [{
         descricao: pedido.descricao_sofa,
         tipo_sofa: pedido.tipo_sofa,
@@ -958,7 +991,6 @@ export const usePDFGenerator = () => {
                 <div style="flex:1;">
                   <div style="font-weight:600;">${descricao || safe(it.descricao)}</div>
                   ${detalhes ? `<div style="color:#555; font-size:12px; margin-top:4px;">${detalhes}</div>` : ''}
-                  ${it.observacoes ? `<div style="color:#885; font-size:12px; margin-top:4px;">Obs.: ${it.observacoes}</div>` : ''}
                 </div>
               </div>
             </td>
@@ -1070,7 +1102,7 @@ export const usePDFGenerator = () => {
       const cidadeEstado = [cli.cidade, cli.estado].filter(Boolean).join('-');
       const cep = cli.cep || '';
 
-      
+
 
       const clienteHTML = `
         <div style="margin-top:16px; border:1px solid #eee; border-radius:8px; padding:12px; background:#fafafa;">
@@ -1422,7 +1454,7 @@ export const usePDFGenerator = () => {
               pdf.setTextColor(85); // #555
               pdf.text(dateStr, x + 2, y + cellH + 4);
             }
-          } catch {}
+          } catch { }
 
           // Avançar coluna
           colIndex++;

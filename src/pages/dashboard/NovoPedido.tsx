@@ -18,53 +18,55 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector';
+import { VendedorSelector, Vendedor } from '@/components/dashboard/VendedorSelector';
 import DiscountInput from '@/components/dashboard/DiscountInput';
 
-  interface FormData {
-    clienteId: string;
-    clienteNome: string;
-    clienteEmail: string;
-    clienteTelefone: string;
-    clienteEndereco: string;
-    clienteCep: string;
-    clienteBairro: string;
-    clienteCidade: string;
-    clienteEstado: string;
-    numeroPedido: string;
-    dataEntrega: string;
-    descricao: string;
-    tipoSofa: string;
-    cor: string;
-    dimensoes: string;
-    dimensaoLargura: string;
-    dimensaoComprimento: string;
-    tipoServico: string;
-    observacoes: string;
-    espuma: string;
-    tecido: string;
-    braco: string;
-    tipoPe: string;
-    frete: string;
-    precoUnitario: string;
-    descontoTipo: 'percentage' | 'fixed';
-    descontoValor: string;
-    valorTotal: string;
-    valorPago: string;
-    formaPagamento: string;
-    prioridade: string;
-    garantiaTipo: string;
-    garantiaValor: string;
-    garantiaTexto: string;
-    termoEntregaAtivo: boolean;
-    termoEntregaTexto: string;
-    etapasNecessarias: string[];
-    fotosPedido: UploadedImage[];
-    fotosControle: UploadedImage[];
-    visitaTecnicaAtiva: boolean;
-    visitaTecnicaData: string;
-    pedidoDescontoTipo: 'percentage' | 'fixed';
-    pedidoDescontoValor: string;
-  }
+interface FormData {
+  clienteId: string;
+  clienteNome: string;
+  clienteEmail: string;
+  clienteTelefone: string;
+  clienteEndereco: string;
+  clienteCep: string;
+  clienteBairro: string;
+  clienteCidade: string;
+  clienteEstado: string;
+  numeroPedido: string;
+  dataEntrega: string;
+  descricao: string;
+  tipoSofa: string;
+  cor: string;
+  dimensoes: string;
+  dimensaoLargura: string;
+  dimensaoComprimento: string;
+  tipoServico: string;
+  observacoes: string;
+  espuma: string;
+  tecido: string;
+  braco: string;
+  tipoPe: string;
+  frete: string;
+  precoUnitario: string;
+  descontoTipo: 'percentage' | 'fixed';
+  descontoValor: string;
+  valorTotal: string;
+  valorPago: string;
+  formaPagamento: string;
+  prioridade: string;
+  garantiaTipo: string;
+  garantiaValor: string;
+  garantiaTexto: string;
+  termoEntregaAtivo: boolean;
+  termoEntregaTexto: string;
+  etapasNecessarias: string[];
+  fotosPedido: UploadedImage[];
+  fotosControle: UploadedImage[];
+  visitaTecnicaAtiva: boolean;
+  visitaTecnicaData: string;
+  pedidoDescontoTipo: 'percentage' | 'fixed';
+  pedidoDescontoValor: string;
+  vendedorId?: string;
+}
 
 const NovoPedido = () => {
   const { id: pedidoIdParam } = useParams();
@@ -73,7 +75,7 @@ const NovoPedido = () => {
   const navigate = useNavigate();
   const { user, selectedStore } = useAuth();
   const [lojaSelecionadaForm, setLojaSelecionadaForm] = useState<string>('');
-  
+
   useEffect(() => {
     if (selectedStore && selectedStore !== 'todas') {
       setLojaSelecionadaForm(selectedStore);
@@ -132,13 +134,16 @@ const NovoPedido = () => {
 
   // Estado para cliente selecionado
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
-  
+
+  // Estado para vendedor selecionado
+  const [vendedorSelecionado, setVendedorSelecionado] = useState<Vendedor | null>(null);
+
   // Estados para etapas necessárias
   const etapasDisponiveis = ['marcenaria', 'corte_costura', 'espuma', 'bancada', 'tecido'];
   const [etapasSelecionadas, setEtapasSelecionadas] = useState<string[]>([]);
   // Estado do wizard de etapas (1: Cliente, 2: Produto, 3: Detalhes)
   const [wizardStep, setWizardStep] = useState(1);
-  
+
   const toggleEtapa = (etapa: string) => {
     setEtapasSelecionadas(prev => {
       if (prev.includes(etapa)) {
@@ -196,7 +201,8 @@ const NovoPedido = () => {
     visitaTecnicaAtiva: false,
     visitaTecnicaData: '',
     pedidoDescontoTipo: 'percentage',
-    pedidoDescontoValor: ''
+    pedidoDescontoValor: '',
+    vendedorId: ''
   });
 
   // Guardar anexos originais para comparação em edição
@@ -356,7 +362,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     if (!dataISO) return '';
     const [ano, mes, dia] = dataISO.split('-');
     if (!ano || !mes || !dia) return '';
-    return `${dia.padStart(2,'0')}/${mes.padStart(2,'0')}/${ano}`;
+    return `${dia.padStart(2, '0')}/${mes.padStart(2, '0')}/${ano}`;
   };
 
   useEffect(() => {
@@ -489,6 +495,8 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                 braco: it.braco || '',
                 tipoPe: it.tipo_pe || '',
                 precoUnitario: it.preco_unitario != null ? String(it.preco_unitario) : '',
+                descontoTipo: 'percentage',
+                descontoValor: 0,
                 fotosPedido: [],
                 etapasNecessarias: []
               }));
@@ -532,6 +540,23 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
               clienteCidade: clienteData.cidade || prev.clienteCidade || '',
               clienteEstado: clienteData.estado || prev.clienteEstado || '',
             }));
+          }
+        }
+
+        // Carregar dados do vendedor se existir
+        if (pedido.vendedor_id) {
+          const { data: vendedorData, error: vendedorError } = await supabase
+            .from('vendedores')
+            .select('*')
+            .eq('id', pedido.vendedor_id)
+            .single();
+
+          if (!vendedorError && vendedorData) {
+            setVendedorSelecionado({
+              id: vendedorData.id,
+              nome: vendedorData.nome
+            });
+            setFormData(prev => ({ ...prev, vendedorId: vendedorData.id }));
           }
         }
 
@@ -596,7 +621,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   const formatarData = (value: string) => {
     // Remove tudo que não é número
     const apenasNumeros = value.replace(/\D/g, '');
-    
+
     // Aplica a máscara DD/MM/AAAA
     if (apenasNumeros.length <= 2) {
       return apenasNumeros;
@@ -615,18 +640,18 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   // Função para converter data DD/MM/AAAA para formato ISO AAAA-MM-DD
   const converterDataParaISO = (dataBR: string) => {
     if (!dataBR || dataBR.length !== 10) return '';
-    
+
     const [dia, mes, ano] = dataBR.split('/');
     if (!dia || !mes || !ano || ano.length !== 4) return '';
-    
+
     // Validar se é uma data válida
     const data = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
-    if (data.getDate() !== parseInt(dia) || 
-        data.getMonth() !== parseInt(mes) - 1 || 
-        data.getFullYear() !== parseInt(ano)) {
+    if (data.getDate() !== parseInt(dia) ||
+      data.getMonth() !== parseInt(mes) - 1 ||
+      data.getFullYear() !== parseInt(ano)) {
       return '';
     }
-    
+
     return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
   };
 
@@ -634,24 +659,24 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   const formatarDimensao = (value: string) => {
     // Remove tudo que não é número
     const apenasNumeros = value.replace(/\D/g, '');
-    
+
     // Se não há números, retorna vazio
     if (!apenasNumeros) return '';
-    
+
     // Se tem apenas 1 dígito, retorna como está
     if (apenasNumeros.length === 1) return apenasNumeros;
-    
+
     // Se tem 2 ou mais dígitos, adiciona vírgula após o primeiro
     return `${apenasNumeros.slice(0, 1)},${apenasNumeros.slice(1, 3)}`;
   };
 
   const handleDimensaoChange = (field: 'dimensaoLargura' | 'dimensaoComprimento', value: string) => {
     const valorFormatado = formatarDimensao(value);
-    setFormData(prev => ({ 
-      ...prev, 
+    setFormData(prev => ({
+      ...prev,
       [field]: valorFormatado,
       // Atualizar o campo dimensoes combinado para compatibilidade
-      dimensoes: field === 'dimensaoLargura' 
+      dimensoes: field === 'dimensaoLargura'
         ? `${valorFormatado} x ${prev.dimensaoComprimento}`
         : `${prev.dimensaoLargura} x ${valorFormatado}`
     }));
@@ -671,7 +696,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   // Função para lidar com a seleção de cliente
   const handleClienteSelect = (cliente: Cliente | null) => {
     setClienteSelecionado(cliente);
-    
+
     if (cliente) {
       setFormData(prev => ({
         ...prev,
@@ -706,7 +731,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   const buscarEnderecoPorCep = async (cep: string) => {
     // Remove caracteres não numéricos
     const cepLimpo = cep.replace(/\D/g, '');
-    
+
     // Verifica se o CEP tem 8 dígitos
     if (cepLimpo.length !== 8) {
       return;
@@ -752,7 +777,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   // Função para lidar com mudança no CEP
   const handleCepChange = (value: string) => {
     setFormData(prev => ({ ...prev, clienteCep: value }));
-    
+
     // Busca automaticamente quando o CEP tiver 8 dígitos
     const cepLimpo = value.replace(/\D/g, '');
     if (cepLimpo.length === 8) {
@@ -851,7 +876,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     if (novaCor.trim() && !coresDisponiveis.includes(novaCor.trim())) {
       try {
         const novaCorFormatada = novaCor.trim();
-        
+
         // Salvar no banco de dados
         const { error } = await supabase
           .from('categorias')
@@ -922,7 +947,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     if (novoTipoSofa.trim() && !tiposSofaDisponiveis.includes(novoTipoSofa.trim())) {
       try {
         const novoTipoFormatado = novoTipoSofa.trim();
-        
+
         // Salvar no banco de dados
         const { error } = await supabase
           .from('categorias')
@@ -992,7 +1017,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     if (novaEspuma.trim() && !espumasDisponiveis.includes(novaEspuma.trim())) {
       try {
         const novaEspumaFormatada = novaEspuma.trim();
-        
+
         const { error } = await supabase
           .from('categorias')
           .insert({
@@ -1061,7 +1086,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     if (novoBraco.trim() && !bracosDisponiveis.includes(novoBraco.trim())) {
       try {
         const novoBracoFormatado = novoBraco.trim();
-        
+
         const { error } = await supabase
           .from('categorias')
           .insert({
@@ -1130,7 +1155,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     if (novoTipoPe.trim() && !tiposPeDisponiveis.includes(novoTipoPe.trim())) {
       try {
         const novoTipoPeFormatado = novoTipoPe.trim();
-        
+
         const { error } = await supabase
           .from('categorias')
           .insert({
@@ -1199,7 +1224,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     if (novoTipoServico.trim() && !tiposServicoDisponiveis.includes(novoTipoServico.trim())) {
       try {
         const novoTipoFormatado = novoTipoServico.trim();
-        
+
         // Salvar no banco de dados
         const { error } = await supabase
           .from('categorias')
@@ -1313,7 +1338,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       if (!formData.espuma || !formData.tecido || !formData.braco || !formData.tipoPe) {
         throw new Error('Preencha todas as especificações do produto');
       }
-      
+
       if (etapasSelecionadas.length === 0) {
         throw new Error('Selecione pelo menos uma etapa necessária para o pedido');
       }
@@ -1335,6 +1360,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         cliente_telefone: clienteSelecionado.telefone,
         cliente_endereco: formData.clienteEndereco,
         loja: lojaSelecionadaForm,
+        vendedor_id: vendedorSelecionado?.id,
         data_previsao_entrega: dataISO,
         descricao_sofa: formData.descricao,
         tipo_sofa: formData.tipoSofa,
@@ -1687,49 +1713,48 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       }
 
       // Reset e redirecionamento
-  if (!isEditMode) {
+      if (!isEditMode) {
         setFormData({
-        clienteId: '',
-        clienteNome: '',
-        clienteEmail: '',
-        clienteTelefone: '',
-        clienteEndereco: '',
-        clienteCep: '',
-        clienteBairro: '',
-        clienteCidade: '',
-        clienteEstado: '',
-        numeroPedido: '',
-        dataEntrega: '',
-        descricao: '',
-        tipoSofa: '',
-        cor: '',
-        dimensoes: '',
-        dimensaoLargura: '',
-        dimensaoComprimento: '',
-        tipoServico: '',
-        observacoes: '',
-        espuma: '',
-        tecido: '',
-        braco: '',
-        tipoPe: '',
-        frete: '',
-        precoUnitario: '',
-        valorTotal: '',
-        valorPago: '',
-        condicaoPagamento: '',
-        meioPagamento: '',
-        prioridade: 'media',
-        garantiaTipo: 'dias',
-        garantiaValor: '',
-        garantiaTexto: '',
-        termoEntregaAtivo: false,
-        termoEntregaTexto: '',
-        etapasNecessarias: [],
-        fotosPedido: [],
-        fotosControle: [],
-        visitaTecnicaAtiva: false,
-        visitaTecnicaData: ''
-      });
+          clienteId: '',
+          clienteNome: '',
+          clienteEmail: '',
+          clienteTelefone: '',
+          clienteEndereco: '',
+          clienteCep: '',
+          clienteBairro: '',
+          clienteCidade: '',
+          clienteEstado: '',
+          numeroPedido: '',
+          dataEntrega: '',
+          descricao: '',
+          tipoSofa: '',
+          cor: '',
+          dimensoes: '',
+          dimensaoLargura: '',
+          dimensaoComprimento: '',
+          tipoServico: '',
+          observacoes: '',
+          espuma: '',
+          tecido: '',
+          braco: '',
+          tipoPe: '',
+          frete: '',
+          precoUnitario: '',
+          valorTotal: '',
+          valorPago: '',
+          formaPagamento: '',
+          prioridade: 'media',
+          garantiaTipo: 'dias',
+          garantiaValor: '',
+          garantiaTexto: '',
+          termoEntregaAtivo: false,
+          termoEntregaTexto: '',
+          etapasNecessarias: [],
+          fotosPedido: [],
+          fotosControle: [],
+          visitaTecnicaAtiva: false,
+          visitaTecnicaData: ''
+        });
         setClienteSelecionado(null);
         setEtapasSelecionadas([]);
         setItensAdicionais([]);
@@ -1777,650 +1802,623 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
               <span className="font-medium">Passo {wizardStep} de 3</span>
               <span className="text-muted-foreground">{wizardStep === 1 ? 'Entrega e Dados do Cliente' : wizardStep === 2 ? 'Dados do Produto' : 'Detalhes'}</span>
             </div>
-          <div className="flex gap-2">
-            {wizardStep > 1 && (
+            <div className="flex gap-2">
+              {wizardStep > 1 && (
                 <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); setWizardStep(prev => Math.max(1, prev - 1)); }}>
                   Voltar
                 </Button>
               )}
-          </div>
+            </div>
           </div>
           {/* Dados do Cliente */}
           {wizardStep === 1 && (
             <>
-            {selectedStore === 'todas' && (
-              <Card className="mb-6 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base text-blue-700 dark:text-blue-300">
-                    <Store className="w-5 h-5" />
-                    Selecione a Loja para este Pedido
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Select value={lojaSelecionadaForm} onValueChange={setLojaSelecionadaForm}>
-                    <SelectTrigger className="w-full md:w-[300px] bg-white dark:bg-card">
-                      <SelectValue placeholder="Selecione a loja" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="loja_1">Loja 1</SelectItem>
-                      <SelectItem value="loja_2">Loja 2</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Como administrador, você deve especificar para qual loja este pedido está sendo criado.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Dados do Cliente
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ClienteSelector
-                clienteSelecionado={clienteSelecionado}
-                onClienteSelect={handleClienteSelect}
-                onClienteChange={(cliente) => {
-                  if (cliente) {
-                    handleClienteSelect(cliente);
-                  }
-                }}
-              />
-              
-              {/* Informações do cliente selecionado */}
-              {clienteSelecionado && (
-                <div className="mt-4 p-4 bg-muted/50 rounded-lg border">
-                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <User className="h-4 w-4" />
-                    <span>Cliente Selecionado: {clienteSelecionado.nome}</span>
-                    {clienteSelecionado.email && (
-                      <span className="text-muted-foreground">• {clienteSelecionado.email}</span>
+              {selectedStore === 'todas' && (
+                <Card className="mb-6 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base text-blue-700 dark:text-blue-300">
+                      <Store className="w-5 h-5" />
+                      Selecione a Loja para este Pedido
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Select value={lojaSelecionadaForm} onValueChange={setLojaSelecionadaForm}>
+                      <SelectTrigger className="w-full md:w-[300px] bg-white dark:bg-card">
+                        <SelectValue placeholder="Selecione a loja" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="loja_1">Loja 1</SelectItem>
+                        <SelectItem value="loja_2">Loja 2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Como administrador, você deve especificar para qual loja este pedido está sendo criado.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+              <div className="grid gap-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      Dados do Cliente & Vendedor
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-4">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Cliente</Label>
+                        <ClienteSelector
+                          onClienteSelect={(cliente) => {
+                            setClienteSelecionado(cliente);
+                            if (cliente) {
+                              setFormData(prev => ({
+                                ...prev,
+                                clienteId: cliente.id,
+                                clienteNome: cliente.nome,
+                                clienteEmail: cliente.email || '',
+                                clienteTelefone: cliente.telefone,
+                                clienteEndereco: cliente.endereco_completo || '',
+                                clienteCep: cliente.cep || '',
+                                clienteBairro: cliente.bairro || '',
+                                clienteCidade: cliente.cidade || '',
+                                clienteEstado: cliente.estado || '',
+                              }));
+                            } else {
+                              setFormData(prev => ({
+                                ...prev,
+                                clienteId: '',
+                                clienteNome: '',
+                                clienteEmail: '',
+                                clienteTelefone: '',
+                                clienteEndereco: '',
+                                clienteCep: '',
+                                clienteBairro: '',
+                                clienteCidade: '',
+                                clienteEstado: '',
+                              }));
+                            }
+                          }}
+                          selectedCliente={clienteSelecionado}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Vendedor</Label>
+                        <VendedorSelector
+                          onVendedorSelect={(vendedor) => {
+                            setVendedorSelecionado(vendedor);
+                            setFormData(prev => ({ ...prev, vendedorId: vendedor?.id || '' }));
+                          }}
+                          selectedVendedor={vendedorSelecionado}
+                        />
+                      </div>
+                    </div>
+
+                    {clienteSelecionado && (
+                      <div className="grid md:grid-cols-2 gap-4 pt-2 border-t mt-2">
+                        <div className="space-y-2">
+                          <Label>Telefone</Label>
+                          <Input value={clienteSelecionado.telefone} disabled />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <Input value={clienteSelecionado.email || '-'} disabled />
+                        </div>
+                      </div>
                     )}
-                  </div>
-                </div>
-              )}
-              
-              {/* Campos de endereço - mostrados apenas se um cliente estiver selecionado */}
-              {clienteSelecionado && (
-                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="clienteCep">CEP</Label>
-                    <Input
-                      id="clienteCep"
-                      value={formData.clienteCep}
-                      onChange={(e) => handleCepChange(e.target.value)}
-                      placeholder="00000-000"
-                      maxLength={9}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="clienteBairro">Bairro</Label>
-                    <Input
-                      id="clienteBairro"
-                      value={formData.clienteBairro}
-                      onChange={(e) => handleInputChange('clienteBairro', e.target.value)}
-                      placeholder="Nome do bairro"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="clienteCidade">Cidade</Label>
-                    <Input
-                      id="clienteCidade"
-                      value={formData.clienteCidade}
-                      onChange={(e) => handleInputChange('clienteCidade', e.target.value)}
-                      placeholder="Nome da cidade"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="clienteEstado">Estado</Label>
-                    <Input
-                      id="clienteEstado"
-                      value={formData.clienteEstado}
-                      onChange={(e) => handleInputChange('clienteEstado', e.target.value)}
-                      placeholder="UF"
-                      maxLength={2}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="clienteEndereco">Endereço Completo (Rua e Número)</Label>
-                    <Input
-                      id="clienteEndereco"
-                      value={formData.clienteEndereco}
-                      onChange={(e) => handleInputChange('clienteEndereco', e.target.value)}
-                      placeholder="Rua, número, complemento"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          </>
-          )}
-          {/* Número do Pedido e Data de Entrega (bloco separado entre Cliente e Pedido) */}
-          {wizardStep === 1 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Número e Entrega
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="numeroPedido">Número do Pedido</Label>
-                <Input
-                  id="numeroPedido"
-                  value={formData.numeroPedido}
-                  onChange={(e) => handleInputChange('numeroPedido', e.target.value)}
-                  placeholder="Ex: PED250909164 (deixe vazio para gerar automaticamente)"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dataEntrega">Data de Entrega</Label>
-                <Input
-                  id="dataEntrega"
-                  type="text"
-                  placeholder="DD/MM/AAAA"
-                  value={formData.dataEntrega}
-                  onChange={(e) => handleDataChange(e.target.value)}
-                  maxLength={10}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="frete">Frete</Label>
-                <Input
-                  id="frete"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  placeholder="Valor do frete (se houver)"
-                  value={formData.frete}
-                  onChange={(e) => handleInputChange('frete', e.target.value)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          )}
 
-          {/* Dados do Pedido */}
-          {wizardStep === 2 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Dados do Produto
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Cabeçalho para o Produto 1 */}
-              <div className="md:col-span-2">
-                <Label className="text-base font-medium">Produto 1</Label>
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="descricao">Descrição</Label>
-                <Textarea
-                  id="descricao"
-                  value={formData.descricao}
-                  onChange={(e) => handleInputChange('descricao', e.target.value)}
-                  placeholder="Descrição detalhada do pedido"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              {/* Visita técnica (Produto 1) */}
-              <div className="space-y-2 md:col-span-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-medium">Visita técnica</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{formData.visitaTecnicaAtiva ? 'Sim' : 'Não'}</span>
-                    <Switch
-                      checked={formData.visitaTecnicaAtiva}
-                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, visitaTecnicaAtiva: checked }))}
-                    />
-                  </div>
-                </div>
-                {formData.visitaTecnicaAtiva && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2 md:col-span-1">
-                      <Label htmlFor="dataVisitaTecnica">Data da visita técnica</Label>
+                    <div className="space-y-2 pt-2 border-t">
+                      <Label htmlFor="clienteEndereco">Endereço de Entrega</Label>
                       <Input
-                        id="dataVisitaTecnica"
-                        type="text"
-                        placeholder="DD/MM/AAAA"
-                        maxLength={10}
-                        value={formData.visitaTecnicaData}
-                        onChange={(e) => setFormData(prev => ({ ...prev, visitaTecnicaData: formatarData(e.target.value) }))}
+                        id="clienteEndereco"
+                        value={formData.clienteEndereco}
+                        onChange={(e) => handleInputChange('clienteEndereco', e.target.value)}
+                        placeholder="Endereço completo para entrega"
                       />
                     </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Foto do Produto (principal) */}
-              <div className="space-y-2 md:col-span-2">
-                <Label className="flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  Foto do Produto
-                </Label>
-                <ImageUpload
-                  images={formData.fotosPedido}
-                  onImagesChange={handleFotosPedidoChange}
-                  maxImages={1}
-                  bucketName="pedido-imagens"
-                  folder="fotos-pedido"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tipoSofa">Tipo de Sofá</Label>
-                <div className="flex gap-2">
-                  <Select value={formData.tipoSofa} onValueChange={(value) => handleInputChange('tipoSofa', value)}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione o tipo de sofá" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tiposSofaDisponiveis.map((tipo) => (
-                        <div key={tipo} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                          <SelectItem value={tipo} className="flex-1 border-0 p-0 focus:bg-transparent">
-                            {tipo}
-                          </SelectItem>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setTipoSofaParaExcluir(tipo);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-500" />
-                          </Button>
-                        </div>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Dialog open={modalNovoTipoSofaAberto} onOpenChange={setModalNovoTipoSofaAberto}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="icon" className="shrink-0">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Adicionar Novo Tipo de Sofá</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="novo-tipo-sofa">Nome do Tipo</Label>
-                          <Input
-                            id="novo-tipo-sofa"
-                            value={novoTipoSofa}
-                            onChange={(e) => setNovoTipoSofa(e.target.value)}
-                            placeholder="Digite o nome do novo tipo"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                adicionarNovoTipoSofa();
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setModalNovoTipoSofaAberto(false);
-                              setNovoTipoSofa('');
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={adicionarNovoTipoSofa}
-                            disabled={!novoTipoSofa.trim()}
-                          >
-                            Adicionar
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  
-                  {/* Modal de Confirmação para Excluir Tipo de Sofá */}
-                  <Dialog open={!!tipoSofaParaExcluir} onOpenChange={() => setTipoSofaParaExcluir(null)}>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Excluir Tipo de Sofá</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          Tem certeza que deseja excluir o tipo <strong>"{tipoSofaParaExcluir}"</strong>?
-                        </p>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setTipoSofaParaExcluir(null)}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={() => tipoSofaParaExcluir && excluirTipoSofa(tipoSofaParaExcluir)}
-                          >
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cor">Cor</Label>
-                <div className="flex gap-2">
-                  <Select value={formData.cor} onValueChange={(value) => handleInputChange('cor', value)}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione a cor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {coresDisponiveis.map((cor) => (
-                        <div key={cor} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                          <SelectItem value={cor} className="flex-1 border-0 p-0 focus:bg-transparent">
-                            {cor}
-                          </SelectItem>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setCorParaExcluir(cor);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-500" />
-                          </Button>
-                        </div>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Dialog open={modalNovaCorAberto} onOpenChange={setModalNovaCorAberto}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="icon" className="shrink-0">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Adicionar Nova Cor</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="nova-cor">Nome da Cor</Label>
-                          <Input
-                            id="nova-cor"
-                            value={novaCor}
-                            onChange={(e) => setNovaCor(e.target.value)}
-                            placeholder="Digite o nome da nova cor"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                adicionarNovaCor();
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setModalNovaCorAberto(false);
-                              setNovaCor('');
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={adicionarNovaCor}
-                            disabled={!novaCor.trim()}
-                          >
-                            Adicionar
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  
-                  {/* Modal de Confirmação para Excluir Cor */}
-                  <Dialog open={!!corParaExcluir} onOpenChange={() => setCorParaExcluir(null)}>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Excluir Cor</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          Tem certeza que deseja excluir a cor <strong>"{corParaExcluir}"</strong>?
-                        </p>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setCorParaExcluir(null)}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={() => corParaExcluir && excluirCor(corParaExcluir)}
-                          >
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dimensoes">Dimensões (metros)</Label>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <Input
-                      id="dimensaoLargura"
-                      value={formData.dimensaoLargura}
-                      onChange={(e) => handleDimensaoChange('dimensaoLargura', e.target.value)}
-                      placeholder="2,20"
-                      maxLength={4}
-                      className="text-center"
-                    />
-                  </div>
-                  <span className="text-lg font-bold text-muted-foreground px-2">×</span>
-                  <div className="flex-1">
-                    <Input
-                      id="dimensaoComprimento"
-                      value={formData.dimensaoComprimento}
-                      onChange={(e) => handleDimensaoChange('dimensaoComprimento', e.target.value)}
-                      placeholder="1,10"
-                      maxLength={4}
-                      className="text-center"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tipoServico">Tipo de Serviço</Label>
-                <div className="flex gap-2">
-                  <Select value={formData.tipoServico} onValueChange={(value) => handleInputChange('tipoServico', value)}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione o tipo de serviço" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tiposServicoDisponiveis.map((tipoServico) => (
-                        <div key={tipoServico} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                          <SelectItem value={tipoServico} className="flex-1 border-0 p-0 focus:bg-transparent">
-                            {tipoServico}
-                          </SelectItem>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setTipoServicoParaExcluir(tipoServico);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Dialog open={modalNovoTipoServicoAberto} onOpenChange={setModalNovoTipoServicoAberto}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="icon" className="shrink-0">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Adicionar Novo Tipo de Serviço</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="novoTipoServico">Nome do Tipo de Serviço</Label>
-                          <Input
-                            id="novoTipoServico"
-                            value={novoTipoServico}
-                            onChange={(e) => setNovoTipoServico(e.target.value)}
-                            placeholder="Ex: MANUTENÇÃO"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setModalNovoTipoServicoAberto(false);
-                              setNovoTipoServico('');
-                            }}
-                            className="flex-1"
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={adicionarNovoTipoServico}
-                            className="flex-1"
-                          >
-                            Adicionar
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="precoUnitario" className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Preço Unitário
-                </Label>
-                <Input
-                  id="precoUnitario"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  placeholder="Ex: 199.90"
-                  value={formData.precoUnitario}
-                  onChange={(e) => handleInputChange('precoUnitario', e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              
-              <DiscountInput
-                price={parseFloat(formData.precoUnitario) || 0}
-                discountType={formData.descontoTipo}
-                discountValue={parseFloat(formData.descontoValor) || 0}
-                onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, descontoTipo: type }))}
-                onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, descontoValor: value.toString() }))}
-              />
 
-              {/* Etapas Necessárias (Produto 1) */}
-              <div className="space-y-2 md:col-span-2">
-                <Label>Etapas Necessárias</Label>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Selecione as etapas de produção onde este pedido deve aparecer. Clique para selecionar/deselecionar.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  {etapasDisponiveis.map((etapa) => {
-                    const isSelected = etapasSelecionadas.includes(etapa);
-                    const etapaLabel = {
-                      'marcenaria': 'Marcenaria',
-                      'corte_costura': 'Corte Costura',
-                      'espuma': 'Espuma',
-                      'bancada': 'Bancada',
-                      'tecido': 'Tecido'
-                    }[etapa] || etapa;
-                    
-                    return (
-                      <Button
-                        key={etapa}
-                        type="button"
-                        variant={isSelected ? "default" : "outline"}
-                        className={`h-12 text-sm font-medium transition-all ${
-                          isSelected 
-                            ? 'bg-primary text-primary-foreground shadow-md' 
-                            : 'hover:bg-muted'
-                        }`}
-                        onClick={() => toggleEtapa(etapa)}
-                      >
-                        {etapaLabel}
-                      </Button>
-                    );
-                  })}
-                </div>
-                {etapasSelecionadas.length === 0 && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-yellow-800">
-                      <AlertCircle className="h-4 w-4" />
-                      <span className="text-sm font-medium">Atenção:</span>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="clienteBairro">Bairro</Label>
+                        <Input
+                          id="clienteBairro"
+                          value={formData.clienteBairro}
+                          onChange={(e) => handleInputChange('clienteBairro', e.target.value)}
+                          placeholder="Bairro"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="clienteCidade">Cidade</Label>
+                        <Input
+                          id="clienteCidade"
+                          value={formData.clienteCidade}
+                          onChange={(e) => handleInputChange('clienteCidade', e.target.value)}
+                          placeholder="Cidade"
+                        />
+                      </div>
                     </div>
-                    <p className="text-sm text-yellow-700 mt-1">
-                      Nenhuma etapa selecionada. O pedido não aparecerá em nenhuma etapa de produção.
-                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+          {/* Número do Pedido e Data de Entrega (bloco separado entre Cliente e Pedido) */}
+          {
+            wizardStep === 1 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Número e Entrega
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="numeroPedido">Número do Pedido</Label>
+                    <Input
+                      id="numeroPedido"
+                      value={formData.numeroPedido}
+                      onChange={(e) => handleInputChange('numeroPedido', e.target.value)}
+                      placeholder="Ex: PED250909164 (deixe vazio para gerar automaticamente)"
+                    />
                   </div>
-                )}
-                {etapasSelecionadas.length > 0 && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-green-800">
-                      <Package className="h-4 w-4" />
-                      <span className="text-sm font-medium">Etapas selecionadas:</span>
+                  <div className="space-y-2">
+                    <Label htmlFor="dataEntrega">Data de Entrega</Label>
+                    <Input
+                      id="dataEntrega"
+                      type="text"
+                      placeholder="DD/MM/AAAA"
+                      value={formData.dataEntrega}
+                      onChange={(e) => handleDataChange(e.target.value)}
+                      maxLength={10}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="frete">Frete</Label>
+                    <Input
+                      id="frete"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      placeholder="Valor do frete (se houver)"
+                      value={formData.frete}
+                      onChange={(e) => handleInputChange('frete', e.target.value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          }
+
+          {/* Dados do Pedido */}
+          {
+            wizardStep === 2 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    Dados do Produto
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Cabeçalho para o Produto 1 */}
+                  <div className="md:col-span-2">
+                    <Label className="text-base font-medium">Produto 1</Label>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="descricao">Descrição</Label>
+                    <Textarea
+                      id="descricao"
+                      value={formData.descricao}
+                      onChange={(e) => handleInputChange('descricao', e.target.value)}
+                      placeholder="Descrição detalhada do pedido"
+                      rows={3}
+                      required
+                    />
+                  </div>
+
+                  {/* Visita técnica (Produto 1) */}
+                  <div className="space-y-2 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">Visita técnica</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">{formData.visitaTecnicaAtiva ? 'Sim' : 'Não'}</span>
+                        <Switch
+                          checked={formData.visitaTecnicaAtiva}
+                          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, visitaTecnicaAtiva: checked }))}
+                        />
+                      </div>
                     </div>
-                    <p className="text-sm text-green-700 mt-1">
-                      {etapasSelecionadas.map(etapa => {
+                    {formData.visitaTecnicaAtiva && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2 md:col-span-1">
+                          <Label htmlFor="dataVisitaTecnica">Data da visita técnica</Label>
+                          <Input
+                            id="dataVisitaTecnica"
+                            type="text"
+                            placeholder="DD/MM/AAAA"
+                            maxLength={10}
+                            value={formData.visitaTecnicaData}
+                            onChange={(e) => setFormData(prev => ({ ...prev, visitaTecnicaData: formatarData(e.target.value) }))}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Foto do Produto (principal) */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="flex items-center gap-2">
+                      <Camera className="h-4 w-4" />
+                      Foto do Produto
+                    </Label>
+                    <ImageUpload
+                      images={formData.fotosPedido}
+                      onImagesChange={handleFotosPedidoChange}
+                      maxImages={1}
+                      bucketName="pedido-imagens"
+                      folder="fotos-pedido"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tipoSofa">Tipo de Sofá</Label>
+                    <div className="flex gap-2">
+                      <Select value={formData.tipoSofa} onValueChange={(value) => handleInputChange('tipoSofa', value)}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione o tipo de sofá" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tiposSofaDisponiveis.map((tipo) => (
+                            <div key={tipo} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
+                              <SelectItem value={tipo} className="flex-1 border-0 p-0 focus:bg-transparent">
+                                {tipo}
+                              </SelectItem>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setTipoSofaParaExcluir(tipo);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Dialog open={modalNovoTipoSofaAberto} onOpenChange={setModalNovoTipoSofaAberto}>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="outline" size="icon" className="shrink-0">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Adicionar Novo Tipo de Sofá</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="novo-tipo-sofa">Nome do Tipo</Label>
+                              <Input
+                                id="novo-tipo-sofa"
+                                value={novoTipoSofa}
+                                onChange={(e) => setNovoTipoSofa(e.target.value)}
+                                placeholder="Digite o nome do novo tipo"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    adicionarNovoTipoSofa();
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setModalNovoTipoSofaAberto(false);
+                                  setNovoTipoSofa('');
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={adicionarNovoTipoSofa}
+                                disabled={!novoTipoSofa.trim()}
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      {/* Modal de Confirmação para Excluir Tipo de Sofá */}
+                      <Dialog open={!!tipoSofaParaExcluir} onOpenChange={() => setTipoSofaParaExcluir(null)}>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Excluir Tipo de Sofá</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              Tem certeza que deseja excluir o tipo <strong>"{tipoSofaParaExcluir}"</strong>?
+                            </p>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setTipoSofaParaExcluir(null)}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => tipoSofaParaExcluir && excluirTipoSofa(tipoSofaParaExcluir)}
+                              >
+                                Excluir
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cor">Cor</Label>
+                    <div className="flex gap-2">
+                      <Select value={formData.cor} onValueChange={(value) => handleInputChange('cor', value)}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione a cor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {coresDisponiveis.map((cor) => (
+                            <div key={cor} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
+                              <SelectItem value={cor} className="flex-1 border-0 p-0 focus:bg-transparent">
+                                {cor}
+                              </SelectItem>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setCorParaExcluir(cor);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Dialog open={modalNovaCorAberto} onOpenChange={setModalNovaCorAberto}>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="outline" size="icon" className="shrink-0">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Adicionar Nova Cor</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="nova-cor">Nome da Cor</Label>
+                              <Input
+                                id="nova-cor"
+                                value={novaCor}
+                                onChange={(e) => setNovaCor(e.target.value)}
+                                placeholder="Digite o nome da nova cor"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    adicionarNovaCor();
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setModalNovaCorAberto(false);
+                                  setNovaCor('');
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={adicionarNovaCor}
+                                disabled={!novaCor.trim()}
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      {/* Modal de Confirmação para Excluir Cor */}
+                      <Dialog open={!!corParaExcluir} onOpenChange={() => setCorParaExcluir(null)}>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Excluir Cor</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              Tem certeza que deseja excluir a cor <strong>"{corParaExcluir}"</strong>?
+                            </p>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setCorParaExcluir(null)}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => corParaExcluir && excluirCor(corParaExcluir)}
+                              >
+                                Excluir
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dimensoes">Dimensões (metros)</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Input
+                          id="dimensaoLargura"
+                          value={formData.dimensaoLargura}
+                          onChange={(e) => handleDimensaoChange('dimensaoLargura', e.target.value)}
+                          placeholder="2,20"
+                          maxLength={4}
+                          className="text-center"
+                        />
+                      </div>
+                      <span className="text-lg font-bold text-muted-foreground px-2">×</span>
+                      <div className="flex-1">
+                        <Input
+                          id="dimensaoComprimento"
+                          value={formData.dimensaoComprimento}
+                          onChange={(e) => handleDimensaoChange('dimensaoComprimento', e.target.value)}
+                          placeholder="1,10"
+                          maxLength={4}
+                          className="text-center"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tipoServico">Tipo de Serviço</Label>
+                    <div className="flex gap-2">
+                      <Select value={formData.tipoServico} onValueChange={(value) => handleInputChange('tipoServico', value)}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione o tipo de serviço" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tiposServicoDisponiveis.map((tipoServico) => (
+                            <div key={tipoServico} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
+                              <SelectItem value={tipoServico} className="flex-1 border-0 p-0 focus:bg-transparent">
+                                {tipoServico}
+                              </SelectItem>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setTipoServicoParaExcluir(tipoServico);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Dialog open={modalNovoTipoServicoAberto} onOpenChange={setModalNovoTipoServicoAberto}>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="outline" size="icon" className="shrink-0">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Adicionar Novo Tipo de Serviço</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="novoTipoServico">Nome do Tipo de Serviço</Label>
+                              <Input
+                                id="novoTipoServico"
+                                value={novoTipoServico}
+                                onChange={(e) => setNovoTipoServico(e.target.value)}
+                                placeholder="Ex: MANUTENÇÃO"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setModalNovoTipoServicoAberto(false);
+                                  setNovoTipoServico('');
+                                }}
+                                className="flex-1"
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={adicionarNovoTipoServico}
+                                className="flex-1"
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="precoUnitario" className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Preço Unitário
+                    </Label>
+                    <Input
+                      id="precoUnitario"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      placeholder="Ex: 199.90"
+                      value={formData.precoUnitario}
+                      onChange={(e) => handleInputChange('precoUnitario', e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <DiscountInput
+                    price={parseFloat(formData.precoUnitario) || 0}
+                    discountType={formData.descontoTipo}
+                    discountValue={parseFloat(formData.descontoValor) || 0}
+                    onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, descontoTipo: type }))}
+                    onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, descontoValor: value.toString() }))}
+                  />
+
+                  {/* Etapas Necessárias (Produto 1) */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Etapas Necessárias</Label>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Selecione as etapas de produção onde este pedido deve aparecer. Clique para selecionar/deselecionar.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      {etapasDisponiveis.map((etapa) => {
+                        const isSelected = etapasSelecionadas.includes(etapa);
                         const etapaLabel = {
                           'marcenaria': 'Marcenaria',
                           'corte_costura': 'Corte Costura',
@@ -2428,690 +2426,738 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                           'bancada': 'Bancada',
                           'tecido': 'Tecido'
                         }[etapa] || etapa;
-                        return etapaLabel;
-                      }).join(', ')}
-                    </p>
-                  </div>
-                )}
-              </div>
 
-              {/* Observações (Produto 1) */}
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="observacoes">Observações</Label>
-                <Textarea
-                  id="observacoes"
-                  value={formData.observacoes}
-                  onChange={(e) => handleInputChange('observacoes', e.target.value)}
-                  placeholder="Observações adicionais sobre o pedido"
-                  rows={2}
-                />
-              </div>
-
-              {/* Espuma (Produto 1) */}
-              <div className="space-y-2">
-                <Label htmlFor="espuma">Espuma</Label>
-                <div className="flex gap-2">
-                  <Select value={formData.espuma} onValueChange={(value) => handleInputChange('espuma', value)}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione o tipo de espuma" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {espumasDisponiveis.map((espuma) => (
-                        <div key={espuma} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                          <SelectItem value={espuma} className="flex-1 border-0 p-0 focus:bg-transparent">
-                            {espuma}
-                          </SelectItem>
+                        return (
                           <Button
+                            key={etapa}
                             type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setEspumaParaExcluir(espuma);
-                            }}
+                            variant={isSelected ? "default" : "outline"}
+                            className={`h-12 text-sm font-medium transition-all ${isSelected
+                              ? 'bg-primary text-primary-foreground shadow-md'
+                              : 'hover:bg-muted'
+                              }`}
+                            onClick={() => toggleEtapa(etapa)}
                           >
-                            <Trash2 className="h-3 w-3 text-red-500" />
+                            {etapaLabel}
                           </Button>
+                        );
+                      })}
+                    </div>
+                    {etapasSelecionadas.length === 0 && (
+                      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-yellow-800">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Atenção:</span>
                         </div>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Dialog open={modalNovaEspumaAberto} onOpenChange={setModalNovaEspumaAberto}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="icon" className="shrink-0">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Adicionar Nova Espuma</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="nova-espuma">Nome da Espuma</Label>
-                          <Input
-                            id="nova-espuma"
-                            value={novaEspuma}
-                            onChange={(e) => setNovaEspuma(e.target.value)}
-                            placeholder="Digite o nome da nova espuma"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                adicionarNovaEspuma();
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setModalNovaEspumaAberto(false);
-                              setNovaEspuma('');
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={adicionarNovaEspuma}
-                            disabled={!novaEspuma.trim()}
-                          >
-                            Adicionar
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  {/* Modal de Confirmação para Excluir Espuma */}
-                  <Dialog open={!!espumaParaExcluir} onOpenChange={() => setEspumaParaExcluir(null)}>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Excluir Espuma</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          Tem certeza que deseja excluir a espuma <strong>"{espumaParaExcluir}"</strong>?
+                        <p className="text-sm text-yellow-700 mt-1">
+                          Nenhuma etapa selecionada. O pedido não aparecerá em nenhuma etapa de produção.
                         </p>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setEspumaParaExcluir(null)}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={() => espumaParaExcluir && excluirEspuma(espumaParaExcluir)}
-                          >
-                            Excluir
-                          </Button>
-                        </div>
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-
-              {/* Tecido (Produto 1) */}
-              <div className="space-y-2">
-                <Label htmlFor="tecido">Tecido</Label>
-                <Input
-                  id="tecido"
-                  value={formData.tecido}
-                  onChange={(e) => handleInputChange('tecido', e.target.value)}
-                  placeholder="Especificação do tecido"
-                  required
-                />
-              </div>
-
-              {/* Braço (Produto 1) */}
-              <div className="space-y-2">
-                <Label htmlFor="braco">Braço</Label>
-                <div className="flex gap-2">
-                  <Select value={formData.braco} onValueChange={(value) => handleInputChange('braco', value)}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione o tipo de braço" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bracosDisponiveis.map((braco) => (
-                        <div key={braco} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                          <SelectItem value={braco} className="flex-1 border-0 p-0 focus:bg-transparent">
-                            {braco}
-                          </SelectItem>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setBracoParaExcluir(braco);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-500" />
-                          </Button>
+                    )}
+                    {etapasSelecionadas.length > 0 && (
+                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-green-800">
+                          <Package className="h-4 w-4" />
+                          <span className="text-sm font-medium">Etapas selecionadas:</span>
                         </div>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Dialog open={modalNovoBracoAberto} onOpenChange={setModalNovoBracoAberto}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="icon" className="shrink-0">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Adicionar Novo Braço</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="novo-braco">Nome do Braço</Label>
-                          <Input
-                            id="novo-braco"
-                            value={novoBraco}
-                            onChange={(e) => setNovoBraco(e.target.value)}
-                            placeholder="Digite o nome do novo braço"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                adicionarNovoBraco();
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setModalNovoBracoAberto(false);
-                              setNovoBraco('');
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={adicionarNovoBraco}
-                            disabled={!novoBraco.trim()}
-                          >
-                            Adicionar
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  {/* Modal de Confirmação para Excluir Braço */}
-                  <Dialog open={!!bracoParaExcluir} onOpenChange={() => setBracoParaExcluir(null)}>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Excluir Braço</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          Tem certeza que deseja excluir o braço <strong>"{bracoParaExcluir}"</strong>?
+                        <p className="text-sm text-green-700 mt-1">
+                          {etapasSelecionadas.map(etapa => {
+                            const etapaLabel = {
+                              'marcenaria': 'Marcenaria',
+                              'corte_costura': 'Corte Costura',
+                              'espuma': 'Espuma',
+                              'bancada': 'Bancada',
+                              'tecido': 'Tecido'
+                            }[etapa] || etapa;
+                            return etapaLabel;
+                          }).join(', ')}
                         </p>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setBracoParaExcluir(null)}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={() => bracoParaExcluir && excluirBraco(bracoParaExcluir)}
-                          >
-                            Excluir
-                          </Button>
-                        </div>
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-
-              {/* Tipo de Pé (Produto 1) */}
-              <div className="space-y-2">
-                <Label htmlFor="tipoPe">Tipo de Pé</Label>
-                <div className="flex gap-2">
-                  <Select value={formData.tipoPe} onValueChange={(value) => handleInputChange('tipoPe', value)}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione o tipo de pé" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tiposPeDisponiveis.map((tipoPe) => (
-                        <div key={tipoPe} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                          <SelectItem value={tipoPe} className="flex-1 border-0 p-0 focus:bg-transparent">
-                            {tipoPe}
-                          </SelectItem>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setTipoPeParaExcluir(tipoPe);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-500" />
-                          </Button>
-                        </div>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Dialog open={modalNovoTipoPeAberto} onOpenChange={setModalNovoTipoPeAberto}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="icon" className="shrink-0">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Adicionar Novo Tipo de Pé</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="novo-tipo-pe">Nome do Tipo de Pé</Label>
-                          <Input
-                            id="novo-tipo-pe"
-                            value={novoTipoPe}
-                            onChange={(e) => setNovoTipoPe(e.target.value)}
-                            placeholder="Digite o nome do novo tipo de pé"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                adicionarNovoTipoPe();
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setModalNovoTipoPeAberto(false);
-                              setNovoTipoPe('');
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={adicionarNovoTipoPe}
-                            disabled={!novoTipoPe.trim()}
-                          >
-                            Adicionar
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  {/* Modal de Confirmação para Excluir Tipo de Pé */}
-                  <Dialog open={!!tipoPeParaExcluir} onOpenChange={() => setTipoPeParaExcluir(null)}>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Excluir Tipo de Pé</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          Tem certeza que deseja excluir o tipo de pé <strong>"{tipoPeParaExcluir}"</strong>?
-                        </p>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setTipoPeParaExcluir(null)}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={() => tipoPeParaExcluir && excluirTipoPe(tipoPeParaExcluir)}
-                          >
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-
-              {/* Botão para adicionar novo produto (movido para baixo) */}
-              <div className="md:col-span-2 flex justify-end mt-4">
-                <Button type="button" variant="outline" onClick={addItem}>
-                  Adicionar novo produto
-                </Button>
-              </div>
-
-              {/* Produtos adicionais */}
-              {itensAdicionais.length > 0 && (
-                <div className="md:col-span-2 space-y-4">
-                  <Label>Produtos adicionais</Label>
-                  {itensAdicionais.map((item, index) => (
-                    <div key={index} className="border rounded-md p-4 space-y-4 bg-muted/30">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Produto {index + 2}</span>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)}>
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
-
-                      {/* Campo de descrição removido aqui; ProdutoCampos renderiza a descrição do produto */}
-
-                      {/* Upload de foto removido aqui para evitar duplicação; o ProdutoCampos gerencia a foto do produto */}
-
-                      <ProdutoCampos
-                        values={{
-                          descricao: item.descricao,
-                          fotosPedido: item.fotosPedido || [],
-                          tipoSofa: item.tipoSofa,
-                          cor: item.cor,
-                          dimensaoLargura: item.dimensaoLargura || '',
-                          dimensaoComprimento: item.dimensaoComprimento || '',
-                          tipoServico: item.tipoServico,
-                          precoUnitario: item.precoUnitario,
-                          observacoes: item.observacoes,
-                          espuma: item.espuma,
-                          tecido: item.tecido,
-                          braco: item.braco,
-                          tipoPe: item.tipoPe,
-                          descontoTipo: item.descontoTipo,
-                          descontoValor: item.descontoValor,
-                        }}
-                        onChange={(field, value) => handleItemChange(index, field as any, value)}
-                        onFotosChange={(imgs) => handleItemFotosChange(index, imgs)}
-                        onDimensaoChange={(field, value) => handleItemDimensaoChange(index, field, value)}
-                        imageFolder={`fotos-pedido/item-${index + 2}`}
-                        tiposSofaDisponiveis={tiposSofaDisponiveis}
-                        coresDisponiveis={coresDisponiveis}
-                        tiposServicoDisponiveis={tiposServicoDisponiveis}
-                        espumasDisponiveis={espumasDisponiveis}
-                        bracosDisponiveis={bracosDisponiveis}
-                        tiposPeDisponiveis={tiposPeDisponiveis}
-                        setModalNovoTipoSofaAberto={setModalNovoTipoSofaAberto}
-                        setModalNovaCorAberto={setModalNovaCorAberto}
-                        setModalNovoTipoServicoAberto={setModalNovoTipoServicoAberto}
-                        setModalNovaEspumaAberto={setModalNovaEspumaAberto}
-                        setModalNovoBracoAberto={setModalNovoBracoAberto}
-                        setModalNovoTipoPeAberto={setModalNovoTipoPeAberto}
-                        setTipoSofaParaExcluir={setTipoSofaParaExcluir}
-                        setCorParaExcluir={setCorParaExcluir}
-                        setTipoServicoParaExcluir={setTipoServicoParaExcluir}
-                        setEspumaParaExcluir={setEspumaParaExcluir}
-                        setBracoParaExcluir={setBracoParaExcluir}
-                        setTipoPeParaExcluir={setTipoPeParaExcluir}
-                        etapasDisponiveis={etapasDisponiveis}
-                        etapasSelecionadas={item.etapasNecessarias || []}
-                        onToggleEtapa={(etapa) => toggleEtapaItem(index, etapa)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-              <Dialog open={tipoServicoParaExcluir !== null} onOpenChange={() => setTipoServicoParaExcluir(null)}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Confirmar Exclusão</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <p>Tem certeza que deseja excluir o tipo de serviço "{tipoServicoParaExcluir}"?</p>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setTipoServicoParaExcluir(null)}
-                        className="flex-1"
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        className="flex-1"
-                        onClick={() => tipoServicoParaExcluir && excluirTipoServico(tipoServicoParaExcluir)}
-                      >
-                        Excluir
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              
-              {/* Blocos do Produto 1 movidos para cima para separação por produto */}
-            </CardContent>
-          </Card>
-          )}
-
-          {/* Detalhes */}
-          {wizardStep === 3 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Detalhes
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Resumo: Total e Total+frete */}
-              <div className="md:col-span-2">
-                <div className="rounded-md border p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total dos produtos (com descontos nos itens)</span>
-                    <span className="text-lg font-semibold">{totalProdutos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                     <span className="text-sm text-muted-foreground">Frete</span>
-                     <span className="text-lg font-medium">{(parseValor(formData.frete || '')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between border-t pt-2">
-                     <span className="text-sm text-muted-foreground font-medium">Subtotal</span>
-                     <span className="text-lg font-semibold">{totalComFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                  </div>
-
-                  <div className="pt-2 border-t">
-                     <div className="flex flex-col gap-2 mb-2">
-                       <Label>Desconto no Total do Pedido</Label>
-                       <div className="w-full">
-                        <DiscountInput
-                          price={totalComFrete}
-                          discountType={formData.pedidoDescontoTipo}
-                          discountValue={parseFloat(formData.pedidoDescontoValor) || 0}
-                          onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, pedidoDescontoTipo: type }))}
-                          onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, pedidoDescontoValor: value.toString() }))}
-                          label=""
-                        />
-                       </div>
-                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 border-t bg-muted/20 -mx-4 px-4 -mb-4 py-4 rounded-b-md">
-                    <span className="text-lg font-bold">Total Final</span>
-                    <span className="text-2xl font-bold text-green-600">{totalFinalPedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                  </div>
-                </div>
-              </div>
-              {/* Garantia (Pedido Geral) */}
-              <div className="space-y-3 md:col-span-2">
-                <Label className="text-base font-medium">Garantia</Label>
-                <Tabs value={formData.garantiaTipo} onValueChange={(v) => setFormData(prev => ({ ...prev, garantiaTipo: v, garantiaValor: '' }))}>
-                  <TabsList className="mb-2">
-                    <TabsTrigger value="dias">dias</TabsTrigger>
-                    <TabsTrigger value="meses">meses</TabsTrigger>
-                    <TabsTrigger value="anos">anos</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="dias">
-                    <div className="grid grid-cols-3 gap-3">
-                      <Button type="button" variant={formData.garantiaValor === '30' && formData.garantiaTipo === 'dias' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: '30' }))}>30 dias</Button>
-                      <Button type="button" variant={formData.garantiaValor === '90' && formData.garantiaTipo === 'dias' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: '90' }))}>90 dias</Button>
-                      <Input placeholder="Outros (dias)" value={formData.garantiaTipo === 'dias' && !['30','90'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: e.target.value }))} />
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="meses">
-                    <div className="grid grid-cols-3 gap-3">
-                      <Button type="button" variant={formData.garantiaValor === '3' && formData.garantiaTipo === 'meses' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: '3' }))}>3 meses</Button>
-                      <Button type="button" variant={formData.garantiaValor === '12' && formData.garantiaTipo === 'meses' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: '12' }))}>12 meses</Button>
-                      <Input placeholder="Outros (meses)" value={formData.garantiaTipo === 'meses' && !['3','12'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: e.target.value }))} />
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="anos">
-                    <div className="grid grid-cols-3 gap-3">
-                      <Button type="button" variant={formData.garantiaValor === '1' && formData.garantiaTipo === 'anos' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: '1' }))}>1 ano</Button>
-                      <Button type="button" variant={formData.garantiaValor === '3' && formData.garantiaTipo === 'anos' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: '3' }))}>3 anos</Button>
-                      <Input placeholder="Outros (anos)" value={formData.garantiaTipo === 'anos' && !['1','3'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: e.target.value }))} />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-                <div className="space-y-3">
-                  <Button type="button" variant="secondary" onClick={() => setFormData(prev => ({ ...prev, garantiaTexto: `Este produto está efetivamente garantido contra eventuais defeitos de fabricação conforme prazos indicados abaixo, a partir da data de compra, sem prorrogação.\nReforma: Prazo TOTAL de 3 (três) meses.\nFabricação: Revestimentos: prazo total de 3 (três) meses, desde que o revestimento seja do mostruário da Sofá & Arte. Não será concedida qualquer garantia ao revestimento quando o tecido for fornecido pelo próprio cliente ou tenha sido adquirido de empresa terceira por solicitação do mesmo.\nEstrutura (madeiras, espumas, percintas, mecanismos, pés, fibras naturais): prazo total de 12 (doze) meses.\n\nA garantia perderá a sua validade:\n• Em caso de mau uso, considerando a finalidade a que se destina o móvel e as orientações constantes neste termo:\n• Em caso de limpeza incorreta, falta de manutenção básica ao uso, aplicação de produtos químicos, tratamentos de proteção aplicados pelo comprador, detergentes, condicionadores, fluidos corporais ou danos devidos à exposição direta ou indireta à luz solar, umidade excessiva, calor excessivo, luminosidade intensa, ou condições semelhantes, bem como avaria de transporte, quando o mesmo for realizado pelo próprio consumidor;\n• Em caso de danos causados pela ação de cupins, insetos, broca ou outras pragas;\n• Se forem realizados, sem prévia autorização da fábrica, alterações, reparos ou substituições de partes do móvel, ou por qualquer meio danificar o produto por ato que praticar.\n\nSolicitação de Assistência Técnica:\n• O consumidor deverá entrar em contato através do canal de atendimento (81) 98771-4814 munido do pedido de compra, a fim de formalizar a solicitação de assistência técnica;\n• A Sofá & Arte se reserva o direito de efetuar avaliação técnica da solicitação;\n• Caso seja constatado uso inadequado ou a presença de quaisquer condições que excluem ou não compreendam a garantia do produto, as despesas decorrentes do transporte e da reforma serão por conta do cliente ou consumidor final.` }))}>
-                    gerar as condições da garantia automaticamente
-                  </Button>
-                  <Textarea
-                    value={formData.garantiaTexto}
-                    onChange={(e) => handleInputChange('garantiaTexto', e.target.value)}
-                    rows={8}
-                    placeholder="Condições da garantia"
-                  />
-                  <div className="flex justify-end">
-                    <Button type="button" onClick={() => toast({ title: 'Garantia salva', description: 'Campo de garantia atualizado no pedido.' })}>salvar garantia</Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Termo de entrega e recebimento */}
-              <div className="space-y-3 md:col-span-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-medium">Termo de entrega e recebimento</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Habilitar termo</span>
-                    <Switch
-                      checked={formData.termoEntregaAtivo}
-                      onCheckedChange={(checked) =>
-                        setFormData(prev => ({
-                          ...prev,
-                          termoEntregaAtivo: checked,
-                          termoEntregaTexto: checked ? TERMO_ENTREGA_PADRAO : prev.termoEntregaTexto,
-                        }))
-                      }
+                  {/* Observações (Produto 1) */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="observacoes">Observações</Label>
+                    <Textarea
+                      id="observacoes"
+                      value={formData.observacoes}
+                      onChange={(e) => handleInputChange('observacoes', e.target.value)}
+                      placeholder="Observações adicionais sobre o pedido"
+                      rows={2}
                     />
                   </div>
-                </div>
-                <div className="space-y-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setFormData(prev => ({ ...prev, termoEntregaTexto: TERMO_ENTREGA_PADRAO, termoEntregaAtivo: true }))}
-                  >
-                    gerar termo automaticamente
-                  </Button>
-                  <Textarea
-                    value={formData.termoEntregaTexto}
-                    onChange={(e) => handleInputChange('termoEntregaTexto', e.target.value)}
-                    rows={10}
-                    placeholder="Termo de entrega e recebimento"
-                    disabled={!formData.termoEntregaAtivo}
-                  />
-                  <div className="flex justify-end">
-                    <Button type="button" onClick={() => toast({ title: 'Termo salvo', description: 'Termo de entrega atualizado no pedido.' })}>salvar termo</Button>
-                  </div>
-                </div>
-              </div>
-              {/* Forma de Pagamento */}
-              <div className="space-y-2 md:col-span-2">
-                <Label>Forma de Pagamento</Label>
-                <Input 
-                  value={formData.formaPagamento} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, formaPagamento: e.target.value }))}
-                  placeholder="Descreva a forma de pagamento (Ex: À vista, 50% entrada + 2x, etc)"
-                />
-              </div>
 
-              {/* Fotos de Controle */}
-              <div className="space-y-2 md:col-span-2">
-                <Label className="flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  Fotos de Controle
-                </Label>
-                <ImageUpload
-                  images={formData.fotosControle}
-                  onImagesChange={handleFotosControleChange}
-                  maxImages={3}
-                  bucketName="pedido-imagens"
-                  folder="fotos-controle"
-                />
-              </div>
-            </CardContent>
-          </Card>
-          )}
+                  {/* Espuma (Produto 1) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="espuma">Espuma</Label>
+                    <div className="flex gap-2">
+                      <Select value={formData.espuma} onValueChange={(value) => handleInputChange('espuma', value)}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione o tipo de espuma" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {espumasDisponiveis.map((espuma) => (
+                            <div key={espuma} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
+                              <SelectItem value={espuma} className="flex-1 border-0 p-0 focus:bg-transparent">
+                                {espuma}
+                              </SelectItem>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setEspumaParaExcluir(espuma);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Dialog open={modalNovaEspumaAberto} onOpenChange={setModalNovaEspumaAberto}>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="outline" size="icon" className="shrink-0">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Adicionar Nova Espuma</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="nova-espuma">Nome da Espuma</Label>
+                              <Input
+                                id="nova-espuma"
+                                value={novaEspuma}
+                                onChange={(e) => setNovaEspuma(e.target.value)}
+                                placeholder="Digite o nome da nova espuma"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    adicionarNovaEspuma();
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setModalNovaEspumaAberto(false);
+                                  setNovaEspuma('');
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={adicionarNovaEspuma}
+                                disabled={!novaEspuma.trim()}
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      {/* Modal de Confirmação para Excluir Espuma */}
+                      <Dialog open={!!espumaParaExcluir} onOpenChange={() => setEspumaParaExcluir(null)}>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Excluir Espuma</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              Tem certeza que deseja excluir a espuma <strong>"{espumaParaExcluir}"</strong>?
+                            </p>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setEspumaParaExcluir(null)}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => espumaParaExcluir && excluirEspuma(espumaParaExcluir)}
+                              >
+                                Excluir
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+
+                  {/* Tecido (Produto 1) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="tecido">Tecido</Label>
+                    <Input
+                      id="tecido"
+                      value={formData.tecido}
+                      onChange={(e) => handleInputChange('tecido', e.target.value)}
+                      placeholder="Especificação do tecido"
+                      required
+                    />
+                  </div>
+
+                  {/* Braço (Produto 1) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="braco">Braço</Label>
+                    <div className="flex gap-2">
+                      <Select value={formData.braco} onValueChange={(value) => handleInputChange('braco', value)}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione o tipo de braço" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bracosDisponiveis.map((braco) => (
+                            <div key={braco} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
+                              <SelectItem value={braco} className="flex-1 border-0 p-0 focus:bg-transparent">
+                                {braco}
+                              </SelectItem>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setBracoParaExcluir(braco);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Dialog open={modalNovoBracoAberto} onOpenChange={setModalNovoBracoAberto}>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="outline" size="icon" className="shrink-0">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Adicionar Novo Braço</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="novo-braco">Nome do Braço</Label>
+                              <Input
+                                id="novo-braco"
+                                value={novoBraco}
+                                onChange={(e) => setNovoBraco(e.target.value)}
+                                placeholder="Digite o nome do novo braço"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    adicionarNovoBraco();
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setModalNovoBracoAberto(false);
+                                  setNovoBraco('');
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={adicionarNovoBraco}
+                                disabled={!novoBraco.trim()}
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      {/* Modal de Confirmação para Excluir Braço */}
+                      <Dialog open={!!bracoParaExcluir} onOpenChange={() => setBracoParaExcluir(null)}>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Excluir Braço</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              Tem certeza que deseja excluir o braço <strong>"{bracoParaExcluir}"</strong>?
+                            </p>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setBracoParaExcluir(null)}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => bracoParaExcluir && excluirBraco(bracoParaExcluir)}
+                              >
+                                Excluir
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+
+                  {/* Tipo de Pé (Produto 1) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="tipoPe">Tipo de Pé</Label>
+                    <div className="flex gap-2">
+                      <Select value={formData.tipoPe} onValueChange={(value) => handleInputChange('tipoPe', value)}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione o tipo de pé" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tiposPeDisponiveis.map((tipoPe) => (
+                            <div key={tipoPe} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
+                              <SelectItem value={tipoPe} className="flex-1 border-0 p-0 focus:bg-transparent">
+                                {tipoPe}
+                              </SelectItem>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setTipoPeParaExcluir(tipoPe);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Dialog open={modalNovoTipoPeAberto} onOpenChange={setModalNovoTipoPeAberto}>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="outline" size="icon" className="shrink-0">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Adicionar Novo Tipo de Pé</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="novo-tipo-pe">Nome do Tipo de Pé</Label>
+                              <Input
+                                id="novo-tipo-pe"
+                                value={novoTipoPe}
+                                onChange={(e) => setNovoTipoPe(e.target.value)}
+                                placeholder="Digite o nome do novo tipo de pé"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    adicionarNovoTipoPe();
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setModalNovoTipoPeAberto(false);
+                                  setNovoTipoPe('');
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={adicionarNovoTipoPe}
+                                disabled={!novoTipoPe.trim()}
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      {/* Modal de Confirmação para Excluir Tipo de Pé */}
+                      <Dialog open={!!tipoPeParaExcluir} onOpenChange={() => setTipoPeParaExcluir(null)}>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Excluir Tipo de Pé</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              Tem certeza que deseja excluir o tipo de pé <strong>"{tipoPeParaExcluir}"</strong>?
+                            </p>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setTipoPeParaExcluir(null)}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => tipoPeParaExcluir && excluirTipoPe(tipoPeParaExcluir)}
+                              >
+                                Excluir
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+
+                  {/* Botão para adicionar novo produto (movido para baixo) */}
+                  <div className="md:col-span-2 flex justify-end mt-4">
+                    <Button type="button" variant="outline" onClick={addItem}>
+                      Adicionar novo produto
+                    </Button>
+                  </div>
+
+                  {/* Produtos adicionais */}
+                  {itensAdicionais.length > 0 && (
+                    <div className="md:col-span-2 space-y-4">
+                      <Label>Produtos adicionais</Label>
+                      {itensAdicionais.map((item, index) => (
+                        <div key={index} className="border rounded-md p-4 space-y-4 bg-muted/30">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">Produto {index + 2}</span>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+
+                          {/* Campo de descrição removido aqui; ProdutoCampos renderiza a descrição do produto */}
+
+                          {/* Upload de foto removido aqui para evitar duplicação; o ProdutoCampos gerencia a foto do produto */}
+
+                          <ProdutoCampos
+                            values={{
+                              descricao: item.descricao,
+                              fotosPedido: item.fotosPedido || [],
+                              tipoSofa: item.tipoSofa,
+                              cor: item.cor,
+                              dimensaoLargura: item.dimensaoLargura || '',
+                              dimensaoComprimento: item.dimensaoComprimento || '',
+                              tipoServico: item.tipoServico,
+                              precoUnitario: item.precoUnitario,
+                              observacoes: item.observacoes,
+                              espuma: item.espuma,
+                              tecido: item.tecido,
+                              braco: item.braco,
+                              tipoPe: item.tipoPe,
+                              descontoTipo: item.descontoTipo,
+                              descontoValor: item.descontoValor,
+                            }}
+                            onChange={(field, value) => handleItemChange(index, field as any, value)}
+                            onFotosChange={(imgs) => handleItemFotosChange(index, imgs)}
+                            onDimensaoChange={(field, value) => handleItemDimensaoChange(index, field, value)}
+                            imageFolder={`fotos-pedido/item-${index + 2}`}
+                            tiposSofaDisponiveis={tiposSofaDisponiveis}
+                            coresDisponiveis={coresDisponiveis}
+                            tiposServicoDisponiveis={tiposServicoDisponiveis}
+                            espumasDisponiveis={espumasDisponiveis}
+                            bracosDisponiveis={bracosDisponiveis}
+                            tiposPeDisponiveis={tiposPeDisponiveis}
+                            setModalNovoTipoSofaAberto={setModalNovoTipoSofaAberto}
+                            setModalNovaCorAberto={setModalNovaCorAberto}
+                            setModalNovoTipoServicoAberto={setModalNovoTipoServicoAberto}
+                            setModalNovaEspumaAberto={setModalNovaEspumaAberto}
+                            setModalNovoBracoAberto={setModalNovoBracoAberto}
+                            setModalNovoTipoPeAberto={setModalNovoTipoPeAberto}
+                            setTipoSofaParaExcluir={setTipoSofaParaExcluir}
+                            setCorParaExcluir={setCorParaExcluir}
+                            setTipoServicoParaExcluir={setTipoServicoParaExcluir}
+                            setEspumaParaExcluir={setEspumaParaExcluir}
+                            setBracoParaExcluir={setBracoParaExcluir}
+                            setTipoPeParaExcluir={setTipoPeParaExcluir}
+                            etapasDisponiveis={etapasDisponiveis}
+                            etapasSelecionadas={item.etapasNecessarias || []}
+                            onToggleEtapa={(etapa) => toggleEtapaItem(index, etapa)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Dialog open={tipoServicoParaExcluir !== null} onOpenChange={() => setTipoServicoParaExcluir(null)}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Confirmar Exclusão</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <p>Tem certeza que deseja excluir o tipo de serviço "{tipoServicoParaExcluir}"?</p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setTipoServicoParaExcluir(null)}
+                            className="flex-1"
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            className="flex-1"
+                            onClick={() => tipoServicoParaExcluir && excluirTipoServico(tipoServicoParaExcluir)}
+                          >
+                            Excluir
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Blocos do Produto 1 movidos para cima para separação por produto */}
+                </CardContent>
+              </Card>
+            )
+          }
+
+          {/* Detalhes */}
+          {
+            wizardStep === 3 && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Detalhes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Resumo: Total e Total+frete */}
+                  <div className="md:col-span-2">
+                    <div className="rounded-md border p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Total dos produtos (com descontos nos itens)</span>
+                        <span className="text-lg font-semibold">{totalProdutos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Frete</span>
+                        <span className="text-lg font-medium">{(parseValor(formData.frete || '')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between border-t pt-2">
+                        <span className="text-sm text-muted-foreground font-medium">Subtotal</span>
+                        <span className="text-lg font-semibold">{totalComFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      </div>
+
+                      <div className="pt-2 border-t">
+                        <div className="flex flex-col gap-2 mb-2">
+                          <Label>Desconto no Total do Pedido</Label>
+                          <div className="w-full">
+                            <DiscountInput
+                              price={totalComFrete}
+                              discountType={formData.pedidoDescontoTipo}
+                              discountValue={parseFloat(formData.pedidoDescontoValor) || 0}
+                              onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, pedidoDescontoTipo: type }))}
+                              onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, pedidoDescontoValor: value.toString() }))}
+                              label=""
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-4 border-t bg-muted/20 -mx-4 px-4 -mb-4 py-4 rounded-b-md">
+                        <span className="text-lg font-bold">Total Final</span>
+                        <span className="text-2xl font-bold text-green-600">{totalFinalPedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Garantia (Pedido Geral) */}
+                  <div className="space-y-3 md:col-span-2">
+                    <Label className="text-base font-medium">Garantia</Label>
+                    <Tabs value={formData.garantiaTipo} onValueChange={(v) => setFormData(prev => ({ ...prev, garantiaTipo: v, garantiaValor: '' }))}>
+                      <TabsList className="mb-2">
+                        <TabsTrigger value="dias">dias</TabsTrigger>
+                        <TabsTrigger value="meses">meses</TabsTrigger>
+                        <TabsTrigger value="anos">anos</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="dias">
+                        <div className="grid grid-cols-3 gap-3">
+                          <Button type="button" variant={formData.garantiaValor === '30' && formData.garantiaTipo === 'dias' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: '30' }))}>30 dias</Button>
+                          <Button type="button" variant={formData.garantiaValor === '90' && formData.garantiaTipo === 'dias' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: '90' }))}>90 dias</Button>
+                          <Input placeholder="Outros (dias)" value={formData.garantiaTipo === 'dias' && !['30', '90'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: e.target.value }))} />
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="meses">
+                        <div className="grid grid-cols-3 gap-3">
+                          <Button type="button" variant={formData.garantiaValor === '3' && formData.garantiaTipo === 'meses' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: '3' }))}>3 meses</Button>
+                          <Button type="button" variant={formData.garantiaValor === '12' && formData.garantiaTipo === 'meses' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: '12' }))}>12 meses</Button>
+                          <Input placeholder="Outros (meses)" value={formData.garantiaTipo === 'meses' && !['3', '12'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: e.target.value }))} />
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="anos">
+                        <div className="grid grid-cols-3 gap-3">
+                          <Button type="button" variant={formData.garantiaValor === '1' && formData.garantiaTipo === 'anos' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: '1' }))}>1 ano</Button>
+                          <Button type="button" variant={formData.garantiaValor === '3' && formData.garantiaTipo === 'anos' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: '3' }))}>3 anos</Button>
+                          <Input placeholder="Outros (anos)" value={formData.garantiaTipo === 'anos' && !['1', '3'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: e.target.value }))} />
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                    <div className="space-y-3">
+                      <Button type="button" variant="secondary" onClick={() => setFormData(prev => ({ ...prev, garantiaTexto: `Este produto está efetivamente garantido contra eventuais defeitos de fabricação conforme prazos indicados abaixo, a partir da data de compra, sem prorrogação.\nReforma: Prazo TOTAL de 3 (três) meses.\nFabricação: Revestimentos: prazo total de 3 (três) meses, desde que o revestimento seja do mostruário da Sofá & Arte. Não será concedida qualquer garantia ao revestimento quando o tecido for fornecido pelo próprio cliente ou tenha sido adquirido de empresa terceira por solicitação do mesmo.\nEstrutura (madeiras, espumas, percintas, mecanismos, pés, fibras naturais): prazo total de 12 (doze) meses.\n\nA garantia perderá a sua validade:\n• Em caso de mau uso, considerando a finalidade a que se destina o móvel e as orientações constantes neste termo:\n• Em caso de limpeza incorreta, falta de manutenção básica ao uso, aplicação de produtos químicos, tratamentos de proteção aplicados pelo comprador, detergentes, condicionadores, fluidos corporais ou danos devidos à exposição direta ou indireta à luz solar, umidade excessiva, calor excessivo, luminosidade intensa, ou condições semelhantes, bem como avaria de transporte, quando o mesmo for realizado pelo próprio consumidor;\n• Em caso de danos causados pela ação de cupins, insetos, broca ou outras pragas;\n• Se forem realizados, sem prévia autorização da fábrica, alterações, reparos ou substituições de partes do móvel, ou por qualquer meio danificar o produto por ato que praticar.\n\nSolicitação de Assistência Técnica:\n• O consumidor deverá entrar em contato através do canal de atendimento (81) 98771-4814 munido do pedido de compra, a fim de formalizar a solicitação de assistência técnica;\n• A Sofá & Arte se reserva o direito de efetuar avaliação técnica da solicitação;\n• Caso seja constatado uso inadequado ou a presença de quaisquer condições que excluem ou não compreendam a garantia do produto, as despesas decorrentes do transporte e da reforma serão por conta do cliente ou consumidor final.` }))}>
+                        Gerar automaticamente
+                      </Button>
+                      <Textarea
+                        value={formData.garantiaTexto}
+                        onChange={(e) => handleInputChange('garantiaTexto', e.target.value)}
+                        rows={8}
+                        placeholder="Condições da garantia"
+                      />
+                      <div className="flex justify-end">
+                        <Button type="button" onClick={() => toast({ title: 'Garantia salva', description: 'Campo de garantia atualizado no pedido.' })}>salvar garantia</Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Termo de entrega e recebimento */}
+                  <div className="space-y-3 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">Termo de entrega e recebimento</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Habilitar termo</span>
+                        <Switch
+                          checked={formData.termoEntregaAtivo}
+                          onCheckedChange={(checked) =>
+                            setFormData(prev => ({
+                              ...prev,
+                              termoEntregaAtivo: checked,
+                              termoEntregaTexto: checked ? TERMO_ENTREGA_PADRAO : prev.termoEntregaTexto,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setFormData(prev => ({ ...prev, termoEntregaTexto: TERMO_ENTREGA_PADRAO, termoEntregaAtivo: true }))}
+                      >
+                        Gerar automaticamente
+                      </Button>
+                      <Textarea
+                        value={formData.termoEntregaTexto}
+                        onChange={(e) => handleInputChange('termoEntregaTexto', e.target.value)}
+                        rows={10}
+                        placeholder="Termo de entrega e recebimento"
+                        disabled={!formData.termoEntregaAtivo}
+                      />
+                      <div className="flex justify-end">
+                        <Button type="button" onClick={() => toast({ title: 'Termo salvo', description: 'Termo de entrega atualizado no pedido.' })}>salvar termo</Button>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Forma de Pagamento */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Forma de Pagamento</Label>
+                    <Input
+                      value={formData.formaPagamento}
+                      onChange={(e) => setFormData(prev => ({ ...prev, formaPagamento: e.target.value }))}
+                      placeholder="Descreva a forma de pagamento (Ex: À vista, 50% entrada + 2x, etc)"
+                    />
+                  </div>
+
+                  {/* Fotos de Controle */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="flex items-center gap-2">
+                      <Camera className="h-4 w-4" />
+                      Fotos de Controle
+                    </Label>
+                    <ImageUpload
+                      images={formData.fotosControle}
+                      onImagesChange={handleFotosControleChange}
+                      maxImages={3}
+                      bucketName="pedido-imagens"
+                      folder="fotos-controle"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          }
 
           {/* Botões de Ação por etapa */}
-          {wizardStep < 3 ? (
-            <div className="flex justify-end gap-4">
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={() => navigate('/dashboard/pedidos')}
-                disabled={isLoading}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                type="button" 
-                onClick={(e) => { e.preventDefault(); handleAvancarWizard(); }}
-                disabled={isLoading}
-              >
-                Avançar
-              </Button>
-            </div>
-          ) : (
-            <div className="flex justify-end gap-4">
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={() => navigate('/dashboard/pedidos')}
-                disabled={isLoading}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                type="submit" 
-                className="flex items-center gap-2"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {isEditMode ? 'Atualizando...' : 'Salvando...'}
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    {isEditMode ? 'Atualizar Pedido' : 'Salvar Pedido'}
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-        </form>
-      </motion.div>
-    </DashboardLayout>
+          {
+            wizardStep < 3 ? (
+              <div className="flex justify-end gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate('/dashboard/pedidos')}
+                  disabled={isLoading}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); handleAvancarWizard(); }}
+                  disabled={isLoading}
+                >
+                  Avançar
+                </Button>
+              </div>
+            ) : (
+              <div className="flex justify-end gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate('/dashboard/pedidos')}
+                  disabled={isLoading}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex items-center gap-2"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      {isEditMode ? 'Atualizando...' : 'Salvando...'}
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      {isEditMode ? 'Atualizar Pedido' : 'Salvar Pedido'}
+                    </>
+                  )}
+                </Button>
+              </div>
+            )
+          }
+        </form >
+      </motion.div >
+    </DashboardLayout >
   );
 };
 
