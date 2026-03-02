@@ -567,7 +567,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "gerente" | "funcionario"
-      app_store: "loja_1" | "loja_2"
+      app_store: "loja_1" | "loja_2" | "todas"
       app_sector: "geral" | "marcenaria" | "corte_costura" | "espuma" | "bancada" | "tecido"
       etapa_producao:
       | "marcenaria"

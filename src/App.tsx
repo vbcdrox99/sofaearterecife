@@ -14,6 +14,7 @@ import Pedidos from "./pages/dashboard/Pedidos";
 import Producao from "./pages/dashboard/Producao";
 import Finalizados from "./pages/dashboard/Finalizados";
 import Entrega from "./pages/dashboard/Entrega";
+import CadastroFuncionarios from "./pages/dashboard/CadastroFuncionarios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,7 +32,7 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/dashboard" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute blockGerenteDashboard={true}>
                     <Dashboard />
                   </ProtectedRoute>
                 } />
@@ -63,6 +64,11 @@ const App = () => (
                 <Route path="/dashboard/entrega" element={
                   <ProtectedRoute>
                     <Entrega />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/cadastro-funcionarios" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <CadastroFuncionarios />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<NotFound />} />

@@ -5,12 +5,10 @@ import { motion } from 'framer-motion';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  blockGerenteDashboard?: boolean;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requireAdmin = false 
-}) => {
+export const ProtectedRoute = ({ children, requireAdmin = false, blockGerenteDashboard = false }: ProtectedRouteProps) => {
   const { user, profile, loading, isAdmin } = useAuth();
 
   if (loading) {
@@ -45,7 +43,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           <p className="text-muted-foreground mb-6">
             Você não tem permissão para acessar esta área. Apenas administradores podem visualizar este conteúdo.
           </p>
-          <button 
+          <button
             onClick={() => window.history.back()}
             className="btn-primary"
           >
@@ -54,6 +52,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         </motion.div>
       </div>
     );
+  }
+
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to="/dashboard/producao" replace />;
+  }
+
+  // Funcionario can only access producao
+  if (profile?.role === 'funcionario' && window.location.pathname !== '/dashboard/producao') {
+    return <Navigate to="/dashboard/producao" replace />;
+  }
+
+  // Gerente cannot access dashboard (Administração)
+  if (blockGerenteDashboard && profile?.role === 'gerente') {
+    return <Navigate to="/dashboard/novo-pedido" replace />;
   }
 
   return <>{children}</>;

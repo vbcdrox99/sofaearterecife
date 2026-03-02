@@ -1,11 +1,11 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
+import {
   BarChart3,
-  Package2, 
-  ClipboardList, 
-  Wrench, 
-  CheckCircle, 
+  Package2,
+  ClipboardList,
+  Wrench,
+  CheckCircle,
   Truck,
   Sofa,
   LogOut,
@@ -15,7 +15,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Store
+  Store,
+  UserPlus
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,10 +57,10 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -138,9 +139,26 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
       disabled: true,
       disabledNote: 'Em breve',
     },
+    {
+      name: 'Cadastro de Funcionários',
+      href: '/dashboard/cadastro-funcionarios',
+      icon: UserPlus,
+      description: 'Criar contas de acesso',
+    },
   ];
 
-  const allItems: NavItem[] = isAdmin ? [...navigationItems, ...adminItems] : navigationItems;
+  let allItems: NavItem[] = [];
+
+  if (profile?.tipo === 'funcionario' || profile?.role === 'funcionario') {
+    // Funcionario can only see producao
+    allItems = navigationItems.filter(item => item.name === 'Produção');
+  } else if (profile?.role === 'gerente') {
+    // Gerente sees everything except Administração and Admin Items
+    allItems = navigationItems.filter(item => item.name !== 'Administração');
+  } else {
+    // Admin sees everything
+    allItems = [...navigationItems, ...adminItems];
+  }
 
   const isActive = (href: string) => {
     return location.pathname === href;
@@ -164,7 +182,7 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
       {/* Sidebar */}
       <motion.aside
         initial={{ x: isMobile ? -300 : 0 }}
-        animate={{ 
+        animate={{
           x: isMobile ? (isOpen ? 0 : -300) : 0,
           width: isMobile ? (isOpen ? 320 : 0) : (isCollapsed ? 80 : 288)
         }}
@@ -174,24 +192,24 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
           isMobile ? "w-80" : (isCollapsed ? "w-20" : "w-72")
         )}
       >
-      <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full">
           {/* Header */}
           <div className={cn("border-b border-border", isCollapsed ? "p-3" : "p-6")}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-red-glow">
+                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-metallic-glow">
                   <Sofa className="w-6 h-6 text-primary-foreground" />
                 </div>
                 {!isCollapsed && (
                   <div>
-                    <h1 className="text-lg font-bold text-gradient">Sofá e Arte</h1>
+                    <h1 className="text-lg font-bold text-gradient">Válleri</h1>
                     <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
-                </div>
-              )}
-            </div>
+                  </div>
+                )}
+              </div>
 
-            {/* Close button for mobile */}
-            {isMobile && (
+              {/* Close button for mobile */}
+              {isMobile && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -201,7 +219,7 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
                   <X className="w-5 h-5" />
                 </Button>
               )}
-              
+
               {/* Collapse button for desktop */}
               {!isMobile && onToggleCollapse && (
                 <Button
@@ -227,131 +245,131 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todas">Todas as Lojas</SelectItem>
-                    <SelectItem value="loja_1">Loja 1</SelectItem>
-                    <SelectItem value="loja_2">Loja 2</SelectItem>
+                    <SelectItem value="loja_1">Aragão</SelectItem>
+                    <SelectItem value="loja_2">Boa Viagem</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
-          
-          {/* User info */}
-          {!isCollapsed && (
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-              <p className="text-sm font-medium">{profile?.nome_completo}</p>
-              <p className="text-xs text-muted-foreground capitalize">
-                {profile?.tipo === 'admin' ? 'Administrador' : 'Funcionário'}
-              </p>
-            </div>
-          )}
-        </div>
 
-        {/* Navigation */}
-        <div className={cn("flex-1 overflow-y-auto", isCollapsed ? "p-2" : "p-4")}>
-          <nav className="space-y-2">
-            {allItems.map((item) => (
-              <motion.div
-                key={item.href}
-                whileHover={item.disabled ? {} : { scale: 1.02 }}
-                whileTap={item.disabled ? {} : { scale: 0.98 }}
-              >
-                {item.disabled ? (
-                  <div
-                    className={cn(
-                      "flex items-center rounded-lg transition-all duration-200 group relative",
-                      isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3",
-                      "bg-muted text-muted-foreground cursor-not-allowed"
-                    )}
-                    title={isCollapsed ? `${item.name} — ${item.disabledNote || 'Em breve'}` : undefined}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    {!isCollapsed && (
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">{item.name}</div>
-                        <div className="text-xs opacity-75">{item.description}</div>
-                        {item.disabledNote && (
-                          <div className="text-xs italic opacity-75">{item.disabledNote}</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <NavLink
-                    to={item.href}
-                    onClick={handleLinkClick}
-                    className={({ isActive }) =>
-                      cn(
+            {/* User info */}
+            {!isCollapsed && (
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                <p className="text-sm font-medium">{profile?.nome_completo}</p>
+                <p className="text-xs text-muted-foreground capitalize">
+                  {profile?.tipo === 'admin' ? 'Administrador' : 'Funcionário'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation */}
+          <div className={cn("flex-1 overflow-y-auto", isCollapsed ? "p-2" : "p-4")}>
+            <nav className="space-y-2">
+              {allItems.map((item) => (
+                <motion.div
+                  key={item.href}
+                  whileHover={item.disabled ? {} : { scale: 1.02 }}
+                  whileTap={item.disabled ? {} : { scale: 0.98 }}
+                >
+                  {item.disabled ? (
+                    <div
+                      className={cn(
                         "flex items-center rounded-lg transition-all duration-200 group relative",
                         isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3",
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-md"
-                          : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                      )
-                    }
-                    title={isCollapsed ? item.name : undefined}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    {!isCollapsed && (
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">{item.name}</div>
-                        <div className="text-xs opacity-75">{item.description}</div>
-                      </div>
-                    )}
-                  </NavLink>
-                )}
-              </motion.div>
-            ))}
-          </nav>
-        </div>
+                        "bg-muted text-muted-foreground cursor-not-allowed"
+                      )}
+                      title={isCollapsed ? `${item.name} — ${item.disabledNote || 'Em breve'}` : undefined}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      {!isCollapsed && (
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{item.name}</div>
+                          <div className="text-xs opacity-75">{item.description}</div>
+                          {item.disabledNote && (
+                            <div className="text-xs italic opacity-75">{item.disabledNote}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <NavLink
+                      to={item.href}
+                      onClick={handleLinkClick}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center rounded-lg transition-all duration-200 group relative",
+                          isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-md"
+                            : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                        )
+                      }
+                      title={isCollapsed ? item.name : undefined}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      {!isCollapsed && (
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{item.name}</div>
+                          <div className="text-xs opacity-75">{item.description}</div>
+                        </div>
+                      )}
+                    </NavLink>
+                  )}
+                </motion.div>
+              ))}
+            </nav>
+          </div>
 
-        {/* Footer */}
-        <div className={cn("border-t border-border space-y-2", isCollapsed ? "p-2" : "p-4")}>
-          {isCollapsed ? (
-            <div className="flex flex-col items-center space-y-2">
-              <ThemeToggle />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hover-lift"
-                title="Configurações"
-              >
-                <Settings className="w-5 h-5" />
-              </Button>
-              <Button
-                onClick={signOut}
-                variant="ghost"
-                size="icon"
-                className="hover:bg-destructive hover:text-destructive-foreground"
-                title="Sair"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
+          {/* Footer */}
+          <div className={cn("border-t border-border space-y-2", isCollapsed ? "p-2" : "p-4")}>
+            {isCollapsed ? (
+              <div className="flex flex-col items-center space-y-2">
                 <ThemeToggle />
                 <Button
                   variant="ghost"
                   size="icon"
                   className="hover-lift"
+                  title="Configurações"
                 >
                   <Settings className="w-5 h-5" />
                 </Button>
+                <Button
+                  onClick={signOut}
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-destructive hover:text-destructive-foreground"
+                  title="Sair"
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
               </div>
-              
-              <Button
-                onClick={signOut}
-                variant="outline"
-                className="w-full justify-start hover:bg-destructive hover:text-destructive-foreground"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
-              </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <ThemeToggle />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover-lift"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </Button>
+                </div>
+
+                <Button
+                  onClick={signOut}
+                  variant="outline"
+                  className="w-full justify-start hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </motion.aside>
+      </motion.aside>
     </>
   );
 };

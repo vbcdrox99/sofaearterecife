@@ -97,7 +97,7 @@ export const usePDFGenerator = () => {
             </div>
           </div>
           <div style="text-align: center; margin-top: 14px; border-bottom: 2px solid #333; padding-bottom: 12px;">
-            <h1 style="color: #8B4513; margin: 0; font-size: 56px; font-weight: bold;">Sofá & Arte Recife</h1>
+            <h1 style="color: #64748b; margin: 0; font-size: 56px; font-weight: bold;">Válleri</h1>
             <h2 style="color: #333; margin: 8px 0; font-size: 40px;">${titulo}</h2>
           </div>
         </div>
@@ -176,7 +176,7 @@ export const usePDFGenerator = () => {
       const footer = `
         <div style="margin-top: 15px; text-align: center; border-top: 1px solid #ddd; padding-top: 10px;">
           <p style="color: #666; margin: 0; font-size: 10px;">
-            Total de pedidos: ${pedidos.length} | Sistema Sofá & Arte Recife
+            Total de pedidos: ${pedidos.length} | Sistema Válleri
           </p>
         </div>
       `;
@@ -314,6 +314,7 @@ export const usePDFGenerator = () => {
       };
 
       let totalProdutosCalculado = 0;
+      let totalGross = 0;
 
       const produtosHTML = (Array.isArray(itens) && itens.length > 0 ? itens : [{
         descricao: pedido.descricao_sofa,
@@ -345,23 +346,11 @@ export const usePDFGenerator = () => {
         const precoFinal = calculateFinalPrice(precoUnitario, descontoTipo, descontoValor);
 
         totalProdutosCalculado += precoFinal;
+        totalGross += precoUnitario;
 
-        const precoOriginalStr = currency(precoUnitario);
-        const precoFinalStr = currency(precoFinal);
-
-        // Exibição com strikethrough se houver desconto
-        let priceDisplay = precoFinalStr;
-        let totalDisplay = precoFinalStr; // Assumindo qtde 1
-
-        if (descontoValor > 0) {
-          const discountLabel = descontoTipo === 'percentage' ? `${descontoValor}%` : currency(descontoValor);
-          priceDisplay = `
-               <div style="text-decoration: line-through; color: #999; font-size: 10px;">${precoOriginalStr}</div>
-               <div>${precoFinalStr}</div>
-               <div style="color: #16a34a; font-size: 10px;">(-${discountLabel})</div>
-             `;
-          totalDisplay = precoFinalStr;
-        }
+        // Visualização LIMPA (apenas preço original)
+        const priceDisplay = currency(precoUnitario);
+        const totalDisplay = currency(precoUnitario);
 
         const fotosItem = it.id ? (fotosPorItem[it.id] || []) : (idx === 0 ? (fotosPorItem['sem_item'] || []) : []);
         const primeiraFoto = fotosItem && fotosItem.length > 0 ? fotosItem[0] : null;
@@ -391,19 +380,15 @@ export const usePDFGenerator = () => {
       }).join('');
 
       // Cálculos finais do pedido (Frete + Desconto Global)
+      // Cálculos finais do pedido
       const frete = pedido.frete || 0;
-      const subtotal = totalProdutosCalculado + frete;
+      const subtotalBaseCalculo = totalProdutosCalculado + frete;
 
       const pedidoDescontoTipo = pedido.desconto_tipo || 'fixed';
       const pedidoDescontoValor = pedido.desconto_valor || 0;
-      const totalFinal = calculateFinalPrice(subtotal, pedidoDescontoTipo, pedidoDescontoValor);
+      const totalFinal = calculateFinalPrice(subtotalBaseCalculo, pedidoDescontoTipo, pedidoDescontoValor);
 
-      let discountLabelPedido = '';
-      if (pedidoDescontoValor > 0) {
-        discountLabelPedido = pedidoDescontoTipo === 'percentage'
-          ? `${pedidoDescontoValor}% (${currency(subtotal - totalFinal)})`
-          : currency(pedidoDescontoValor);
-      }
+      const totalDescontos = (totalGross + frete) - totalFinal;
 
       const garantiasTexto = pedido.garantia_texto || `
         • Garantia contra defeitos de fabricação nas condições indicadas acima.
@@ -437,15 +422,15 @@ export const usePDFGenerator = () => {
       const logoSrc = await resolveLogoSrc();
       const logoImgTag = `<img src="${logoSrc}" crossorigin="anonymous" referrerpolicy="no-referrer" style="height:84px; width:auto;" />`;
 
-      const brandRed = '#B91C1C';
+      const brandMetallic = '#64748b';
       const headerHTML = `
         <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:20px;">
           <div style="display:flex; align-items:center; gap:24px;">
             ${logoImgTag}
             <div>
-              <div style="color:${brandRed}; font-size:18px; font-weight:700; margin-bottom:2px;">Sofá & Arte Home Decor</div>
+              <div style="color:${brandMetallic}; font-size:18px; font-weight:700; margin-bottom:2px;">Válleri</div>
               <div style="display:flex; flex-direction:column; gap:0; color:#222; font-size:12px;">
-                <div style="padding:2px 6px; line-height:14px;">SOFÁ & ARTE HOME DECOR LTDA</div>
+                <div style="padding:2px 6px; line-height:14px;">VÁLLERI</div>
                 <div style="padding:2px 6px; line-height:14px;">CNPJ: 38.827.698/0001-96</div>
                 <div style="padding:2px 6px; line-height:14px;">Rua do Aragão, 70</div>
                 <div style="padding:2px 6px; line-height:14px;">Boa Vista, Recife-PE</div>
@@ -461,19 +446,19 @@ export const usePDFGenerator = () => {
             </div>
             <div style="display:flex; flex-direction:column; gap:0; font-size:12px; color:#333; overflow:visible; min-width:260px;">
               <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">sofaearterecife@gmail.com</span>
               </div>
               <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 97910-6729</span>
               </div>
               <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 98222-6725</span>
               </div>
               <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/></svg>
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">(81) 98222-6725</span>
               </div>
             </div>
@@ -493,14 +478,14 @@ export const usePDFGenerator = () => {
       `;
 
       const pedidoHeaderHTML = `
-        <div style="margin-top:12px; background:${brandRed}; color:#fff; border-radius:4px; padding:8px 12px; width:100%; text-align:left;">
+        <div style="margin-top:12px; background:${brandMetallic}; color:#fff; border-radius:4px; padding:8px 12px; width:100%; text-align:left;">
           <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;">Pedido do cliente ${numero}-${anoAtual}</div>
           <div style="font-size:12px; font-weight:400; opacity:0.9; margin-top:2px;">Vendedor: ${vendedorNome}</div>
         </div>
       `;
 
       const osHeaderHTML = `
-        <div style="margin-top:12px; background:${brandRed}; color:#fff; border-radius:4px; padding:8px 12px; width:100%; text-align:left;">
+        <div style="margin-top:12px; background:${brandMetallic}; color:#fff; border-radius:4px; padding:8px 12px; width:100%; text-align:left;">
           <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;">Ordem de serviço ${numero}-${anoAtual}</div>
            <div style="font-size:12px; font-weight:400; opacity:0.9; margin-top:2px;">Vendedor: ${vendedorNome}</div>
         </div>
@@ -576,8 +561,8 @@ export const usePDFGenerator = () => {
             <tbody>
               ${produtosHTML}
               <tr>
-                <td colspan="3" style="padding:10px; text-align:right; color: #666; font-size: 12px;">Soma dos produtos</td>
-                <td style="padding:10px; text-align:right; color: #666; font-size: 12px;">${currency(totalProdutosCalculado)}</td>
+                <td colspan="3" style="padding:10px; text-align:right; font-weight:600; font-size: 12px;">Subtotal</td>
+                <td style="padding:10px; text-align:right; font-weight:600; font-size: 12px;">${currency(totalGross)}</td>
               </tr>
               ${frete > 0 ? `
               <tr>
@@ -585,20 +570,14 @@ export const usePDFGenerator = () => {
                 <td style="padding:10px; text-align:right; color: #666; font-size: 12px;">${currency(frete)}</td>
               </tr>
               ` : ''}
-              ${(frete > 0 || discountLabelPedido) ? `
+              ${totalDescontos > 0 ? `
               <tr>
-                <td colspan="3" style="padding:10px; text-align:right; font-weight:600; font-size: 12px;">Subtotal</td>
-                <td style="padding:10px; text-align:right; font-weight:600; font-size: 12px;">${currency(subtotal)}</td>
-              </tr>
-              ` : ''}
-              ${discountLabelPedido ? `
-              <tr>
-                <td colspan="3" style="padding:10px; text-align:right; color: #16a34a; font-size: 12px;">Desconto</td>
-                <td style="padding:10px; text-align:right; color: #16a34a; font-size: 12px;">-${discountLabelPedido}</td>
+                <td colspan="3" style="padding:10px; text-align:right; color: #16a34a; font-size: 12px;">Desconto sobre produtos</td>
+                <td style="padding:10px; text-align:right; color: #16a34a; font-size: 12px;">-${currency(totalDescontos)}</td>
               </tr>
               ` : ''}
               <tr>
-                <td colspan="3" style="padding:10px; text-align:right; font-weight:700; font-size: 14px;">Total Final</td>
+                <td colspan="3" style="padding:10px; text-align:right; font-weight:700; font-size: 14px;">Total</td>
                 <td style="padding:10px; text-align:right; font-weight:700; font-size: 14px;">${currency(totalFinal)}</td>
               </tr>
             </tbody>
@@ -644,7 +623,7 @@ export const usePDFGenerator = () => {
         <div style="margin-top:80px; display:flex; justify-content:space-between; align-items:flex-start; gap:20px; page-break-inside:avoid;">
           <div style="flex:1; text-align:center;">
             <div style="border-bottom:1px solid #000; margin-bottom:4px;"></div>
-            <div style="font-size:12px; font-weight:600; color:#111;">Sofá & Arte Home Decor</div>
+            <div style="font-size:12px; font-weight:600; color:#111;">Válleri</div>
             <div style="font-size:10px; color:#555;">CNPJ: 38.827.698/0001-96</div>
           </div>
           <div style="flex:1; text-align:center;">
@@ -1031,15 +1010,15 @@ export const usePDFGenerator = () => {
       const logoSrc = await resolveLogoSrc();
       const logoImgTag = `<img src="${logoSrc}" crossorigin="anonymous" referrerpolicy="no-referrer" style="height:84px; width:auto;" />`;
 
-      const brandRed = '#B91C1C';
+      const brandMetallic = '#64748b';
       const headerHTML = `
         <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:20px;">
           <div style="display:flex; align-items:center; gap:24px;">
             ${logoImgTag}
             <div>
-              <div style="color:${brandRed}; font-size:18px; font-weight:700; margin-bottom:2px;">Sofá & Arte Home Decor</div>
+              <div style="color:${brandMetallic}; font-size:18px; font-weight:700; margin-bottom:2px;">Válleri</div>
               <div style="display:flex; flex-direction:column; gap:0; color:#222; font-size:12px;">
-                <div style="padding:2px 6px; line-height:14px;">SOFÁ & ARTE HOME DECOR LTDA</div>
+                <div style="padding:2px 6px; line-height:14px;">VÁLLERI</div>
                 <div style="padding:2px 6px; line-height:14px;">CNPJ: 38.827.698/0001-96</div>
                 <div style="padding:2px 6px; line-height:14px;">Rua do Aragão, 70</div>
                 <div style="padding:2px 6px; line-height:14px;">Boa Vista, Recife-PE</div>
@@ -1055,19 +1034,19 @@ export const usePDFGenerator = () => {
             </div>
             <div style="display:flex; flex-direction:column; gap:0; font-size:12px; color:#333; overflow:visible; min-width:260px;">
               <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">sofaearterecife@gmail.com</span>
               </div>
               <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 97910-6729</span>
               </div>
               <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 98222-6725</span>
               </div>
               <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandRed}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/></svg>
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">(81) 98222-6725</span>
               </div>
             </div>
@@ -1087,7 +1066,7 @@ export const usePDFGenerator = () => {
       `;
 
       const osHeaderHTML = `
-        <div style="margin-top:12px; background:${brandRed}; color:#fff; border-radius:4px; padding:8px 12px; display:flex; align-items:center; justify-content:center; width:100%; text-align:center;">
+        <div style="margin-top:12px; background:${brandMetallic}; color:#fff; border-radius:4px; padding:8px 12px; display:flex; align-items:center; justify-content:center; width:100%; text-align:center;">
           <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; transform: translateY(-7px);">Ordem de serviço ${numero}-${anoAtual}</div>
         </div>
       `;

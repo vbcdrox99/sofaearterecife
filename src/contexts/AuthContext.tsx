@@ -9,7 +9,7 @@ interface Profile {
   nome_completo: string;
   tipo: 'admin' | 'funcionario';
   role: 'admin' | 'gerente' | 'funcionario';
-  store: 'loja_1' | 'loja_2';
+  store: 'loja_1' | 'loja_2' | 'todas';
   sector: 'geral' | 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido';
   created_at: string;
   updated_at: string;
@@ -22,7 +22,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   isGerente: boolean;
-  userStore: 'loja_1' | 'loja_2' | null;
+  userStore: 'loja_1' | 'loja_2' | 'todas' | null;
   selectedStore: 'loja_1' | 'loja_2' | 'todas';
   setSelectedStore: (store: 'loja_1' | 'loja_2' | 'todas') => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -59,12 +59,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .select('*')
         .eq('user_id', userId)
         .single();
-      
+
       if (error) throw error;
-      
+
       const profileData = data as unknown as Profile;
       setProfile(profileData);
-      
+
       if (profileData.role === 'admin' || profileData.tipo === 'admin') {
         setSelectedStore('todas');
       } else {
@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           setTimeout(() => {
             fetchProfile(session.user.id);
@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setProfile(null);
         }
-        
+
         setLoading(false);
       }
     );
@@ -98,11 +98,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         fetchProfile(session.user.id);
       }
-      
+
       setLoading(false);
     });
 
@@ -120,15 +120,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         toast({
           title: 'Erro no login',
-          description: error.message === 'Invalid login credentials' 
-            ? 'Email ou senha incorretos' 
+          description: error.message === 'Invalid login credentials'
+            ? 'Email ou senha incorretos'
             : error.message,
           variant: 'destructive',
         });
       } else {
         toast({
           title: 'Login realizado com sucesso!',
-          description: 'Bem-vindo ao sistema Sofá e Arte',
+          description: 'Bem-vindo ao sistema Válleri',
         });
       }
 
@@ -142,7 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -157,8 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         toast({
           title: 'Erro no cadastro',
-          description: error.message === 'User already registered' 
-            ? 'Este email já está cadastrado' 
+          description: error.message === 'User already registered'
+            ? 'Este email já está cadastrado'
             : error.message,
           variant: 'destructive',
         });
@@ -179,13 +179,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) throw error;
-      
+
       setUser(null);
       setProfile(null);
       setSession(null);
-      
+
       toast({
         title: 'Logout realizado',
         description: 'Você foi desconectado do sistema',

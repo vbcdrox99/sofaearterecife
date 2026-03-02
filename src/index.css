@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Tema Sofá e Arte - Light Mode */
+    /* Tema Válleri - Light Mode */
     --background: 0 0% 98%;
     --foreground: 0 0% 5%;
 
@@ -18,8 +18,8 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 5%;
 
-    /* Vermelho como cor primária da marca */
-    --primary: 0 84% 48%;
+    /* Metálico como cor primária da marca */
+    --primary: 215 16% 47%;
     --primary-foreground: 0 0% 98%;
 
     /* Cinza claro para elementos secundários */
@@ -29,46 +29,46 @@ All colors MUST be HSL.
     --muted: 0 0% 94%;
     --muted-foreground: 0 0% 45%;
 
-    /* Vermelho mais suave para accent */
-    --accent: 0 60% 92%;
-    --accent-foreground: 0 84% 48%;
+    /* Metálico mais suave para accent */
+    --accent: 215 20% 92%;
+    --accent-foreground: 215 16% 47%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 0 84% 48%;
+    --ring: 215 16% 47%;
 
     --radius: 0.75rem;
 
     /* Cores da sidebar */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 0 0% 15%;
-    --sidebar-primary: 0 84% 48%;
+    --sidebar-primary: 215 16% 47%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 60% 95%;
-    --sidebar-accent-foreground: 0 84% 48%;
+    --sidebar-accent: 215 20% 95%;
+    --sidebar-accent-foreground: 215 16% 47%;
     --sidebar-border: 0 0% 88%;
-    --sidebar-ring: 0 84% 48%;
+    --sidebar-ring: 215 16% 47%;
 
     /* Gradientes personalizados */
-    --gradient-primary: linear-gradient(135deg, hsl(0 84% 48%), hsl(0 84% 38%));
+    --gradient-primary: linear-gradient(135deg, hsl(215 16% 55%), hsl(215 16% 35%));
     --gradient-secondary: linear-gradient(135deg, hsl(0 0% 100%), hsl(0 0% 95%));
-    --gradient-accent: linear-gradient(135deg, hsl(0 60% 95%), hsl(0 60% 90%));
+    --gradient-accent: linear-gradient(135deg, hsl(215 20% 95%), hsl(215 20% 90%));
 
     /* Sombras elegantes */
     --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.08);
     --shadow-md: 0 4px 12px -3px hsl(0 0% 0% / 0.12);
     --shadow-lg: 0 8px 25px -5px hsl(0 0% 0% / 0.15);
-    --shadow-red: 0 4px 15px -2px hsl(0 84% 48% / 0.25);
+    --shadow-metallic: 0 4px 15px -2px hsl(215 16% 47% / 0.25);
 
     /* Animações */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .dark {
-    /* Tema Sofá e Arte - Dark Mode - Improved Contrast */
+    /* Tema Válleri - Dark Mode - Improved Contrast */
     --background: 0 0% 4%;
     --foreground: 0 0% 98%;
 
@@ -78,9 +78,9 @@ All colors MUST be HSL.
     --popover: 0 0% 11%;
     --popover-foreground: 0 0% 98%;
 
-    /* Vermelho mais brilhante e legível no dark mode */
-    --primary: 0 80% 60%;
-    --primary-foreground: 0 0% 100%;
+    /* Metálico mais brilhante e legível no dark mode */
+    --primary: 215 16% 65%;
+    --primary-foreground: 215 20% 10%;
 
     --secondary: 0 0% 18%;
     --secondary-foreground: 0 0% 98%;
@@ -96,20 +96,20 @@ All colors MUST be HSL.
 
     --border: 0 0% 22%; /* Bordas mais visíveis */
     --input: 0 0% 22%;
-    --ring: 0 80% 60%;
+    --ring: 215 16% 65%;
 
     /* Sidebar dark */
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 92%;
-    --sidebar-primary: 0 80% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-primary: 215 16% 65%;
+    --sidebar-primary-foreground: 215 20% 10%;
     --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 18%;
-    --sidebar-ring: 0 80% 60%;
+    --sidebar-ring: 215 16% 65%;
 
     /* Gradientes dark mode ajustados */
-    --gradient-primary: linear-gradient(135deg, hsl(0 80% 60%), hsl(0 80% 50%));
+    --gradient-primary: linear-gradient(135deg, hsl(215 16% 75%), hsl(215 16% 55%));
     --gradient-secondary: linear-gradient(135deg, hsl(0 0% 15%), hsl(0 0% 12%));
     --gradient-accent: linear-gradient(135deg, hsl(0 0% 20%), hsl(0 0% 15%));
 
@@ -117,7 +117,7 @@ All colors MUST be HSL.
     --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.5);
     --shadow-md: 0 4px 12px -3px hsl(0 0% 0% / 0.6);
     --shadow-lg: 0 8px 25px -5px hsl(0 0% 0% / 0.7);
-    --shadow-red: 0 4px 20px -2px hsl(0 80% 60% / 0.3);
+    --shadow-metallic: 0 4px 20px -2px hsl(215 16% 65% / 0.3);
   }
 }
 
@@ -158,8 +158,8 @@ All colors MUST be HSL.
     box-shadow: var(--shadow-md);
   }
 
-  .shadow-red-glow {
-    box-shadow: var(--shadow-red);
+  .shadow-metallic-glow {
+    box-shadow: var(--shadow-metallic);
   }
 
   .transition-smooth {
@@ -185,7 +185,7 @@ All colors MUST be HSL.
   }
 
   .hover-glow {
-    @apply transition-all duration-300 hover:shadow-red-glow;
+    @apply transition-all duration-300 hover:shadow-metallic-glow;
   }
 }
 

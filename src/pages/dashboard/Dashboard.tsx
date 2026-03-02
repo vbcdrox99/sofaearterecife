@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { 
+import {
   Package,
   Wrench,
   Hammer,
@@ -39,7 +39,7 @@ const Dashboard = () => {
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [loadingProducao, setLoadingProducao] = useState(true);
   const [pedidoItens, setPedidoItens] = useState<any[]>([]);
-  const [datasVisiveis, setDatasVisiveis] = useState<{[key: string]: boolean}>({});
+  const [datasVisiveis, setDatasVisiveis] = useState<{ [key: string]: boolean }>({});
   const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'novos' | 'iniciados' | 'finalizados'>('todos');
   const [filtroArea, setFiltroArea] = useState<'todos' | 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido'>('todos');
   const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null; pedidoItemId: string | null }>({
@@ -125,19 +125,19 @@ const Dashboard = () => {
   // Função para calcular dias restantes até a entrega
   const calcularDiasRestantes = (dataEntrega: string | null) => {
     if (!dataEntrega) return null;
-    
+
     const hoje = new Date();
     const entrega = new Date(dataEntrega);
     const diffTime = entrega.getTime() - hoje.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     return diffDays;
   };
 
   // Função para determinar a cor de urgência
   const getCorUrgencia = (dataEntrega: string | null) => {
     const diasRestantes = calcularDiasRestantes(dataEntrega);
-    
+
     if (diasRestantes === null) return 'bg-gray-300'; // Sem data
     if (diasRestantes <= 2) return 'bg-red-500'; // Vermelho - urgente
     if (diasRestantes <= 5) return 'bg-yellow-500'; // Amarelo - atenção
@@ -148,7 +148,7 @@ const Dashboard = () => {
   // Função para obter texto de urgência
   const getTextoUrgencia = (dataEntrega: string | null) => {
     const diasRestantes = calcularDiasRestantes(dataEntrega);
-    
+
     if (diasRestantes === null) return 'Sem data';
     if (diasRestantes < 0) return `${Math.abs(diasRestantes)} dias atrasado`;
     if (diasRestantes === 0) return 'Entrega hoje';
@@ -162,10 +162,10 @@ const Dashboard = () => {
       filtroAtivo === 'todos'
         ? 'Relatório de Todos os Pedidos'
         : filtroAtivo === 'novos'
-        ? 'Relatório de Pedidos Novos'
-        : filtroAtivo === 'iniciados'
-        ? 'Relatório de Pedidos em Andamento'
-        : 'Relatório de Pedidos Finalizados';
+          ? 'Relatório de Pedidos Novos'
+          : filtroAtivo === 'iniciados'
+            ? 'Relatório de Pedidos em Andamento'
+            : 'Relatório de Pedidos Finalizados';
 
     const areaLabel = filtroArea === 'todos' ? 'GERAL/TODOS' : getEtapaLabel(filtroArea);
     const titulo = `${tituloBase} — Área: ${areaLabel}`;
@@ -216,7 +216,7 @@ const Dashboard = () => {
     const itensRelacionados = itensProducao.filter(item => item.pedido_id === pedido.id);
     return { pedido, itensProducao: itensRelacionados };
   })
-  .filter(p => p.itensProducao.length > 0);
+    .filter(p => p.itensProducao.length > 0);
 
   const linhasExpandido = pedidosComProducao.flatMap(({ pedido, itensProducao }) => {
     const itensDoPedido = pedidoItens.filter(it => it.pedido_id === pedido.id);
@@ -227,32 +227,32 @@ const Dashboard = () => {
     }
     return itensDoPedido.map((it: any) => base(it.sequencia ?? 1, it.id, it));
   })
-  // Ordenar por urgência da entrega
-  // Ordenar por data de entrega (mais urgentes primeiro)
-  .sort((a, b) => {
-    const diasA = calcularDiasRestantes(a.pedido.data_previsao_entrega);
-    const diasB = calcularDiasRestantes(b.pedido.data_previsao_entrega);
-    
-    // Pedidos sem data vão para o final
-    if (diasA === null && diasB === null) return 0;
-    if (diasA === null) return 1;
-    if (diasB === null) return -1;
-    
-    // Ordenar por urgência (menor número de dias primeiro)
-    return diasA - diasB;
-  });
+    // Ordenar por urgência da entrega
+    // Ordenar por data de entrega (mais urgentes primeiro)
+    .sort((a, b) => {
+      const diasA = calcularDiasRestantes(a.pedido.data_previsao_entrega);
+      const diasB = calcularDiasRestantes(b.pedido.data_previsao_entrega);
+
+      // Pedidos sem data vão para o final
+      if (diasA === null && diasB === null) return 0;
+      if (diasA === null) return 1;
+      if (diasB === null) return -1;
+
+      // Ordenar por urgência (menor número de dias primeiro)
+      return diasA - diasB;
+    });
 
   // Contadores para os filtros
-  const pedidosNovos = pedidosComProducao.filter(p => 
+  const pedidosNovos = pedidosComProducao.filter(p =>
     p.itensProducao.every(item => item.status === 'pendente')
   ).length;
-  
-  const pedidosIniciados = pedidosComProducao.filter(p => 
+
+  const pedidosIniciados = pedidosComProducao.filter(p =>
     p.itensProducao.some(item => item.status === 'iniciado' || item.status === 'supervisao') &&
     !p.itensProducao.every(item => item.status === 'finalizado')
   ).length;
-  
-  const pedidosFinalizados = pedidosComProducao.filter(p => 
+
+  const pedidosFinalizados = pedidosComProducao.filter(p =>
     p.itensProducao.length > 0 && p.itensProducao.every(item => item.status === 'finalizado')
   ).length;
 
@@ -264,7 +264,7 @@ const Dashboard = () => {
     }
     if (filtroAtivo === 'iniciados') {
       return itensProducao.some(item => item.status === 'iniciado' || item.status === 'supervisao') &&
-             !itensProducao.every(item => item.status === 'finalizado');
+        !itensProducao.every(item => item.status === 'finalizado');
     }
     if (filtroAtivo === 'finalizados') {
       return itensProducao.length > 0 && itensProducao.every(item => item.status === 'finalizado');
@@ -280,17 +280,16 @@ const Dashboard = () => {
   }
 
   return (
-    <DashboardLayout 
-      title="Dashboard - Sofá e Arte"
+    <DashboardLayout
+      title="Dashboard - Válleri"
       rightContent={
         <Card className="w-auto">
           <CardContent className="p-2">
             <div className="flex items-center space-x-2">
-              <button 
+              <button
                 onClick={() => setFiltroAtivo('novos')}
-                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
-                  filtroAtivo === 'novos' ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-200 dark:ring-blue-800' : ''
-                }`}
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${filtroAtivo === 'novos' ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-200 dark:ring-blue-800' : ''
+                  }`}
               >
                 <div className="p-1 bg-blue-100 dark:bg-blue-900/40 rounded-full">
                   <FileText className="w-3 h-3 text-blue-600 dark:text-blue-400" />
@@ -300,12 +299,11 @@ const Dashboard = () => {
                   <p className="text-xs font-bold text-blue-700 dark:text-blue-300">{pedidosNovos}</p>
                 </div>
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => setFiltroAtivo('iniciados')}
-                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 ${
-                  filtroAtivo === 'iniciados' ? 'bg-orange-50 dark:bg-orange-900/20 ring-1 ring-orange-200 dark:ring-orange-800' : ''
-                }`}
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 ${filtroAtivo === 'iniciados' ? 'bg-orange-50 dark:bg-orange-900/20 ring-1 ring-orange-200 dark:ring-orange-800' : ''
+                  }`}
               >
                 <div className="p-1 bg-orange-100 dark:bg-orange-900/40 rounded-full">
                   <Play className="w-3 h-3 text-orange-600 dark:text-orange-400" />
@@ -315,12 +313,11 @@ const Dashboard = () => {
                   <p className="text-xs font-bold text-orange-700 dark:text-orange-300">{pedidosIniciados}</p>
                 </div>
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => setFiltroAtivo('finalizados')}
-                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-green-50 dark:hover:bg-green-900/20 ${
-                  filtroAtivo === 'finalizados' ? 'bg-green-50 dark:bg-green-900/20 ring-1 ring-green-200 dark:ring-green-800' : ''
-                }`}
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-green-50 dark:hover:bg-green-900/20 ${filtroAtivo === 'finalizados' ? 'bg-green-50 dark:bg-green-900/20 ring-1 ring-green-200 dark:ring-green-800' : ''
+                  }`}
               >
                 <div className="p-1 bg-green-100 dark:bg-green-900/40 rounded-full">
                   <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
@@ -338,7 +335,7 @@ const Dashboard = () => {
       <div className="space-y-8">
         {filtroAtivo !== 'todos' && (
           <div className="mb-4">
-            <button 
+            <button
               onClick={() => setFiltroAtivo('todos')}
               className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
             >
@@ -381,13 +378,13 @@ const Dashboard = () => {
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filtro por área de produção</h3>
                   <div className="flex flex-wrap gap-2">
                     {[
-                      {key: 'todos', label: 'GERAL/TODOS'},
-                      {key: 'marcenaria', label: 'Marcenaria'},
-                      {key: 'corte_costura', label: 'Corte Costura'},
-                      {key: 'espuma', label: 'Espuma'},
-                      {key: 'bancada', label: 'Bancada'},
-                      {key: 'tecido', label: 'Tecido'},
-                    ].map(({key, label}) => (
+                      { key: 'todos', label: 'GERAL/TODOS' },
+                      { key: 'marcenaria', label: 'Marcenaria' },
+                      { key: 'corte_costura', label: 'Corte Costura' },
+                      { key: 'espuma', label: 'Espuma' },
+                      { key: 'bancada', label: 'Bancada' },
+                      { key: 'tecido', label: 'Tecido' },
+                    ].map(({ key, label }) => (
                       <Button
                         key={key}
                         variant={filtroArea === (key as typeof filtroArea) ? 'default' : 'outline'}
@@ -437,19 +434,18 @@ const Dashboard = () => {
                     <div className="divide-y divide-gray-200 dark:divide-border min-w-[1200px]">
                       {pedidosFiltrados.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
-                          {filtroAtivo === 'todos' 
-                            ? 'Nenhum pedido em produção encontrado.' 
+                          {filtroAtivo === 'todos'
+                            ? 'Nenhum pedido em produção encontrado.'
                             : `Nenhum pedido ${filtroAtivo} encontrado.`
                           }
                         </div>
                       ) : (
                         pedidosFiltrados.map(({ pedido, itensProducao, seq, itemId, item }, index) => (
-                          <div key={itemId || `${pedido.id}-${seq}-${index}` } className={`relative px-4 py-2 hover:bg-gray-50 dark:hover:bg-muted/50 transition-colors ${(seq && seq > 1) ? 'bg-gray-100 dark:bg-muted' : 'bg-white dark:bg-card'} ${
-                            index !== pedidosFiltrados.length - 1 ? 'border-b border-gray-200 dark:border-border' : ''
-                          }`}>
+                          <div key={itemId || `${pedido.id}-${seq}-${index}`} className={`relative px-4 py-2 hover:bg-gray-50 dark:hover:bg-muted/50 transition-colors ${(seq && seq > 1) ? 'bg-gray-100 dark:bg-muted' : 'bg-white dark:bg-card'} ${index !== pedidosFiltrados.length - 1 ? 'border-b border-gray-200 dark:border-border' : ''
+                            }`}>
                             {/* Barra de urgência na lateral esquerda */}
                             <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(pedido.data_previsao_entrega)} ${(seq && seq > 1) ? 'opacity-70' : ''}`}></div>
-                            
+
                             <div className="grid grid-cols-12 gap-3 items-center">
                               {/* Número do Pedido + indicador de mesmo pedido (sub-item) */}
                               <div className="col-span-1">
@@ -474,18 +470,17 @@ const Dashboard = () => {
                               <div className="col-span-1">
                                 <div className="flex flex-col">
                                   <span className="text-sm text-gray-900 dark:text-gray-100">
-                                    {pedido.data_previsao_entrega ? 
+                                    {pedido.data_previsao_entrega ?
                                       new Date(pedido.data_previsao_entrega).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) :
                                       'N/A'
                                     }
                                   </span>
-                                  <span className={`text-xs font-medium ${
-                                    calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 2 
-                                      ? 'text-red-600 dark:text-red-400' 
+                                  <span className={`text-xs font-medium ${calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 2
+                                      ? 'text-red-600 dark:text-red-400'
                                       : calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 5
-                                      ? 'text-yellow-600 dark:text-yellow-400'
-                                      : 'text-gray-500 dark:text-gray-400'
-                                  }`}>
+                                        ? 'text-yellow-600 dark:text-yellow-400'
+                                        : 'text-gray-500 dark:text-gray-400'
+                                    }`}>
                                     {getTextoUrgencia(pedido.data_previsao_entrega)}
                                   </span>
                                 </div>
@@ -544,13 +539,12 @@ const Dashboard = () => {
                                         <div key={item.id} className="flex items-center space-x-1 bg-gray-50 dark:bg-muted rounded-lg px-2 py-1.5 border border-gray-200 dark:border-border">
                                           <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                                           <div
-                                            className={`w-2 h-2 rounded-full ${
-                                              currentStatus === 'pendente' ? 'bg-red-500' :
-                                              currentStatus === 'iniciado' ? 'bg-yellow-500' :
-                                              currentStatus === 'supervisao' ? 'bg-blue-500' :
-                                              currentStatus === 'finalizado' ? 'bg-green-500' :
-                                              'bg-gray-400'
-                                            }`}
+                                            className={`w-2 h-2 rounded-full ${currentStatus === 'pendente' ? 'bg-red-500' :
+                                                currentStatus === 'iniciado' ? 'bg-yellow-500' :
+                                                  currentStatus === 'supervisao' ? 'bg-blue-500' :
+                                                    currentStatus === 'finalizado' ? 'bg-green-500' :
+                                                      'bg-gray-400'
+                                              }`}
                                             title={`${getEtapaLabel(item.etapa)}: ${getStatusText(currentStatus)}`}
                                           ></div>
                                         </div>
@@ -563,7 +557,7 @@ const Dashboard = () => {
                               <div className="col-span-1 print-hide">
                                 <Dialog>
                                   <DialogTrigger asChild>
-                                    <button 
+                                    <button
                                       className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                                       title={pedido.cliente_nome}
                                     >
@@ -667,23 +661,23 @@ const Dashboard = () => {
                                       </DialogContent>
                                     </Dialog>
                                   )}
-                                  
+
                                   {/* Ícone para horários */}
-                                  <button 
+                                  <button
                                     className="text-gray-400 hover:text-gray-600 transition-colors"
                                     title="Ver horários de início e término"
                                     onClick={() => setDatasVisiveis(prev => ({ ...prev, [pedido.id]: !prev[pedido.id] }))}
                                   >
                                     <Calendar className="w-4 h-4" />
                                   </button>
-                                  
+
                                   {/* Ícone sem função removido */}
                                 </div>
                               </div>
                             </div>
-                            
+
                             {/* Datas expandidas */}
-                              {datasVisiveis[pedido.id] && (
+                            {datasVisiveis[pedido.id] && (
                               <div className="mt-3 pt-3 border-t border-gray-200 bg-gray-50 rounded-lg p-3">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                                   {itensProducao.map((item) => (
