@@ -7,13 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export default function CadastroFuncionarios() {
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
     const { session } = useAuth();
+    const queryClient = useQueryClient();
 
     const [formData, setFormData] = useState({
         nome_completo: "",
@@ -21,6 +25,49 @@ export default function CadastroFuncionarios() {
         password: "",
         role: "funcionario",
         store: "loja_1",
+    });
+
+    const { data: employees, isLoading: loadingEmployees } = useQuery({
+        queryKey: ['employees'],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .in('role', ['funcionario', 'gerente'])
+                .order('nome_completo');
+
+            if (error) throw error;
+            return data;
+        }
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (userId: string) => {
+            const response = await supabase.functions.invoke('delete-employee', {
+                body: { user_id: userId },
+                headers: {
+                    Authorization: `Bearer ${session?.access_token}`,
+                }
+            });
+
+            if (response.error) {
+                throw new Error(response.error.message || "Erro desconhecido ao remover usuário");
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['employees'] });
+            toast({
+                title: "Sucesso!",
+                description: "Funcionário removido com sucesso.",
+            });
+        },
+        onError: (error: any) => {
+            toast({
+                title: "Erro ao Remover",
+                description: error.message || "Não foi possível remover o funcionário.",
+                variant: "destructive",
+            });
+        }
     });
 
     const handleChange = (field: string, value: string) => {
@@ -64,6 +111,8 @@ export default function CadastroFuncionarios() {
                 role: "funcionario",
                 store: "loja_1",
             });
+
+            queryClient.invalidateQueries({ queryKey: ['employees'] });
         } catch (error: any) {
             console.error(error);
             toast({
@@ -78,7 +127,7 @@ export default function CadastroFuncionarios() {
 
     return (
         <DashboardLayout title="Cadastro de Funcionários">
-            <div className="container mx-auto max-w-2xl py-8">
+            <div className="container mx-auto max-w-4xl py-8 space-y-8">
                 <Card>
                     <CardHeader>
                         <CardTitle>Cadastro de Funcionários</CardTitle>
@@ -170,6 +219,76 @@ export default function CadastroFuncionarios() {
                                 )}
                             </Button>
                         </form>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Funcionários e Gerentes Cadastrados</CardTitle>
+                        <CardDescription>
+                            Lista de todos os funcionários e gerentes do sistema. Você pode remover o acesso deles por aqui.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {loadingEmployees ? (
+                            <div className="flex justify-center p-4">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : employees && employees.length > 0 ? (
+                            <div className="rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Nome</TableHead>
+                                            <TableHead>Função</TableHead>
+                                            <TableHead>Loja</TableHead>
+                                            <TableHead className="w-[100px] text-right">Ações</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {employees.map((employee) => (
+                                            <TableRow key={employee.id}>
+                                                <TableCell className="font-medium">{employee.nome_completo}</TableCell>
+                                                <TableCell className="capitalize">{employee.role}</TableCell>
+                                                <TableCell className="capitalize">
+                                                    {employee.store === 'todas' ? 'Ambas as Lojas' : employee.store.replace('_', ' ')}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Esta ação não pode ser desfeita. Isso removerá permanentemente o acesso do funcionário {employee.nome_completo} ao sistema.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                    onClick={() => deleteMutation.mutate(employee.user_id)}
+                                                                >
+                                                                    Sim, remover
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        ) : (
+                            <div className="text-center p-4 text-muted-foreground">
+                                Nenhum funcionário ou gerente cadastrado no momento.
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
