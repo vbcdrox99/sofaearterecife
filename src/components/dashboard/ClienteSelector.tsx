@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, ChevronsUpDown, Plus, User } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, User, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -15,6 +15,16 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/hooks/use-toast';
 import { ClienteForm } from './ClienteForm';
@@ -44,6 +54,7 @@ export function ClienteSelector({ onClienteSelect, selectedCliente }: ClienteSel
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchValue, setSearchValue] = useState('');
+  const [clienteToDelete, setClienteToDelete] = useState<Cliente | null>(null);
 
   // Buscar clientes do banco de dados
   const fetchClientes = async (search?: string) => {
@@ -114,6 +125,35 @@ export function ClienteSelector({ onClienteSelect, selectedCliente }: ClienteSel
     });
   };
 
+  const handleDeleteCliente = async (cliente: Cliente) => {
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', cliente.id);
+
+      if (error) throw error;
+
+      setClientes(prev => prev.filter(c => c.id !== cliente.id));
+      if (selectedCliente?.id === cliente.id) {
+        onClienteSelect(null);
+      }
+      toast({
+        title: 'Sucesso',
+        description: 'Cliente excluído com sucesso.',
+      });
+    } catch (error) {
+      console.error('Erro ao excluir cliente:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível excluir o cliente. Verifique se existem pedidos vinculados.',
+        variant: 'destructive',
+      });
+    } finally {
+      setClienteToDelete(null);
+    }
+  };
+
   const handleClearSelection = () => {
     onClienteSelect(null);
   };
@@ -165,9 +205,8 @@ export function ClienteSelector({ onClienteSelect, selectedCliente }: ClienteSel
                       className="flex items-center gap-2"
                     >
                       <Check
-                        className={`h-4 w-4 ${
-                          selectedCliente?.id === cliente.id ? 'opacity-100' : 'opacity-0'
-                        }`}
+                        className={`h-4 w-4 ${selectedCliente?.id === cliente.id ? 'opacity-100' : 'opacity-0'
+                          }`}
                       />
                       <div className="flex-1">
                         <div className="font-medium">{cliente.nome}</div>
@@ -176,6 +215,19 @@ export function ClienteSelector({ onClienteSelect, selectedCliente }: ClienteSel
                           {cliente.email && ` • ${cliente.email}`}
                         </div>
                       </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setClienteToDelete(cliente);
+                        }}
+                        title="Excluir cliente"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -185,6 +237,7 @@ export function ClienteSelector({ onClienteSelect, selectedCliente }: ClienteSel
         </Popover>
 
         <Button
+          type="button"
           variant="outline"
           size="icon"
           onClick={() => setShowNewClienteDialog(true)}
@@ -195,6 +248,7 @@ export function ClienteSelector({ onClienteSelect, selectedCliente }: ClienteSel
 
         {selectedCliente && (
           <Button
+            type="button"
             variant="outline"
             onClick={handleClearSelection}
             title="Limpar seleção"
@@ -215,6 +269,24 @@ export function ClienteSelector({ onClienteSelect, selectedCliente }: ClienteSel
           />
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!clienteToDelete} onOpenChange={(open) => !open && setClienteToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Cliente</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o cliente "{clienteToDelete?.nome}"? Esta ação não pode ser desfeita.
+              Lembre-se: não é possível excluir clientes que possuam pedidos vinculados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => clienteToDelete && handleDeleteCliente(clienteToDelete)}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

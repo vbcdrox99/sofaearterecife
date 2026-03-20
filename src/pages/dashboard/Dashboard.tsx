@@ -14,7 +14,10 @@ import {
   CheckCircle,
   Camera,
   Printer,
-  CornerDownRight
+  CornerDownRight,
+  Search,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { User } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
@@ -47,6 +50,12 @@ const Dashboard = () => {
     pedidoId: null,
     pedidoItemId: null,
   });
+
+  // Estado do modal de seleção de pedidos para PDF
+  const [pdfModalAberto, setPdfModalAberto] = useState(false);
+  const [pdfSelecionados, setPdfSelecionados] = useState<Set<string>>(new Set());
+  const [pdfFiltroBusca, setPdfFiltroBusca] = useState('');
+  const [pdfFiltroData, setPdfFiltroData] = useState('');
 
   useEffect(() => {
     carregarDadosProducao();
@@ -156,8 +165,17 @@ const Dashboard = () => {
     return `${diasRestantes} dias restantes`;
   };
 
-  // Impressão nativa em A4 horizontal da visualização atual
+  // Impressão nativa em A4 horizontal da visualização atual (usando pedidos selecionados)
   const handleGerarPDF = () => {
+    // Abre modal de seleção - pré-seleciona todos os visíveis
+    const todosIds = new Set(pedidosFiltrados.map(({ pedido, seq }) => `${pedido.id}-${seq}`));
+    setPdfSelecionados(todosIds);
+    setPdfFiltroBusca('');
+    setPdfFiltroData('');
+    setPdfModalAberto(true);
+  };
+
+  const handleConfirmarGerarPDF = () => {
     const tituloBase =
       filtroAtivo === 'todos'
         ? 'Relatório de Todos os Pedidos'
@@ -170,8 +188,23 @@ const Dashboard = () => {
     const areaLabel = filtroArea === 'todos' ? 'GERAL/TODOS' : getEtapaLabel(filtroArea);
     const titulo = `${tituloBase} — Área: ${areaLabel}`;
 
+    setPdfModalAberto(false);
     // Usa react-to-print para imprimir a tabela como está na tela
     printCurrentView(titulo);
+  };
+
+  const getDiaSemana = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('pt-BR', { weekday: 'long' });
+  };
+
+  const formatDataCriacao = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    const data = d.toLocaleDateString('pt-BR');
+    const dia = d.toLocaleDateString('pt-BR', { weekday: 'long' });
+    // Capitalizar primeira letra
+    return `${data} — ${dia.charAt(0).toUpperCase() + dia.slice(1)}`;
   };
 
   const getIconeArea = (area: string) => {
@@ -476,10 +509,10 @@ const Dashboard = () => {
                                     }
                                   </span>
                                   <span className={`text-xs font-medium ${calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 2
-                                      ? 'text-red-600 dark:text-red-400'
-                                      : calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 5
-                                        ? 'text-yellow-600 dark:text-yellow-400'
-                                        : 'text-gray-500 dark:text-gray-400'
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 5
+                                      ? 'text-yellow-600 dark:text-yellow-400'
+                                      : 'text-gray-500 dark:text-gray-400'
                                     }`}>
                                     {getTextoUrgencia(pedido.data_previsao_entrega)}
                                   </span>
@@ -540,10 +573,10 @@ const Dashboard = () => {
                                           <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                                           <div
                                             className={`w-2 h-2 rounded-full ${currentStatus === 'pendente' ? 'bg-red-500' :
-                                                currentStatus === 'iniciado' ? 'bg-yellow-500' :
-                                                  currentStatus === 'supervisao' ? 'bg-blue-500' :
-                                                    currentStatus === 'finalizado' ? 'bg-green-500' :
-                                                      'bg-gray-400'
+                                              currentStatus === 'iniciado' ? 'bg-yellow-500' :
+                                                currentStatus === 'supervisao' ? 'bg-blue-500' :
+                                                  currentStatus === 'finalizado' ? 'bg-green-500' :
+                                                    'bg-gray-400'
                                               }`}
                                             title={`${getEtapaLabel(item.etapa)}: ${getStatusText(currentStatus)}`}
                                           ></div>
@@ -719,6 +752,161 @@ const Dashboard = () => {
         pedidoId={pedidoPhotosModal.pedidoId!}
         pedidoItemId={pedidoPhotosModal.pedidoItemId}
       />
+
+      {/* Modal de Seleção de Pedidos para PDF */}
+      <Dialog open={pdfModalAberto} onOpenChange={setPdfModalAberto}>
+        <DialogContent className="max-w-2xl w-full max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="w-5 h-5" />
+              Selecionar Pedidos para o PDF
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Filtros */}
+          <div className="flex gap-3 mt-2">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Buscar por Nº pedido..."
+                value={pdfFiltroBusca}
+                onChange={(e) => setPdfFiltroBusca(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <input
+              type="date"
+              value={pdfFiltroData}
+              onChange={(e) => setPdfFiltroData(e.target.value)}
+              className="px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              title="Filtrar por data de criação"
+            />
+          </div>
+
+          {/* Controles de seleção */}
+          {(() => {
+            const listaFiltrada = pedidosFiltrados.filter(({ pedido, seq }) => {
+              const chave = `${pedido.id}-${seq}`;
+              const numPedido = String(pedido.numero_pedido || '').toLowerCase();
+              const buscaOk = pdfFiltroBusca === '' || numPedido.includes(pdfFiltroBusca.toLowerCase());
+              if (!buscaOk) return false;
+              if (pdfFiltroData) {
+                const dataCriacao = pedido.created_at ? pedido.created_at.split('T')[0] : '';
+                if (dataCriacao !== pdfFiltroData) return false;
+              }
+              return true;
+            });
+            const todosIds = listaFiltrada.map(({ pedido, seq }) => `${pedido.id}-${seq}`);
+            const todosSelecionados = todosIds.length > 0 && todosIds.every(id => pdfSelecionados.has(id));
+
+            return (
+              <>
+                <div className="flex items-center justify-between py-1">
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                    onClick={() => {
+                      if (todosSelecionados) {
+                        setPdfSelecionados(prev => {
+                          const n = new Set(prev);
+                          todosIds.forEach(id => n.delete(id));
+                          return n;
+                        });
+                      } else {
+                        setPdfSelecionados(prev => {
+                          const n = new Set(prev);
+                          todosIds.forEach(id => n.add(id));
+                          return n;
+                        });
+                      }
+                    }}
+                  >
+                    {todosSelecionados
+                      ? <><CheckSquare className="w-4 h-4" /> Desmarcar todos</>
+                      : <><Square className="w-4 h-4" /> Selecionar todos</>}
+                  </button>
+                  <span className="text-xs text-muted-foreground">
+                    {pdfSelecionados.size} de {listaFiltrada.length} selecionados
+                  </span>
+                </div>
+
+                {/* Lista de pedidos */}
+                <div className="overflow-y-auto flex-1 border rounded-md divide-y">
+                  {listaFiltrada.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">Nenhum pedido encontrado</div>
+                  ) : (
+                    listaFiltrada.map(({ pedido, seq, itensProducao: ips }) => {
+                      const chave = `${pedido.id}-${seq}`;
+                      const selecionado = pdfSelecionados.has(chave);
+                      const statusGlobal = ips.every(i => i.status === 'finalizado')
+                        ? 'Finalizado'
+                        : ips.some(i => i.status === 'iniciado' || i.status === 'supervisao')
+                          ? 'Em andamento'
+                          : 'Novo';
+                      const statusColor = statusGlobal === 'Finalizado'
+                        ? 'text-green-600'
+                        : statusGlobal === 'Em andamento'
+                          ? 'text-yellow-600'
+                          : 'text-blue-600';
+
+                      return (
+                        <label
+                          key={chave}
+                          className={`flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors ${selecionado ? 'bg-primary/5' : ''
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selecionado}
+                            onChange={() => {
+                              setPdfSelecionados(prev => {
+                                const n = new Set(prev);
+                                selecionado ? n.delete(chave) : n.add(chave);
+                                return n;
+                              });
+                            }}
+                            className="mt-0.5 accent-primary"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm">
+                                #{pedido.numero_pedido}{seq > 1 ? `/${seq}` : ''}
+                              </span>
+                              <span className={`text-xs font-medium ${statusColor}`}>{statusGlobal}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {pedido.cliente_nome || 'Cliente não informado'}
+                            </div>
+                            {pedido.created_at && (
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                Criado em: {formatDataCriacao(pedido.created_at)}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            );
+          })()}
+
+          {/* Rodapé do modal */}
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setPdfModalAberto(false)}>Cancelar</Button>
+            <Button
+              onClick={handleConfirmarGerarPDF}
+              disabled={pdfSelecionados.size === 0 || isPrinting}
+              className="flex items-center gap-2"
+            >
+              <Printer className="w-4 h-4" />
+              {isPrinting ? 'Gerando...' : `Gerar PDF (${pdfSelecionados.size})`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

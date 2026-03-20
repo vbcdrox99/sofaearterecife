@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { pedidosService, type Pedido } from '@/lib/supabase';
 import { supabase } from '@/integrations/supabase/client';
+import { formatOrderNumber } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Interface movida para supabase.ts
 
@@ -93,7 +95,7 @@ const Pedidos = () => {
             if (a.pedido.id === b.pedido.id) {
               return (a.item?.sequencia ?? 0) - (b.item?.sequencia ?? 0);
             }
-            return String(a.pedido.numero_pedido).localeCompare(String(b.pedido.numero_pedido));
+            return formatOrderNumber(a.pedido.numero_pedido, a.pedido.created_at).localeCompare(formatOrderNumber(b.pedido.numero_pedido, b.pedido.created_at));
           }));
         }
       } else {
@@ -133,15 +135,19 @@ const Pedidos = () => {
   const pedidosFiltrados = pedidosItens.filter(({ pedido, item }) => {
     const matchStatus = filtroStatus === 'todos' || pedido.status === filtroStatus;
     const matchPrioridade = filtroPrioridade === 'todos' || pedido.prioridade === filtroPrioridade;
-    const numeroComposto = `${pedido.numero_pedido}${(item?.sequencia ?? 1) > 1 ? '/' + (item?.sequencia ?? 1) : ''}`;
-    const matchBusca = termoBusca === '' || 
-      String(pedido.numero_pedido).toLowerCase().includes(termoBusca.toLowerCase()) ||
+
+    // Format the search string targets
+    const orderNumStr = formatOrderNumber(pedido.numero_pedido, pedido.created_at);
+    const numeroComposto = `${orderNumStr}${(item?.sequencia ?? 1) > 1 ? '/' + (item?.sequencia ?? 1) : ''}`;
+
+    const matchBusca = termoBusca === '' ||
+      orderNumStr.toLowerCase().includes(termoBusca.toLowerCase()) ||
       numeroComposto.toLowerCase().includes(termoBusca.toLowerCase()) ||
       pedido.cliente_nome.toLowerCase().includes(termoBusca.toLowerCase()) ||
       ((item.descricao || item.tipo_sofa || '') as string).toLowerCase().includes(termoBusca.toLowerCase()) ||
       ((item.cor || pedido.cor || '') as string).toLowerCase().includes(termoBusca.toLowerCase()) ||
       ((item.tecido || pedido.tecido || '') as string).toLowerCase().includes(termoBusca.toLowerCase());
-    
+
     return matchStatus && matchPrioridade && matchBusca;
   });
 
@@ -156,12 +162,13 @@ const Pedidos = () => {
   };
 
   const handleExcluirPedido = async (pedido: Pedido) => {
-    if (window.confirm(`Tem certeza que deseja excluir o pedido ${pedido.numero_pedido}?`)) {
+    const formatado = formatOrderNumber(pedido.numero_pedido, pedido.created_at);
+    if (window.confirm(`Tem certeza que deseja excluir o pedido ${formatado}?`)) {
       try {
         await pedidosService.delete(pedido.id!);
         toast({
           title: "Sucesso",
-          description: `Pedido ${pedido.numero_pedido} foi excluído com sucesso.`,
+          description: `Pedido ${formatado} foi excluído com sucesso.`,
         });
         carregarPedidos(); // Recarregar a lista
       } catch (error) {
@@ -215,7 +222,7 @@ const Pedidos = () => {
               <p className="text-xs text-muted-foreground">+2 desde ontem</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Em Produção</CardTitle>
@@ -228,7 +235,7 @@ const Pedidos = () => {
               <p className="text-xs text-muted-foreground">Atualmente em andamento</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
@@ -241,7 +248,7 @@ const Pedidos = () => {
               <p className="text-xs text-muted-foreground">Aguardando confirmação</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
@@ -249,7 +256,7 @@ const Pedidos = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                R$ {pedidos.reduce((acc, p) => acc + p.valorTotal, 0).toLocaleString('pt-BR')}
+                R$ {pedidos.reduce((acc, p) => acc + (p.valor_total || 0), 0).toLocaleString('pt-BR')}
               </div>
               <p className="text-xs text-muted-foreground">Em pedidos ativos</p>
             </CardContent>
@@ -332,7 +339,8 @@ const Pedidos = () => {
               const saldoDevedor = calcularSaldoDevedor(pedido.valor_orcamento, pedido.valor_pago || 0);
               const sequencia = (item?.sequencia ?? 1) as number;
               const isFilho = sequencia > 1;
-              const numeroExibicao = isFilho ? `${pedido.numero_pedido}/${sequencia}` : `${pedido.numero_pedido}`;
+              const formatado = formatOrderNumber(pedido.numero_pedido, pedido.created_at);
+              const numeroExibicao = isFilho ? `${formatado}/${sequencia}` : `${formatado}`;
               const produtoExibicao = (item?.descricao || item?.tipo_sofa || pedido.tipo_sofa) as string;
               const corExibicao = (item?.cor || pedido.cor || 'N/A') as string;
               const tecidoExibicao = (item?.tecido || pedido.tecido || 'N/A') as string;
@@ -413,9 +421,8 @@ const Pedidos = () => {
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Saldo Devedor</p>
-                          <p className={`font-semibold text-lg ${
-                            saldoDevedor > 0 ? 'text-red-600' : 'text-green-600'
-                          }`}>
+                          <p className={`font-semibold text-lg ${saldoDevedor > 0 ? 'text-red-600' : 'text-green-600'
+                            }`}>
                             R$ {saldoDevedor.toLocaleString('pt-BR')}
                           </p>
                         </div>
@@ -449,10 +456,10 @@ const Pedidos = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
-                Detalhes do Pedido {pedidoSelecionado?.numero_pedido}
+                Detalhes do Pedido {pedidoSelecionado ? formatOrderNumber(pedidoSelecionado.numero_pedido, pedidoSelecionado.created_at) : ''}
               </DialogTitle>
             </DialogHeader>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Informações do Cliente */}
               <Card>
@@ -529,11 +536,10 @@ const Pedidos = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Saldo Devedor</p>
-                    <p className={`font-medium text-lg ${
-                      pedidoSelecionado && calcularSaldoDevedor(pedidoSelecionado.valor_orcamento || 0, pedidoSelecionado.valor_pago || 0) > 0 
-                        ? 'text-red-600' 
-                        : 'text-green-600'
-                    }`}>
+                    <p className={`font-medium text-lg ${pedidoSelecionado && calcularSaldoDevedor(pedidoSelecionado.valor_orcamento || 0, pedidoSelecionado.valor_pago || 0) > 0
+                      ? 'text-red-600'
+                      : 'text-green-600'
+                      }`}>
                       R$ {pedidoSelecionado && calcularSaldoDevedor(pedidoSelecionado.valor_orcamento || 0, pedidoSelecionado.valor_pago || 0).toLocaleString('pt-BR')}
                     </p>
                   </div>

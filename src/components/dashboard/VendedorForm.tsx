@@ -22,6 +22,7 @@ export function VendedorForm({ onSuccess, onCancel }: VendedorFormProps) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        e.stopPropagation();
 
         if (!nome.trim()) {
             toast({

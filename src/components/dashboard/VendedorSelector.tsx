@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, ChevronsUpDown, Plus, User } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, User, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Command,
@@ -15,6 +15,16 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { VendedorForm, Vendedor } from './VendedorForm';
@@ -31,6 +41,7 @@ export function VendedorSelector({ onVendedorSelect, selectedVendedor }: Vendedo
     const [vendedores, setVendedores] = useState<Vendedor[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchValue, setSearchValue] = useState('');
+    const [vendedorToDelete, setVendedorToDelete] = useState<Vendedor | null>(null);
 
     // Buscar vendedores do banco de dados
     const fetchVendedores = async (search?: string) => {
@@ -101,6 +112,35 @@ export function VendedorSelector({ onVendedorSelect, selectedVendedor }: Vendedo
         });
     };
 
+    const handleDeleteVendedor = async (vendedor: Vendedor) => {
+        try {
+            const { error } = await supabase
+                .from('vendedores')
+                .delete()
+                .eq('id', vendedor.id);
+
+            if (error) throw error;
+
+            setVendedores(prev => prev.filter(v => v.id !== vendedor.id));
+            if (selectedVendedor?.id === vendedor.id) {
+                onVendedorSelect(null);
+            }
+            toast({
+                title: 'Sucesso',
+                description: 'Vendedor excluído com sucesso.',
+            });
+        } catch (error) {
+            console.error('Erro ao excluir vendedor:', error);
+            toast({
+                title: 'Erro',
+                description: 'Não foi possível excluir o vendedor.',
+                variant: 'destructive',
+            });
+        } finally {
+            setVendedorToDelete(null);
+        }
+    };
+
     const handleClearSelection = () => {
         onVendedorSelect(null);
     };
@@ -158,6 +198,19 @@ export function VendedorSelector({ onVendedorSelect, selectedVendedor }: Vendedo
                                             <div className="flex-1">
                                                 <div className="font-medium">{vendedor.nome}</div>
                                             </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setVendedorToDelete(vendedor);
+                                                }}
+                                                title="Excluir vendedor"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
                                         </CommandItem>
                                     ))}
                                 </CommandGroup>
@@ -167,6 +220,7 @@ export function VendedorSelector({ onVendedorSelect, selectedVendedor }: Vendedo
                 </Popover>
 
                 <Button
+                    type="button"
                     variant="outline"
                     size="icon"
                     onClick={() => setShowNewVendedorDialog(true)}
@@ -177,6 +231,7 @@ export function VendedorSelector({ onVendedorSelect, selectedVendedor }: Vendedo
 
                 {selectedVendedor && (
                     <Button
+                        type="button"
                         variant="outline"
                         onClick={handleClearSelection}
                         title="Limpar seleção"
@@ -197,6 +252,23 @@ export function VendedorSelector({ onVendedorSelect, selectedVendedor }: Vendedo
                     />
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={!!vendedorToDelete} onOpenChange={(open) => !open && setVendedorToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir Vendedor</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tem certeza que deseja excluir o vendedor "{vendedorToDelete?.nome}"? Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => vendedorToDelete && handleDeleteVendedor(vendedorToDelete)}>
+                            Excluir
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

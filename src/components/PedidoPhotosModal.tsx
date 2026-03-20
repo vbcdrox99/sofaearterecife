@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { X, Download, ZoomIn, Calendar, User, Package, Palette, Ruler, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import LazyImage from '@/components/LazyImage';
+import { formatOrderNumber } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PedidoAnexo {
   id: string;
@@ -178,11 +179,11 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
   }, [pedidoItemId, itens]);
 
   const numeroCompletoProduto = useMemo(() => {
-    const n = pedido?.numero_pedido;
+    const n = pedido ? formatOrderNumber(pedido.numero_pedido, pedido.created_at) : '';
     const seq = produtoSelecionado?.sequencia;
     if (!n) return '';
     return `${n}${seq && seq > 1 ? `/${seq}` : ''}`;
-  }, [pedido?.numero_pedido, produtoSelecionado?.sequencia]);
+  }, [pedido?.numero_pedido, pedido?.created_at, produtoSelecionado?.sequencia]);
 
   const openImageViewer = (imageUrl: string) => {
     setSelectedImage(imageUrl);
@@ -229,7 +230,7 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Pedido #{pedido?.numero_pedido} - Detalhes e Fotos
+              Pedido #{pedido ? formatOrderNumber(pedido.numero_pedido, pedido.created_at) : ''} - Detalhes e Fotos
             </DialogTitle>
           </DialogHeader>
 
@@ -453,7 +454,7 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                               {fotos.map((anexo) => (
                                 <div key={anexo.id} className="relative group">
-                                  <div 
+                                  <div
                                     className="aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
                                     onClick={() => openImageViewer(anexo.url_arquivo)}
                                   >
@@ -518,7 +519,7 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
                 alt="Visualização"
                 className="w-full h-auto max-h-[80vh] object-contain"
               />
-              
+
               {/* Controles de navegação */}
               {allImages.length > 1 && (
                 <>
@@ -538,13 +539,13 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
-                  
+
                   <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
                     {selectedImageIndex + 1} / {allImages.length}
                   </div>
                 </>
               )}
-              
+
               {/* Botão de fechar */}
               <Button
                 variant="secondary"

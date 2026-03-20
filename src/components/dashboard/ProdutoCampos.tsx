@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ImageUpload, { UploadedImage } from '@/components/ImageUpload';
-import DiscountInput from './DiscountInput';
+import { formatCurrencyInput } from '@/lib/utils';
 
 export interface ProdutoValues {
   descricao: string;
@@ -263,24 +263,14 @@ const ProdutoCampos = ({
           Preço Unitário
         </Label>
         <Input
-          type="number"
+          type="text"
           inputMode="decimal"
-          step="0.01"
-          min="0"
           value={values.precoUnitario}
-          onChange={(e) => onChange('precoUnitario', e.target.value)}
+          onChange={(e) => onChange('precoUnitario', formatCurrencyInput(e.target.value))}
           placeholder="Ex: 199.90"
           className="w-full"
         />
       </div>
-
-      <DiscountInput
-        price={parseFloat(values.precoUnitario) || 0}
-        discountType={values.descontoTipo || 'percentage'}
-        discountValue={values.descontoValor || 0}
-        onDiscountTypeChange={(type) => onChange('descontoTipo', type)}
-        onDiscountValueChange={(value) => onChange('descontoValor', value)}
-      />
 
       <div className="space-y-2">
         <Label>Espuma</Label>

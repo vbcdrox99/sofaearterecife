@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector';
 import { VendedorSelector, Vendedor } from '@/components/dashboard/VendedorSelector';
 import DiscountInput from '@/components/dashboard/DiscountInput';
+import { formatOrderNumber, formatCurrencyInput } from '@/lib/utils';
 
 interface FormData {
   clienteId: string;
@@ -83,6 +84,30 @@ const NovoPedido = () => {
       setLojaSelecionadaForm('loja_1');
     }
   }, [selectedStore]);
+
+  const [proximoNumeroPreview, setProximoNumeroPreview] = useState<string>('Carregando...');
+
+  useEffect(() => {
+    const fetchNextNumber = async () => {
+      if (!lojaSelecionadaForm) return;
+      try {
+        const { data, error } = await supabase.rpc('get_next_order_number', { p_loja: lojaSelecionadaForm });
+        if (!error && data !== null) {
+          setProximoNumeroPreview(formatOrderNumber(data, new Date().toISOString()));
+        } else {
+          setProximoNumeroPreview('Gerado automaticamente');
+        }
+      } catch (err) {
+        console.error(err);
+        setProximoNumeroPreview('Gerado automaticamente');
+      }
+    };
+    if (!isEditMode) {
+      fetchNextNumber();
+    } else {
+      setProximoNumeroPreview('Gerado automaticamente');
+    }
+  }, [lojaSelecionadaForm, isEditMode]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [coresDisponiveis, setCoresDisponiveis] = useState<string[]>([
@@ -354,7 +379,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   }, [totalProdutos, formData.frete]);
 
   const totalFinalPedido = useMemo(() => {
-    const descontoPedidoValor = parseFloat(formData.pedidoDescontoValor) || 0;
+    const descontoPedidoValor = parseValor(formData.pedidoDescontoValor) || 0;
     return calculateFinalPrice(totalComFrete, formData.pedidoDescontoTipo, descontoPedidoValor);
   }, [totalComFrete, formData.pedidoDescontoTipo, formData.pedidoDescontoValor]);
 
@@ -495,7 +520,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                 braco: it.braco || '',
                 tipoPe: it.tipo_pe || '',
                 precoUnitario: it.preco_unitario != null ? String(it.preco_unitario) : '',
-                descontoTipo: 'percentage',
+                descontoTipo: 'percentage' as 'percentage' | 'fixed',
                 descontoValor: 0,
                 fotosPedido: [],
                 etapasNecessarias: []
@@ -1379,30 +1404,23 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         created_by: user.id,
         etapas_necessarias: etapasSelecionadas,
         desconto_tipo: formData.pedidoDescontoTipo,
-        desconto_valor: parseFloat(formData.pedidoDescontoValor) || 0
+        desconto_valor: parseValor(formData.pedidoDescontoValor)
       };
 
-      // Incluir numero_pedido apenas se fornecido pelo usuário
-      if (formData.numeroPedido.trim()) {
-        // Extrair apenas os números do campo numero_pedido
-        const numeroLimpo = formData.numeroPedido.replace(/\D/g, '');
-        if (numeroLimpo) {
-          pedidoData.numero_pedido = parseInt(numeroLimpo);
-        }
-      }
+      // numero_pedido is intentionally omitted here to let the database sequence handle it and ensure 0001 sequence pattern
 
       // Incluir preco_unitario se informado e válido
       if (formData.precoUnitario.trim()) {
-        const valor = parseFloat(formData.precoUnitario.replace(',', '.'));
-        if (!isNaN(valor)) {
+        const valor = parseValor(formData.precoUnitario);
+        if (valor > 0 || formData.precoUnitario.trim() === '0') {
           pedidoData.preco_unitario = valor;
         }
       }
 
       // Incluir frete se informado e válido
       if (formData.frete.trim()) {
-        const valorFrete = parseFloat(formData.frete.replace(',', '.'));
-        if (!isNaN(valorFrete)) {
+        const valorFrete = parseValor(formData.frete);
+        if (valorFrete > 0 || formData.frete.trim() === '0') {
           pedidoData.frete = valorFrete;
         }
       }
@@ -1740,6 +1758,10 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           tipoPe: '',
           frete: '',
           precoUnitario: '',
+          descontoTipo: 'percentage',
+          descontoValor: '',
+          pedidoDescontoTipo: 'percentage',
+          pedidoDescontoValor: '',
           valorTotal: '',
           valorPago: '',
           formaPagamento: '',
@@ -1907,37 +1929,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                         </div>
                       </div>
                     )}
-
-                    <div className="space-y-2 pt-2 border-t">
-                      <Label htmlFor="clienteEndereco">Endereço de Entrega</Label>
-                      <Input
-                        id="clienteEndereco"
-                        value={formData.clienteEndereco}
-                        onChange={(e) => handleInputChange('clienteEndereco', e.target.value)}
-                        placeholder="Endereço completo para entrega"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="clienteBairro">Bairro</Label>
-                        <Input
-                          id="clienteBairro"
-                          value={formData.clienteBairro}
-                          onChange={(e) => handleInputChange('clienteBairro', e.target.value)}
-                          placeholder="Bairro"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="clienteCidade">Cidade</Label>
-                        <Input
-                          id="clienteCidade"
-                          value={formData.clienteCidade}
-                          onChange={(e) => handleInputChange('clienteCidade', e.target.value)}
-                          placeholder="Cidade"
-                        />
-                      </div>
-                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -1958,9 +1949,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                     <Label htmlFor="numeroPedido">Número do Pedido</Label>
                     <Input
                       id="numeroPedido"
-                      value={formData.numeroPedido}
-                      onChange={(e) => handleInputChange('numeroPedido', e.target.value)}
-                      placeholder="Ex: PED250909164 (deixe vazio para gerar automaticamente)"
+                      value={proximoNumeroPreview}
+                      disabled
+                      className="bg-muted text-muted-foreground font-medium"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1979,13 +1970,11 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                     <Label htmlFor="frete">Frete</Label>
                     <Input
                       id="frete"
-                      type="number"
+                      type="text"
                       inputMode="decimal"
-                      step="0.01"
-                      min="0"
                       placeholder="Valor do frete (se houver)"
                       value={formData.frete}
-                      onChange={(e) => handleInputChange('frete', e.target.value)}
+                      onChange={(e) => handleInputChange('frete', formatCurrencyInput(e.target.value))}
                     />
                   </div>
                 </CardContent>
@@ -2391,24 +2380,14 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                     </Label>
                     <Input
                       id="precoUnitario"
-                      type="number"
+                      type="text"
                       inputMode="decimal"
-                      step="0.01"
-                      min="0"
                       placeholder="Ex: 199.90"
                       value={formData.precoUnitario}
-                      onChange={(e) => handleInputChange('precoUnitario', e.target.value)}
+                      onChange={(e) => handleInputChange('precoUnitario', formatCurrencyInput(e.target.value))}
                       className="w-full"
                     />
                   </div>
-
-                  <DiscountInput
-                    price={parseFloat(formData.precoUnitario) || 0}
-                    discountType={formData.descontoTipo}
-                    discountValue={parseFloat(formData.descontoValor) || 0}
-                    onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, descontoTipo: type }))}
-                    onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, descontoValor: value.toString() }))}
-                  />
 
                   {/* Etapas Necessárias (Produto 1) */}
                   <div className="space-y-2 md:col-span-2">
@@ -2976,7 +2955,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                             <DiscountInput
                               price={totalComFrete}
                               discountType={formData.pedidoDescontoTipo}
-                              discountValue={parseFloat(formData.pedidoDescontoValor) || 0}
+                              discountValue={formData.pedidoDescontoValor}
                               onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, pedidoDescontoTipo: type }))}
                               onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, pedidoDescontoValor: value.toString() }))}
                               label=""

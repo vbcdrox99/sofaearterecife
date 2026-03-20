@@ -14,7 +14,9 @@ interface ClienteFormData {
   telefone: string;
   telefone2?: string;
   cpf_cnpj?: string;
-  endereco_completo: string;
+  rua: string;
+  numero: string;
+  complemento: string;
   cep: string;
   bairro: string;
   cidade: string;
@@ -33,7 +35,9 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
     telefone: '',
     telefone2: '',
     cpf_cnpj: '',
-    endereco_completo: '',
+    rua: '',
+    numero: '',
+    complemento: '',
     cep: '',
     bairro: '',
     cidade: '',
@@ -49,7 +53,7 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
   // Função para buscar endereço por CEP
   const buscarEnderecoPorCep = async (cep: string) => {
     const cepLimpo = cep.replace(/\D/g, '');
-    
+
     if (cepLimpo.length !== 8) {
       return;
     }
@@ -69,6 +73,8 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
 
       setFormData(prev => ({
         ...prev,
+        rua: data.logradouro || '',
+        complemento: data.complemento || prev.complemento,
         bairro: data.bairro || '',
         cidade: data.localidade || '',
         estado: data.uf || '',
@@ -91,15 +97,35 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
   const handleCepChange = (value: string) => {
     const cepFormatado = value.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2');
     handleInputChange('cep', cepFormatado);
-    
+
     if (value.replace(/\D/g, '').length === 8) {
       buscarEnderecoPorCep(value);
     }
   };
 
+  const handlePhoneChange = (field: 'telefone' | 'telefone2', value: string) => {
+    const v = value.replace(/\D/g, '');
+    let formatted = '';
+
+    if (v.length === 0) {
+      formatted = '';
+    } else if (v.length <= 2) {
+      formatted = `(${v}`;
+    } else if (v.length <= 6) {
+      formatted = `(${v.slice(0, 2)}) ${v.slice(2)}`;
+    } else if (v.length <= 10) {
+      formatted = `(${v.slice(0, 2)}) ${v.slice(2, 6)}-${v.slice(6)}`;
+    } else {
+      formatted = `(${v.slice(0, 2)}) ${v.slice(2, 3)} ${v.slice(3, 7)}-${v.slice(7, 11)}`;
+    }
+
+    handleInputChange(field, formatted);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    e.stopPropagation();
+
     if (!formData.nome.trim() || !formData.telefone.trim()) {
       toast({
         title: 'Campos obrigatórios',
@@ -121,7 +147,10 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
             telefone: formData.telefone.trim(),
             telefone2: (formData.telefone2 || '').trim() || null,
             cpf_cnpj: (formData.cpf_cnpj || '').trim() || null,
-            endereco_completo: formData.endereco_completo.trim() || null,
+            endereco_completo: [
+              formData.rua ? `${formData.rua.trim()}${formData.numero ? `, ${formData.numero.trim()}` : ''}` : '',
+              formData.complemento ? formData.complemento.trim() : ''
+            ].filter(Boolean).join(' | ') || null,
             cep: formData.cep.trim() || null,
             bairro: formData.bairro.trim() || null,
             cidade: formData.cidade.trim() || null,
@@ -177,8 +206,8 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
               <Input
                 id="telefone"
                 value={formData.telefone}
-                onChange={(e) => handleInputChange('telefone', e.target.value)}
-                placeholder="(11) 99999-9999"
+                onChange={(e) => handlePhoneChange('telefone', e.target.value)}
+                placeholder="(11) 9 9999-9999"
                 required
               />
             </div>
@@ -189,8 +218,8 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
               <Input
                 id="telefone2"
                 value={formData.telefone2 || ''}
-                onChange={(e) => handleInputChange('telefone2', e.target.value)}
-                placeholder="(11) 98888-8888"
+                onChange={(e) => handlePhoneChange('telefone2', e.target.value)}
+                placeholder="(11) 9 8888-8888"
               />
             </div>
             <div>
@@ -263,14 +292,33 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
               />
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="rua">Rua</Label>
+              <Input
+                id="rua"
+                value={formData.rua}
+                onChange={(e) => handleInputChange('rua', e.target.value)}
+                placeholder="Ex: Rua das Flores"
+              />
+            </div>
+            <div>
+              <Label htmlFor="numero">Número</Label>
+              <Input
+                id="numero"
+                value={formData.numero}
+                onChange={(e) => handleInputChange('numero', e.target.value)}
+                placeholder="Ex: 123"
+              />
+            </div>
+          </div>
           <div>
-            <Label htmlFor="endereco_completo">Endereço Completo (Rua e Número)</Label>
-            <Textarea
-              id="endereco_completo"
-              value={formData.endereco_completo}
-              onChange={(e) => handleInputChange('endereco_completo', e.target.value)}
-              placeholder="Rua, número, complemento..."
-              rows={3}
+            <Label htmlFor="complemento">Complemento</Label>
+            <Input
+              id="complemento"
+              value={formData.complemento}
+              onChange={(e) => handleInputChange('complemento', e.target.value)}
+              placeholder="Ex: Apto 101, Bloco B"
             />
           </div>
         </CardContent>
