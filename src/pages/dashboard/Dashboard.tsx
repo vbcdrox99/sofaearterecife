@@ -36,7 +36,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
   const { pedidos } = usePedidos();
-  const { selectedStore } = useAuth();
+  const { selectedStore, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { printRef, printCurrentView, isPrinting, generatePedidoPDF, generatePedidoClientePDF } = usePDFGenerator();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
@@ -458,8 +458,8 @@ const Dashboard = () => {
                         <div className="col-span-1">Braço</div>
                         <div className="col-span-1">Pagamento</div>
                         <div className="col-span-2 print:col-span-2">Status Produção</div>
-                        <div className="col-span-1 print-hide">Cliente</div>
-                        <div className="col-span-1 print-hide">Ações</div>
+                        {isAdmin && <div className="col-span-1 print-hide">Cliente</div>}
+                        {isAdmin && <div className="col-span-1 print-hide">Ações</div>}
                       </div>
                     </div>
 
@@ -587,126 +587,130 @@ const Dashboard = () => {
                               </div>
 
                               {/* Cliente (oculto na impressão) */}
-                              <div className="col-span-1 print-hide">
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <button
-                                      className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                                      title={pedido.cliente_nome}
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                      </svg>
-                                    </button>
-                                  </DialogTrigger>
-                                  <DialogContent className="max-w-md">
-                                    <DialogHeader>
-                                      <DialogTitle className="flex items-center gap-2">
-                                        <User className="w-4 h-4" />
-                                        Informações do Cliente
-                                      </DialogTitle>
-                                    </DialogHeader>
-                                    <div className="space-y-3">
-                                      <div>
-                                        <p className="text-xs text-muted-foreground">Nome</p>
-                                        <p className="text-sm font-medium">{pedido.cliente_nome || 'N/A'}</p>
+                              {isAdmin && (
+                                <div className="col-span-1 print-hide">
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <button
+                                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                        title={pedido.cliente_nome}
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                      </button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-md">
+                                      <DialogHeader>
+                                        <DialogTitle className="flex items-center gap-2">
+                                          <User className="w-4 h-4" />
+                                          Informações do Cliente
+                                        </DialogTitle>
+                                      </DialogHeader>
+                                      <div className="space-y-3">
+                                        <div>
+                                          <p className="text-xs text-muted-foreground">Nome</p>
+                                          <p className="text-sm font-medium">{pedido.cliente_nome || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-muted-foreground">Telefone</p>
+                                          <p className="text-sm font-medium">{pedido.cliente_telefone || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-muted-foreground">Email</p>
+                                          <p className="text-sm font-medium">{pedido.cliente_email || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-muted-foreground">Endereço</p>
+                                          <p className="text-sm font-medium">{pedido.cliente_endereco || 'N/A'}</p>
+                                        </div>
                                       </div>
-                                      <div>
-                                        <p className="text-xs text-muted-foreground">Telefone</p>
-                                        <p className="text-sm font-medium">{pedido.cliente_telefone || 'N/A'}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-muted-foreground">Email</p>
-                                        <p className="text-sm font-medium">{pedido.cliente_email || 'N/A'}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-muted-foreground">Endereço</p>
-                                        <p className="text-sm font-medium">{pedido.cliente_endereco || 'N/A'}</p>
-                                      </div>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                </div>
+                              )}
 
                               {/* Ações (oculto na impressão) */}
-                              <div className="col-span-1 print-hide">
-                                <div className="flex items-center space-x-2">
-                                  {/* Ícone para fotos */}
-                                  <button
-                                    className="text-gray-400 hover:text-blue-600 transition-colors"
-                                    title="Ver fotos do pedido"
-                                    onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: pedido.id, pedidoItemId: item?.id ?? null })}
-                                  >
-                                    <Camera className="w-4 h-4" />
-                                  </button>
+                              {isAdmin && (
+                                <div className="col-span-1 print-hide">
+                                  <div className="flex items-center space-x-2">
+                                    {/* Ícone para fotos */}
+                                    <button
+                                      className="text-gray-400 hover:text-blue-600 transition-colors"
+                                      title="Ver fotos do pedido"
+                                      onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: pedido.id, pedidoItemId: item?.id ?? null })}
+                                    >
+                                      <Camera className="w-4 h-4" />
+                                    </button>
 
-                                  {/* Menu para gerar PDF (duas opções) */}
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <button
-                                        className="text-gray-400 hover:text-red-600 transition-colors"
-                                        title="Gerar PDF"
-                                      >
-                                        <FileText className="w-4 h-4" />
-                                      </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => generatePedidoPDF(pedido.id)}>
-                                        Ordem de Serviço
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => generatePedidoClientePDF(pedido.id)}>
-                                        Pedido do Cliente
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-
-                                  {/* Removido: botão pdfmake, seguimos com gerador SVG */}
-
-                                  {/* Ícone para editar pedido */}
-                                  <button
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                                    title="Editar pedido"
-                                    onClick={() => navigate(`/dashboard/editar-pedido/${pedido.id}`)}
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </button>
-
-                                  {/* Ícone para observações (prioriza observações do produto) */}
-                                  {(item?.observacoes || pedido.observacoes) && (
-                                    <Dialog>
-                                      <DialogTrigger asChild>
+                                    {/* Menu para gerar PDF (duas opções) */}
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
                                         <button
-                                          className="text-gray-400 hover:text-gray-600 transition-colors"
-                                          title={item?.observacoes || pedido.observacoes || ''}
+                                          className="text-gray-400 hover:text-red-600 transition-colors"
+                                          title="Gerar PDF"
                                         >
-                                          <Eye className="w-4 h-4" />
+                                          <FileText className="w-4 h-4" />
                                         </button>
-                                      </DialogTrigger>
-                                      <DialogContent>
-                                        <DialogHeader>
-                                          <DialogTitle>
-                                            {item?.observacoes ? `Observações - Produto #${pedido.numero_pedido}${seq && seq > 1 ? `/${seq}` : ''}` : `Observações - Pedido #${pedido.numero_pedido}`}
-                                          </DialogTitle>
-                                        </DialogHeader>
-                                        <div className="mt-4">
-                                          <p className="text-gray-700">{item?.observacoes || pedido.observacoes}</p>
-                                        </div>
-                                      </DialogContent>
-                                    </Dialog>
-                                  )}
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => generatePedidoPDF(pedido.id)}>
+                                          Ordem de Serviço
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => generatePedidoClientePDF(pedido.id)}>
+                                          Pedido do Cliente
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
 
-                                  {/* Ícone para horários */}
-                                  <button
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                                    title="Ver horários de início e término"
-                                    onClick={() => setDatasVisiveis(prev => ({ ...prev, [pedido.id]: !prev[pedido.id] }))}
-                                  >
-                                    <Calendar className="w-4 h-4" />
-                                  </button>
+                                    {/* Removido: botão pdfmake, seguimos com gerador SVG */}
 
-                                  {/* Ícone sem função removido */}
+                                    {/* Ícone para editar pedido */}
+                                    <button
+                                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                                      title="Editar pedido"
+                                      onClick={() => navigate(`/dashboard/editar-pedido/${pedido.id}`)}
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </button>
+
+                                    {/* Ícone para observações (prioriza observações do produto) */}
+                                    {(item?.observacoes || pedido.observacoes) && (
+                                      <Dialog>
+                                        <DialogTrigger asChild>
+                                          <button
+                                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                                            title={item?.observacoes || pedido.observacoes || ''}
+                                          >
+                                            <Eye className="w-4 h-4" />
+                                          </button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                          <DialogHeader>
+                                            <DialogTitle>
+                                              {item?.observacoes ? `Observações - Produto #${pedido.numero_pedido}${seq && seq > 1 ? `/${seq}` : ''}` : `Observações - Pedido #${pedido.numero_pedido}`}
+                                            </DialogTitle>
+                                          </DialogHeader>
+                                          <div className="mt-4">
+                                            <p className="text-gray-700">{item?.observacoes || pedido.observacoes}</p>
+                                          </div>
+                                        </DialogContent>
+                                      </Dialog>
+                                    )}
+
+                                    {/* Ícone para horários */}
+                                    <button
+                                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                                      title="Ver horários de início e término"
+                                      onClick={() => setDatasVisiveis(prev => ({ ...prev, [pedido.id]: !prev[pedido.id] }))}
+                                    >
+                                      <Calendar className="w-4 h-4" />
+                                    </button>
+
+                                    {/* Ícone sem função removido */}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
 
                             {/* Datas expandidas */}
@@ -875,9 +879,11 @@ const Dashboard = () => {
                               </span>
                               <span className={`text-xs font-medium ${statusColor}`}>{statusGlobal}</span>
                             </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {pedido.cliente_nome || 'Cliente não informado'}
-                            </div>
+                            {isAdmin && (
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {pedido.cliente_nome || 'Cliente não informado'}
+                              </div>
+                            )}
                             {pedido.created_at && (
                               <div className="text-xs text-muted-foreground mt-0.5">
                                 Criado em: {formatDataCriacao(pedido.created_at)}

@@ -240,6 +240,7 @@ export default function CadastroFuncionarios() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Nome</TableHead>
+                                            <TableHead>Email</TableHead>
                                             <TableHead>Função</TableHead>
                                             <TableHead>Loja</TableHead>
                                             <TableHead className="w-[100px] text-right">Ações</TableHead>
@@ -249,6 +250,7 @@ export default function CadastroFuncionarios() {
                                         {employees.map((employee) => (
                                             <TableRow key={employee.id}>
                                                 <TableCell className="font-medium">{employee.nome_completo}</TableCell>
+                                                <TableCell>{employee.email || '—'}</TableCell>
                                                 <TableCell className="capitalize">{employee.role}</TableCell>
                                                 <TableCell className="capitalize">
                                                     {employee.store === 'todas' ? 'Ambas as Lojas' : employee.store.replace('_', ' ')}

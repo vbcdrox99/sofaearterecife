@@ -179,8 +179,26 @@ const NovoPedido = () => {
     });
   };
 
-  // Avançar no wizard (fase 1 - sem validações bloqueantes)
+  // Avançar no wizard com validações locais
   const handleAvancarWizard = () => {
+    if (wizardStep === 1) {
+      if (!clienteSelecionado) {
+        toast({
+          title: 'Atenção',
+          description: 'Por favor, selecione ou cadastre um Cliente para avançar.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!vendedorSelecionado) {
+        toast({
+          title: 'Atenção',
+          description: 'Por favor, selecione ou cadastre um Vendedor para avançar.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     setWizardStep((prev) => Math.min(3, prev + 1));
   };
   const [formData, setFormData] = useState<FormData>({

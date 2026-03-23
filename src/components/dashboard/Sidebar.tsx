@@ -149,15 +149,15 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
 
   let allItems: NavItem[] = [];
 
-  if (profile?.tipo === 'funcionario' || profile?.role === 'funcionario') {
-    // Funcionario can only see producao
-    allItems = navigationItems.filter(item => item.name === 'Produção');
-  } else if (profile?.role === 'gerente') {
-    // Gerente sees everything except Administração and Admin Items
-    allItems = navigationItems.filter(item => item.name !== 'Administração');
-  } else {
+  if (profile?.role === 'admin' || profile?.tipo === 'admin') {
     // Admin sees everything
     allItems = [...navigationItems, ...adminItems];
+  } else if (profile?.role === 'gerente') {
+    // Gerente sees everything except Admin Items
+    allItems = [...navigationItems];
+  } else {
+    // Funcionario can only see producao
+    allItems = navigationItems.filter(item => item.name === 'Produção');
   }
 
   const isActive = (href: string) => {

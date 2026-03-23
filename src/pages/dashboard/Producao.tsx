@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Producao = () => {
   const { toast } = useToast();
-  const { selectedStore } = useAuth();
+  const { selectedStore, isAdmin } = useAuth();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [pedidoItens, setPedidoItens] = useState<any[]>([]);
   const [abaAtiva, setAbaAtiva] = useState('marcenaria');
@@ -362,50 +362,54 @@ const Producao = () => {
                           <Badge variant={getStatusBadgeVariant(currentStatus)} className="uppercase tracking-wide text-[11px]">
                             {getStatusLabel(currentStatus)}
                           </Badge>
-                          <Button variant="outline" size="sm" onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: item.pedido_id, pedidoItemId: pedidoItem?.id || null })}>
-                            <Camera className="w-4 h-4 mr-2" /> Fotos
-                          </Button>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Eye className="w-4 h-4 mr-2" /> Detalhes
+                          {isAdmin && (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: item.pedido_id, pedidoItemId: pedidoItem?.id || null })}>
+                                <Camera className="w-4 h-4 mr-2" /> Fotos
                               </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-md">
-                              <DialogHeader>
-                                <DialogTitle>Detalhes do Produto</DialogTitle>
-                              </DialogHeader>
-                              {(pedidoItem?.observacoes || item.pedidos?.observacoes) ? (
-                                <div className="space-y-2">
-                                  <span className="font-medium">Observações</span>
-                                  <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-muted p-3 rounded-lg">
-                                    {pedidoItem?.observacoes || item.pedidos?.observacoes}
-                                  </p>
-                                </div>
-                              ) : (
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Sem observações.</p>
-                              )}
-                              {/* Visita técnica */}
-                              <div className="mt-3 space-y-1">
-                                <span className="font-medium">Visita técnica</span>
-                                <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-muted p-3 rounded-lg">
-                                  <p>
-                                    Status: {pedidoItem?.visita_tecnica ? 'Sim' : 'Não'}
-                                  </p>
-                                  {pedidoItem?.visita_tecnica && (
-                                    <p>
-                                      Data: {(() => {
-                                        const d = pedidoItem?.data_visita_tecnica as string | null | undefined;
-                                        if (!d) return '—';
-                                        const [ano, mes, dia] = d.split('-');
-                                        return `${dia}/${mes}/${ano}`;
-                                      })()}
-                                    </p>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Eye className="w-4 h-4 mr-2" /> Detalhes
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle>Detalhes do Produto</DialogTitle>
+                                  </DialogHeader>
+                                  {(pedidoItem?.observacoes || item.pedidos?.observacoes) ? (
+                                    <div className="space-y-2">
+                                      <span className="font-medium">Observações</span>
+                                      <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-muted p-3 rounded-lg">
+                                        {pedidoItem?.observacoes || item.pedidos?.observacoes}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Sem observações.</p>
                                   )}
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                                  {/* Visita técnica */}
+                                  <div className="mt-3 space-y-1">
+                                    <span className="font-medium">Visita técnica</span>
+                                    <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-muted p-3 rounded-lg">
+                                      <p>
+                                        Status: {pedidoItem?.visita_tecnica ? 'Sim' : 'Não'}
+                                      </p>
+                                      {pedidoItem?.visita_tecnica && (
+                                        <p>
+                                          Data: {(() => {
+                                            const d = pedidoItem?.data_visita_tecnica as string | null | undefined;
+                                            if (!d) return '—';
+                                            const [ano, mes, dia] = d.split('-');
+                                            return `${dia}/${mes}/${ano}`;
+                                          })()}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </>
+                          )}
                         </div>
                       </div>
 

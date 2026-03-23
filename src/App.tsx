@@ -32,7 +32,7 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/dashboard" element={
-                  <ProtectedRoute blockGerenteDashboard={true}>
+                  <ProtectedRoute>
                     <Dashboard />
                   </ProtectedRoute>
                 } />
