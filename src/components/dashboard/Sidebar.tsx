@@ -257,7 +257,8 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
               <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                 <p className="text-sm font-medium">{profile?.nome_completo}</p>
                 <p className="text-xs text-muted-foreground capitalize">
-                  {profile?.tipo === 'admin' ? 'Administrador' : 'Funcionário'}
+                  {(profile?.role === 'admin' || profile?.tipo === 'admin') ? 'Administrador' : 
+                   profile?.role === 'gerente' ? 'Gerente' : 'Funcionário'}
                 </p>
               </div>
             )}
