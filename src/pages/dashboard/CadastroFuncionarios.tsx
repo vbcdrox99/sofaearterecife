@@ -202,7 +202,8 @@ export default function CadastroFuncionarios() {
                                         <SelectContent>
                                             <SelectItem value="loja_1">Aragão</SelectItem>
                                             <SelectItem value="loja_2">Boa Viagem</SelectItem>
-                                            <SelectItem value="todas">Ambas as Lojas</SelectItem>
+                                            <SelectItem value="loja_3">Tamarineira</SelectItem>
+                                            <SelectItem value="todas">Todas as Lojas</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -253,7 +254,7 @@ export default function CadastroFuncionarios() {
                                                 <TableCell>{employee.email || '—'}</TableCell>
                                                 <TableCell className="capitalize">{employee.role}</TableCell>
                                                 <TableCell className="capitalize">
-                                                    {employee.store === 'todas' ? 'Ambas as Lojas' : employee.store.replace('_', ' ')}
+                                                    {employee.store === 'todas' ? 'Todas as Lojas' : employee.store.replace('_', ' ')}
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <AlertDialog>

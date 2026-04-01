@@ -632,7 +632,7 @@ export type Database = {
         | "espuma"
         | "bancada"
         | "tecido"
-      app_store: "loja_1" | "loja_2" | "todas"
+      app_store: "loja_1" | "loja_2" | "loja_3" | "todas"
       etapa_producao:
         | "marcenaria"
         | "corte_costura"
@@ -778,7 +778,7 @@ export const Constants = {
         "bancada",
         "tecido",
       ],
-      app_store: ["loja_1", "loja_2", "todas"],
+      app_store: ["loja_1", "loja_2", "loja_3", "todas"],
       etapa_producao: [
         "marcenaria",
         "corte_costura",

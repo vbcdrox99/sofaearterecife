@@ -288,7 +288,7 @@ export const usePDFGenerator = () => {
         .order('created_at', { ascending: true });
       if (anexosError) throw anexosError;
 
-      const numero = pedido.numero_pedido || '—';
+      const numero = pedido.numero_pedido ? String(pedido.numero_pedido).padStart(3, '0') : '—';
       const anoAtual = new Date().getFullYear();
 
       // Mapear fotos por item como na OS
@@ -917,7 +917,7 @@ export const usePDFGenerator = () => {
 
       const currency = (v?: number | null) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       const safe = (s?: string | null) => s || '—';
-      const numero = pedido.numero_pedido;
+      const numero = pedido.numero_pedido ? String(pedido.numero_pedido).padStart(3, '0') : '—';
       const anoAtual = new Date().getFullYear();
 
       // Mapear fotos por item ANTES de montar produtosHTML

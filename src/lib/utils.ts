@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatOrderNumber(numero: number | string | undefined | null, createdAt?: string | null): string {
   if (numero === undefined || numero === null) return 'N/A';
-  const numStr = String(numero).padStart(4, '0');
+  const numStr = String(numero).padStart(3, '0');
   let year = new Date().getFullYear().toString();
   if (createdAt) {
     year = new Date(createdAt).getFullYear().toString();

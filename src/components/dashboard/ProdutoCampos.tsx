@@ -40,6 +40,7 @@ interface ProdutoCamposProps {
   espumasDisponiveis: string[];
   bracosDisponiveis: string[];
   tiposPeDisponiveis: string[];
+  tecidosDisponiveis: string[];
 
   // Abertura dos modais (controlados no pai)
   setModalNovoTipoSofaAberto: (open: boolean) => void;
@@ -48,6 +49,7 @@ interface ProdutoCamposProps {
   setModalNovaEspumaAberto: (open: boolean) => void;
   setModalNovoBracoAberto: (open: boolean) => void;
   setModalNovoTipoPeAberto: (open: boolean) => void;
+  setModalNovoTecidoAberto: (open: boolean) => void;
 
   // Exclusões (controladas no pai)
   setTipoSofaParaExcluir: (value: string | null) => void;
@@ -56,6 +58,7 @@ interface ProdutoCamposProps {
   setEspumaParaExcluir: (value: string | null) => void;
   setBracoParaExcluir: (value: string | null) => void;
   setTipoPeParaExcluir: (value: string | null) => void;
+  setTecidoParaExcluir: (value: string | null) => void;
 
   // Etapas
   etapasDisponiveis: string[];
@@ -76,18 +79,21 @@ const ProdutoCampos = ({
   espumasDisponiveis,
   bracosDisponiveis,
   tiposPeDisponiveis,
+  tecidosDisponiveis,
   setModalNovoTipoSofaAberto,
   setModalNovaCorAberto,
   setModalNovoTipoServicoAberto,
   setModalNovaEspumaAberto,
   setModalNovoBracoAberto,
   setModalNovoTipoPeAberto,
+  setModalNovoTecidoAberto,
   setTipoSofaParaExcluir,
   setCorParaExcluir,
   setTipoServicoParaExcluir,
   setEspumaParaExcluir,
   setBracoParaExcluir,
   setTipoPeParaExcluir,
+  setTecidoParaExcluir,
   etapasDisponiveis,
   etapasSelecionadas,
   onToggleEtapa,
@@ -310,11 +316,38 @@ const ProdutoCampos = ({
 
       <div className="space-y-2">
         <Label>Tecido</Label>
-        <Input
-          value={values.tecido}
-          onChange={(e) => onChange('tecido', e.target.value)}
-          placeholder="Especificação do tecido"
-        />
+        <div className="flex gap-2">
+          <Select value={values.tecido} onValueChange={(v) => onChange('tecido', v)}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Selecione o tecido" />
+            </SelectTrigger>
+            <SelectContent>
+              {tecidosDisponiveis.map((tec) => (
+                <div key={tec} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
+                  <SelectItem value={tec} className="flex-1 border-0 p-0 focus:bg-transparent">
+                    {tec}
+                  </SelectItem>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setTecidoParaExcluir(tec);
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3 text-red-500" />
+                  </Button>
+                </div>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => setModalNovoTecidoAberto(true)}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">

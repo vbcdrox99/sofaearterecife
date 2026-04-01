@@ -247,6 +247,7 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
                     <SelectItem value="todas">Todas as Lojas</SelectItem>
                     <SelectItem value="loja_1">Aragão</SelectItem>
                     <SelectItem value="loja_2">Boa Viagem</SelectItem>
+                    <SelectItem value="loja_3">Tamarineira</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

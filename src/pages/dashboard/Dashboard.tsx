@@ -488,7 +488,7 @@ const Dashboard = () => {
                                   ) : (
                                     <Package className="w-4 h-4 text-primary" />
                                   )}
-                                  <span className="font-semibold text-sm">#{pedido.numero_pedido}{seq && seq > 1 ? `/${seq}` : ''}</span>
+                                  <span className="font-semibold text-sm">#{String(pedido.numero_pedido).padStart(3, '0')}{seq && seq > 1 ? `/${seq}` : ''}</span>
                                 </div>
                               </div>
 
@@ -688,7 +688,7 @@ const Dashboard = () => {
                                         <DialogContent>
                                           <DialogHeader>
                                             <DialogTitle>
-                                              {item?.observacoes ? `Observações - Produto #${pedido.numero_pedido}${seq && seq > 1 ? `/${seq}` : ''}` : `Observações - Pedido #${pedido.numero_pedido}`}
+                                              {item?.observacoes ? `Observações - Produto #${String(pedido.numero_pedido).padStart(3, '0')}${seq && seq > 1 ? `/${seq}` : ''}` : `Observações - Pedido #${String(pedido.numero_pedido).padStart(3, '0')}`}
                                             </DialogTitle>
                                           </DialogHeader>
                                           <div className="mt-4">
@@ -792,7 +792,7 @@ const Dashboard = () => {
           {(() => {
             const listaFiltrada = pedidosFiltrados.filter(({ pedido, seq }) => {
               const chave = `${pedido.id}-${seq}`;
-              const numPedido = String(pedido.numero_pedido || '').toLowerCase();
+              const numPedido = String(pedido.numero_pedido ? String(pedido.numero_pedido).padStart(3, '0') : '').toLowerCase();
               const buscaOk = pdfFiltroBusca === '' || numPedido.includes(pdfFiltroBusca.toLowerCase());
               if (!buscaOk) return false;
               if (pdfFiltroData) {
@@ -875,7 +875,7 @@ const Dashboard = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-semibold text-sm">
-                                #{pedido.numero_pedido}{seq > 1 ? `/${seq}` : ''}
+                                #{String(pedido.numero_pedido).padStart(3, '0')}{seq > 1 ? `/${seq}` : ''}
                               </span>
                               <span className={`text-xs font-medium ${statusColor}`}>{statusGlobal}</span>
                             </div>

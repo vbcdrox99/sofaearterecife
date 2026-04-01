@@ -323,7 +323,7 @@ const Producao = () => {
               ) : (
                 itensExpandido.map(({ item, pedidoItem }, index) => {
                   const currentStatus = statusItems[item.id] || item.status || 'pendente';
-                  const numeroPedido = item.pedidos?.numero_pedido || 'N/A';
+                  const numeroPedido = item.pedidos?.numero_pedido ? String(item.pedidos.numero_pedido).padStart(3, '0') : 'N/A';
                   const sufixoSeq = pedidoItem?.sequencia && pedidoItem.sequencia > 1 ? `/${pedidoItem.sequencia}` : '';
                   
                   return (

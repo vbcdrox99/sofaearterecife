@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface Pedido {
   id: string;
   numero_pedido: number;
-  loja: 'loja_1' | 'loja_2';
+  loja: 'loja_1' | 'loja_2' | 'loja_3';
   cliente_nome: string;
   cliente_telefone: string;
   cliente_endereco?: string;
@@ -146,7 +146,7 @@ export const usePedidos = () => {
 
       toast({
         title: 'Status atualizado',
-        description: `Pedido #${data.numero_pedido} atualizado para ${getStatusLabel(novoStatus)}`,
+        description: `Pedido #${String(data.numero_pedido).padStart(3, '0')} atualizado para ${getStatusLabel(novoStatus)}`,
       });
 
       return { error: null };

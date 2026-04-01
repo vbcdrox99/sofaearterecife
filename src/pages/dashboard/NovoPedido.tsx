@@ -157,6 +157,12 @@ const NovoPedido = () => {
   const [modalNovoTipoServicoAberto, setModalNovoTipoServicoAberto] = useState(false);
   const [tipoServicoParaExcluir, setTipoServicoParaExcluir] = useState<string | null>(null);
 
+  // Estados para Tecido
+  const [tecidosDisponiveis, setTecidosDisponiveis] = useState<string[]>([]);
+  const [novoTecido, setNovoTecido] = useState('');
+  const [modalNovoTecidoAberto, setModalNovoTecidoAberto] = useState(false);
+  const [tecidoParaExcluir, setTecidoParaExcluir] = useState<string | null>(null);
+
   // Estado para cliente selecionado
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
 
@@ -856,6 +862,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           const espumas = categorias.filter(cat => cat.tipo === 'espuma').map(cat => cat.nome);
           const bracos = categorias.filter(cat => cat.tipo === 'braco').map(cat => cat.nome);
           const tiposPe = categorias.filter(cat => cat.tipo === 'tipo_pe').map(cat => cat.nome);
+          const tecidos = categorias.filter(cat => cat.tipo === 'tecido').map(cat => cat.nome);
 
           // Atualizar estados apenas se houver dados no banco
           if (cores.length > 0) setCoresDisponiveis(cores);
@@ -863,6 +870,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           if (espumas.length > 0) setEspumasDisponiveis(espumas);
           if (bracos.length > 0) setBracosDisponiveis(bracos);
           if (tiposPe.length > 0) setTiposPeDisponiveis(tiposPe);
+          if (tecidos.length > 0) setTecidosDisponiveis(tecidos);
         }
       } catch (error) {
         console.error('Erro ao carregar categorias:', error);
@@ -874,18 +882,19 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
 
   // Garantir que os selects sempre incluam o valor atual do formulário
   useEffect(() => {
-    const { tipoSofa, cor, espuma, braco, tipoPe, tipoServico } = formData;
+    const { tipoSofa, cor, espuma, braco, tipoPe, tipoServico, tecido } = formData;
     if (tipoSofa) setTiposSofaDisponiveis(prev => prev.includes(tipoSofa) ? prev : [...prev, tipoSofa]);
     if (cor) setCoresDisponiveis(prev => prev.includes(cor) ? prev : [...prev, cor]);
     if (espuma) setEspumasDisponiveis(prev => prev.includes(espuma) ? prev : [...prev, espuma]);
     if (braco) setBracosDisponiveis(prev => prev.includes(braco) ? prev : [...prev, braco]);
     if (tipoPe) setTiposPeDisponiveis(prev => prev.includes(tipoPe) ? prev : [...prev, tipoPe]);
     if (tipoServico) setTiposServicoDisponiveis(prev => prev.includes(tipoServico) ? prev : [...prev, tipoServico]);
-  }, [formData.tipoSofa, formData.cor, formData.espuma, formData.braco, formData.tipoPe, formData.tipoServico]);
+    if (tecido) setTecidosDisponiveis(prev => prev.includes(tecido) ? prev : [...prev, tecido]);
+  }, [formData.tipoSofa, formData.cor, formData.espuma, formData.braco, formData.tipoPe, formData.tipoServico, formData.tecido]);
 
   // Reforçar que os valores atuais permaneçam visíveis quando listas são recarregadas
   useEffect(() => {
-    const { tipoSofa, cor, espuma, braco, tipoPe, tipoServico } = formData;
+    const { tipoSofa, cor, espuma, braco, tipoPe, tipoServico, tecido } = formData;
     if (tipoSofa && !tiposSofaDisponiveis.includes(tipoSofa)) {
       setTiposSofaDisponiveis(prev => [...prev, tipoSofa]);
     }
@@ -904,7 +913,10 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     if (tipoServico && !tiposServicoDisponiveis.includes(tipoServico)) {
       setTiposServicoDisponiveis(prev => [...prev, tipoServico]);
     }
-  }, [tiposSofaDisponiveis, coresDisponiveis, espumasDisponiveis, bracosDisponiveis, tiposPeDisponiveis, tiposServicoDisponiveis]);
+    if (tecido && !tecidosDisponiveis.includes(tecido)) {
+      setTecidosDisponiveis(prev => [...prev, tecido]);
+    }
+  }, [tiposSofaDisponiveis, coresDisponiveis, espumasDisponiveis, bracosDisponiveis, tiposPeDisponiveis, tiposServicoDisponiveis, tecidosDisponiveis]);
 
   const generatePedidoNumber = () => {
     const now = new Date();
@@ -931,7 +943,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         if (error) throw error;
 
         setCoresDisponiveis(prev => [...prev, novaCorFormatada]);
-        setFormData(prev => ({ ...prev, cor: novaCorFormatada }));
+        setTimeout(() => {
+          setFormData(prev => ({ ...prev, cor: novaCorFormatada }));
+        }, 50);
         setNovaCor('');
         setModalNovaCorAberto(false);
         toast({
@@ -1002,7 +1016,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         if (error) throw error;
 
         setTiposSofaDisponiveis(prev => [...prev, novoTipoFormatado]);
-        setFormData(prev => ({ ...prev, tipoSofa: novoTipoFormatado }));
+        setTimeout(() => {
+          setFormData(prev => ({ ...prev, tipoSofa: novoTipoFormatado }));
+        }, 50);
         setNovoTipoSofa('');
         setModalNovoTipoSofaAberto(false);
         toast({
@@ -1071,7 +1087,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         if (error) throw error;
 
         setEspumasDisponiveis(prev => [...prev, novaEspumaFormatada]);
-        setFormData(prev => ({ ...prev, espuma: novaEspumaFormatada }));
+        setTimeout(() => {
+          setFormData(prev => ({ ...prev, espuma: novaEspumaFormatada }));
+        }, 50);
         setNovaEspuma('');
         setModalNovaEspumaAberto(false);
         toast({
@@ -1140,7 +1158,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         if (error) throw error;
 
         setBracosDisponiveis(prev => [...prev, novoBracoFormatado]);
-        setFormData(prev => ({ ...prev, braco: novoBracoFormatado }));
+        setTimeout(() => {
+          setFormData(prev => ({ ...prev, braco: novoBracoFormatado }));
+        }, 50);
         setNovoBraco('');
         setModalNovoBracoAberto(false);
         toast({
@@ -1209,7 +1229,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         if (error) throw error;
 
         setTiposPeDisponiveis(prev => [...prev, novoTipoPeFormatado]);
-        setFormData(prev => ({ ...prev, tipoPe: novoTipoPeFormatado }));
+        setTimeout(() => {
+          setFormData(prev => ({ ...prev, tipoPe: novoTipoPeFormatado }));
+        }, 50);
         setNovoTipoPe('');
         setModalNovoTipoPeAberto(false);
         toast({
@@ -1279,7 +1301,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         if (error) throw error;
 
         setTiposServicoDisponiveis(prev => [...prev, novoTipoFormatado]);
-        setFormData(prev => ({ ...prev, tipoServico: novoTipoFormatado }));
+        setTimeout(() => {
+          setFormData(prev => ({ ...prev, tipoServico: novoTipoFormatado }));
+        }, 50);
         setNovoTipoServico('');
         setModalNovoTipoServicoAberto(false);
         toast({
@@ -1327,6 +1351,78 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       toast({
         title: "Erro ao excluir tipo de serviço",
         description: "Não foi possível excluir o tipo de serviço. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Funções para Tecido
+  const adicionarNovoTecido = async () => {
+    if (novoTecido.trim() && !tecidosDisponiveis.includes(novoTecido.trim())) {
+      try {
+        const novoTecidoFormatado = novoTecido.trim();
+
+        // Salvar no banco de dados
+        const { error } = await supabase
+          .from('categorias')
+          .insert({
+            tipo: 'tecido',
+            nome: novoTecidoFormatado
+          });
+
+        if (error) throw error;
+
+        setTecidosDisponiveis(prev => [...prev, novoTecidoFormatado]);
+        setTimeout(() => {
+          setFormData(prev => ({ ...prev, tecido: novoTecidoFormatado }));
+        }, 50);
+        setNovoTecido('');
+        setModalNovoTecidoAberto(false);
+        toast({
+          title: "Tecido adicionado!",
+          description: `O tecido "${novoTecidoFormatado}" foi adicionado com sucesso.`,
+        });
+      } catch (error) {
+        console.error('Erro ao adicionar tecido:', error);
+        toast({
+          title: "Erro ao adicionar tecido",
+          description: "Não foi possível adicionar o tecido. Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    } else if (tecidosDisponiveis.includes(novoTecido.trim())) {
+      toast({
+        title: "Tecido já existe",
+        description: "Este tecido já está na lista.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const excluirTecido = async (tecidoParaRemover: string) => {
+    try {
+      const { error } = await supabase
+        .from('categorias')
+        .delete()
+        .eq('tipo', 'tecido')
+        .eq('nome', tecidoParaRemover);
+
+      if (error) throw error;
+
+      setTecidosDisponiveis(prev => prev.filter(tipo => tipo !== tecidoParaRemover));
+      if (formData.tecido === tecidoParaRemover) {
+        setFormData(prev => ({ ...prev, tecido: '' }));
+      }
+      setTecidoParaExcluir(null);
+      toast({
+        title: "Tecido removido!",
+        description: `O tecido "${tecidoParaRemover}" foi removido da lista.`,
+      });
+    } catch (error) {
+      console.error('Erro ao excluir tecido:', error);
+      toast({
+        title: "Erro ao excluir tecido",
+        description: "Não foi possível excluir o tecido. Tente novamente.",
         variant: "destructive",
       });
     }
@@ -1739,12 +1835,12 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       if (!isEditMode) {
         toast({
           title: "Pedido Criado com Sucesso!",
-          description: `Pedido #${pedidoCriado.numero_pedido} foi cadastrado e enviado para produção.`,
+          description: `Pedido #${String(pedidoCriado.numero_pedido).padStart(3, '0')} foi cadastrado e enviado para produção.`,
         });
       } else {
         toast({
           title: "Pedido Atualizado",
-          description: `Pedido #${pedidoCriado.numero_pedido} foi atualizado com sucesso.`,
+          description: `Pedido #${String(pedidoCriado.numero_pedido).padStart(3, '0')} foi atualizado com sucesso.`,
         });
       }
 
@@ -1817,9 +1913,22 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     }
   };
 
-  // Bloquear Enter nas etapas 1 e 2 para evitar submit prematuro
+  // Bloquear Enter nas etapas 1 e 2 para evitar submit prematuro, porem garantir que Dialogs e outros modais não acionem essa troca
   const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key === 'Enter' && wizardStep < 3) {
+      const target = e.target as HTMLElement;
+      
+      // Ignorar se o Enter for dado em um textarea (para permitir quebras de linha)
+      if (target.tagName.toLowerCase() === 'textarea') return;
+      
+      // Ignorar se o Enter for dado num botão (eles já cuidam do próprio form action / onClick)
+      if (target.tagName.toLowerCase() === 'button') return;
+      
+      // Se o alvo for de um Dialog, Popover (e.g., cmdk combobox) ou qualquer sobreposição Radix, ignora o auto-avanço geral
+      if (target.closest('[role="dialog"]') || target.closest('[role="combobox"]') || target.closest('[role="listbox"]') || target.hasAttribute('cmdk-input')) {
+        return;
+      }
+
       e.preventDefault();
       handleAvancarWizard();
     }
@@ -1869,6 +1978,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       <SelectContent>
                         <SelectItem value="loja_1">Aragão</SelectItem>
                         <SelectItem value="loja_2">Boa Viagem</SelectItem>
+                        <SelectItem value="loja_3">Tamarineira</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -2599,13 +2709,112 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                   {/* Tecido (Produto 1) */}
                   <div className="space-y-2">
                     <Label htmlFor="tecido">Tecido</Label>
-                    <Input
-                      id="tecido"
-                      value={formData.tecido}
-                      onChange={(e) => handleInputChange('tecido', e.target.value)}
-                      placeholder="Especificação do tecido"
-                      required
-                    />
+                    <div className="flex gap-2">
+                      <Select value={formData.tecido} onValueChange={(value) => handleInputChange('tecido', value)}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione o tecido" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tecidosDisponiveis.map((tecido) => (
+                            <div key={tecido} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
+                              <SelectItem value={tecido} className="flex-1 border-0 p-0 focus:bg-transparent">
+                                {tecido}
+                              </SelectItem>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setTecidoParaExcluir(tecido);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Dialog open={modalNovoTecidoAberto} onOpenChange={setModalNovoTecidoAberto}>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="outline" size="icon" className="shrink-0">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Adicionar Novo Tecido</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="novo-tecido">Nome do Tecido</Label>
+                              <Input
+                                id="novo-tecido"
+                                value={novoTecido}
+                                onChange={(e) => setNovoTecido(e.target.value)}
+                                placeholder="Digite a especificação do novo tecido"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    adicionarNovoTecido();
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setModalNovoTecidoAberto(false);
+                                  setNovoTecido('');
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={adicionarNovoTecido}
+                                disabled={!novoTecido.trim()}
+                              >
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      {/* Modal de Confirmação para Excluir Tecido */}
+                      <Dialog open={!!tecidoParaExcluir} onOpenChange={() => setTecidoParaExcluir(null)}>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Excluir Tecido</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              Tem certeza que deseja excluir o tecido <strong>"{tecidoParaExcluir}"</strong>?
+                            </p>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setTecidoParaExcluir(null)}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => tecidoParaExcluir && excluirTecido(tecidoParaExcluir)}
+                              >
+                                Excluir
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </div>
 
                   {/* Braço (Produto 1) */}
@@ -2882,18 +3091,21 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                             espumasDisponiveis={espumasDisponiveis}
                             bracosDisponiveis={bracosDisponiveis}
                             tiposPeDisponiveis={tiposPeDisponiveis}
+                            tecidosDisponiveis={tecidosDisponiveis}
                             setModalNovoTipoSofaAberto={setModalNovoTipoSofaAberto}
                             setModalNovaCorAberto={setModalNovaCorAberto}
                             setModalNovoTipoServicoAberto={setModalNovoTipoServicoAberto}
                             setModalNovaEspumaAberto={setModalNovaEspumaAberto}
                             setModalNovoBracoAberto={setModalNovoBracoAberto}
                             setModalNovoTipoPeAberto={setModalNovoTipoPeAberto}
+                            setModalNovoTecidoAberto={setModalNovoTecidoAberto}
                             setTipoSofaParaExcluir={setTipoSofaParaExcluir}
                             setCorParaExcluir={setCorParaExcluir}
                             setTipoServicoParaExcluir={setTipoServicoParaExcluir}
                             setEspumaParaExcluir={setEspumaParaExcluir}
                             setBracoParaExcluir={setBracoParaExcluir}
                             setTipoPeParaExcluir={setTipoPeParaExcluir}
+                            setTecidoParaExcluir={setTecidoParaExcluir}
                             etapasDisponiveis={etapasDisponiveis}
                             etapasSelecionadas={item.etapasNecessarias || []}
                             onToggleEtapa={(etapa) => toggleEtapaItem(index, etapa)}
