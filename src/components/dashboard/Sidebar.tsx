@@ -197,9 +197,7 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
           <div className={cn("border-b border-border", isCollapsed ? "p-3" : "p-6")}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-metallic-glow">
-                  <Sofa className="w-6 h-6 text-primary-foreground" />
-                </div>
+                <img src="/vallerilogo.png" alt="Válleri Logo" className="h-10 w-auto object-contain drop-shadow-sm" />
                 {!isCollapsed && (
                   <div>
                     <h1 className="text-lg font-bold text-gradient">Válleri</h1>

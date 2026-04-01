@@ -402,10 +402,36 @@ export const usePDFGenerator = () => {
         Declaro que o ITEM É FUNCIONAL e não apresenta vício aparente.
       `;
 
+      const isTamarineira = pedido.loja === 'loja_3';
+      const lojaNome = isTamarineira ? 'Sofá e arte' : 'Válleri';
+      const lojaCnpj = '38.827.698/0001-96';
+      const lojaEndereco1 = isTamarineira ? 'Rua Conego Barata, 135.' : 'Rua do Aragão, 70';
+      const lojaEndereco2 = isTamarineira ? 'Tamarineira' : 'Boa Vista, Recife-PE';
+      const lojaCep = isTamarineira ? '' : 'CEP 50060-150';
+
+      const telefones = isTamarineira 
+        ? ['+55 (81) 98222-6725'] 
+        : ['+55 (81) 97910-6729', '+55 (81) 98222-6725', '(81) 98222-6725'];
+
+      const telefonesHTML = telefones.map((tel, index) => {
+        const svgPath = index === 2 
+          ? `<circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/>` // third icon
+          : `<path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/>`; // phone icon
+
+        return `
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svgPath}</svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">${tel}</span>
+              </div>
+        `;
+      }).join('');
+
       // Preparar logo oficial com fallback igual ao da OS
       const envLogo = (import.meta as any).env?.VITE_BRANDING_LOGO_URL as string | undefined;
       const lsLogo = typeof window !== 'undefined' ? window.localStorage.getItem('brandingLogoUrl') : null;
-      const candidateLogos = ['/logo-sofaearte-oficial.png', '/logo-sofaearte-oficial.svg', lsLogo, envLogo].filter(Boolean) as string[];
+      const candidateLogos = isTamarineira 
+        ? ['/logo-sofaearte-oficial.png', '/logo-sofaearte-oficial.svg', lsLogo, envLogo].filter(Boolean) as string[]
+        : ['/vallerilogo.png', '/vallerilogo.jpg', lsLogo, envLogo].filter(Boolean) as string[];
       const resolveLogoSrc = async (): Promise<string> => {
         for (const url of candidateLogos) {
           const ok = await new Promise<boolean>((resolve) => {
@@ -428,13 +454,13 @@ export const usePDFGenerator = () => {
           <div style="display:flex; align-items:center; gap:24px;">
             ${logoImgTag}
             <div>
-              <div style="color:${brandMetallic}; font-size:18px; font-weight:700; margin-bottom:2px;">Válleri</div>
+              <div style="color:${brandMetallic}; font-size:18px; font-weight:700; margin-bottom:2px;">${lojaNome}</div>
               <div style="display:flex; flex-direction:column; gap:0; color:#222; font-size:12px;">
-                <div style="padding:2px 6px; line-height:14px;">VÁLLERI</div>
-                <div style="padding:2px 6px; line-height:14px;">CNPJ: 38.827.698/0001-96</div>
-                <div style="padding:2px 6px; line-height:14px;">Rua do Aragão, 70</div>
-                <div style="padding:2px 6px; line-height:14px;">Boa Vista, Recife-PE</div>
-                <div style="padding:2px 6px; line-height:14px;">CEP 50060-150</div>
+                <div style="padding:2px 6px; line-height:14px;">${lojaNome.toUpperCase()}</div>
+                <div style="padding:2px 6px; line-height:14px;">CNPJ: ${lojaCnpj}</div>
+                <div style="padding:2px 6px; line-height:14px;">${lojaEndereco1}</div>
+                <div style="padding:2px 6px; line-height:14px;">${lojaEndereco2}</div>
+                ${lojaCep ? `<div style="padding:2px 6px; line-height:14px;">${lojaCep}</div>` : ''}
               </div>
             </div>
           </div>
@@ -449,25 +475,18 @@ export const usePDFGenerator = () => {
                 <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">sofaearterecife@gmail.com</span>
               </div>
-              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
-                <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 97910-6729</span>
-              </div>
-              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
-                <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 98222-6725</span>
-              </div>
-              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/></svg>
-                <span style="display:flex; align-items:center; height:16px; line-height:16px;">(81) 98222-6725</span>
-              </div>
+              ${telefonesHTML}
             </div>
           </div>
         </div>
       `;
 
+      const whatsAppText = isTamarineira 
+        ? '(81) 98222-6725' 
+        : '(81) 98222-6725 ou (81) 97910-6729';
+
       const followWhatsHTML = `
-        <div style="margin-top:10px; color:#333; font-size:12px;">Acompanhe o status do seu pedido no WhatsApp (81) 98222-6725 ou (81) 97910-6729</div>
+        <div style="margin-top:10px; color:#333; font-size:12px;">Acompanhe o status do seu pedido no WhatsApp ${whatsAppText}</div>
       `;
 
       const instagramHTML = `
@@ -623,8 +642,8 @@ export const usePDFGenerator = () => {
         <div style="margin-top:80px; display:flex; justify-content:space-between; align-items:flex-start; gap:20px; page-break-inside:avoid;">
           <div style="flex:1; text-align:center;">
             <div style="border-bottom:1px solid #000; margin-bottom:4px;"></div>
-            <div style="font-size:12px; font-weight:600; color:#111;">Válleri</div>
-            <div style="font-size:10px; color:#555;">CNPJ: 38.827.698/0001-96</div>
+            <div style="font-size:12px; font-weight:600; color:#111;">${lojaNome}</div>
+            <div style="font-size:10px; color:#555;">CNPJ: ${lojaCnpj}</div>
           </div>
           <div style="flex:1; text-align:center;">
             <div style="border-bottom:1px solid #000; margin-bottom:4px;"></div>
@@ -989,11 +1008,38 @@ export const usePDFGenerator = () => {
       // Apenas manter a lista de fotos; mapeamento já foi movido para cima
       const fotosPedido = (anexos || []).filter((a: any) => a.descricao === 'foto_pedido');
 
+      // Configuração baseada na loja
+      const isTamarineira = pedido.loja === 'loja_3';
+      const lojaNome = isTamarineira ? 'Sofá e arte' : 'Válleri';
+      const lojaCnpj = '38.827.698/0001-96';
+      const lojaEndereco1 = isTamarineira ? 'Rua Conego Barata, 135.' : 'Rua do Aragão, 70';
+      const lojaEndereco2 = isTamarineira ? 'Tamarineira' : 'Boa Vista, Recife-PE';
+      const lojaCep = isTamarineira ? '' : 'CEP 50060-150';
+
+      const telefones = isTamarineira 
+        ? ['+55 (81) 98222-6725'] 
+        : ['+55 (81) 97910-6729', '+55 (81) 98222-6725', '(81) 98222-6725'];
+
+      const telefonesHTML = telefones.map((tel, index) => {
+        const svgPath = index === 2 
+          ? `<circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/>` // third icon
+          : `<path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/>`; // phone icon
+
+        return `
+              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
+                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svgPath}</svg>
+                <span style="display:flex; align-items:center; height:16px; line-height:16px;">${tel}</span>
+              </div>
+        `;
+      }).join('');
+
       // Preparar logo oficial com fallback para evitar erro de imagem ausente
       const envLogo = (import.meta as any).env?.VITE_BRANDING_LOGO_URL as string | undefined;
       const lsLogo = typeof window !== 'undefined' ? window.localStorage.getItem('brandingLogoUrl') : null;
       // Priorizar arquivos locais do public para máxima compatibilidade
-      const candidateLogos = ['/logo-sofaearte-oficial.png', '/logo-sofaearte-oficial.svg', lsLogo, envLogo].filter(Boolean) as string[];
+      const candidateLogos = isTamarineira 
+        ? ['/logo-sofaearte-oficial.png', '/logo-sofaearte-oficial.svg', lsLogo, envLogo].filter(Boolean) as string[]
+        : ['/vallerilogo.png', '/vallerilogo.jpg', lsLogo, envLogo].filter(Boolean) as string[];
       const resolveLogoSrc = async (): Promise<string> => {
         for (const url of candidateLogos) {
           const ok = await new Promise<boolean>((resolve) => {
@@ -1016,13 +1062,13 @@ export const usePDFGenerator = () => {
           <div style="display:flex; align-items:center; gap:24px;">
             ${logoImgTag}
             <div>
-              <div style="color:${brandMetallic}; font-size:18px; font-weight:700; margin-bottom:2px;">Válleri</div>
+              <div style="color:${brandMetallic}; font-size:18px; font-weight:700; margin-bottom:2px;">${lojaNome}</div>
               <div style="display:flex; flex-direction:column; gap:0; color:#222; font-size:12px;">
-                <div style="padding:2px 6px; line-height:14px;">VÁLLERI</div>
-                <div style="padding:2px 6px; line-height:14px;">CNPJ: 38.827.698/0001-96</div>
-                <div style="padding:2px 6px; line-height:14px;">Rua do Aragão, 70</div>
-                <div style="padding:2px 6px; line-height:14px;">Boa Vista, Recife-PE</div>
-                <div style="padding:2px 6px; line-height:14px;">CEP 50060-150</div>
+                <div style="padding:2px 6px; line-height:14px;">${lojaNome.toUpperCase()}</div>
+                <div style="padding:2px 6px; line-height:14px;">CNPJ: ${lojaCnpj}</div>
+                <div style="padding:2px 6px; line-height:14px;">${lojaEndereco1}</div>
+                <div style="padding:2px 6px; line-height:14px;">${lojaEndereco2}</div>
+                ${lojaCep ? `<div style="padding:2px 6px; line-height:14px;">${lojaCep}</div>` : ''}
               </div>
             </div>
           </div>
@@ -1037,25 +1083,18 @@ export const usePDFGenerator = () => {
                 <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
                 <span style="display:flex; align-items:center; height:16px; line-height:16px;">sofaearterecife@gmail.com</span>
               </div>
-              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
-                <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 97910-6729</span>
-              </div>
-              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.09 5.18 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72 12.54 12.54 0 0 0 .65 2.73 2 2 0 0 1-.45 2.11L9 10a16 16 0 0 0 5 5l1.44-1.2a2 2 0 0 1 2.11-.45 12.54 12.54 0 0 0 2.73.65A2 2 0 0 1 22 16.92Z"/></svg>
-                <span style="display:flex; align-items:center; height:16px; line-height:16px;">+55 (81) 98222-6725</span>
-              </div>
-              <div style="display:grid; grid-template-columns:18px auto; align-items:center; column-gap:4px; min-height:16px; line-height:16px; padding:2px 6px;">
-                <svg style="display:block; transform: translateY(2px); overflow:visible;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${brandMetallic}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4-1.79 4-4 4"/></svg>
-                <span style="display:flex; align-items:center; height:16px; line-height:16px;">(81) 98222-6725</span>
-              </div>
+              ${telefonesHTML}
             </div>
           </div>
         </div>
       `;
 
+      const whatsAppText = isTamarineira 
+        ? '(81) 98222-6725' 
+        : '(81) 98222-6725 ou (81) 97910-6729';
+
       const followWhatsHTML = `
-        <div style="margin-top:10px; color:#333; font-size:12px;">Acompanhe o status do seu pedido no WhatsApp (81) 98222-6725 ou (81) 97910-6729</div>
+        <div style="margin-top:10px; color:#333; font-size:12px;">Acompanhe o status do seu pedido no WhatsApp ${whatsAppText}</div>
       `;
 
       const instagramHTML = `

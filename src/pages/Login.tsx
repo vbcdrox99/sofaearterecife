@@ -62,11 +62,10 @@ const Login = () => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="mx-auto w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mb-6 shadow-metallic-glow"
+            className="mx-auto h-48 flex items-center justify-center mb-6"
           >
-            <Sofa className="w-10 h-10 text-primary-foreground" />
+            <img src="/vallerilogo.png" alt="Válleri Logo" className="h-full w-auto object-contain drop-shadow-md" />
           </motion.div>
-          <h1 className="text-3xl font-bold text-gradient">Válleri</h1>
           <p className="text-muted-foreground mt-2">Sistema de Gestão de Produção</p>
         </div>
 
