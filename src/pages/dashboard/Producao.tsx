@@ -414,11 +414,7 @@ const Producao = () => {
                       </div>
 
                       {/* Linha de detalhes do produto */}
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-2">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cor</span>
-                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.cor || item.pedidos?.cor || 'N/A'}</span>
-                        </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
                         <div className="flex flex-col">
                           <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Espuma</span>
                           <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.espuma || item.pedidos?.espuma || 'N/A'}</span>

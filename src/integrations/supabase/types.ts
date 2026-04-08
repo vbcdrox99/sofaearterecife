@@ -245,7 +245,6 @@ export type Database = {
       pedido_itens: {
         Row: {
           braco: string
-          cor: string
           created_at: string
           created_by: string | null
           data_visita_tecnica: string | null
@@ -267,7 +266,6 @@ export type Database = {
         }
         Insert: {
           braco: string
-          cor: string
           created_at?: string
           created_by?: string | null
           data_visita_tecnica?: string | null
@@ -289,7 +287,6 @@ export type Database = {
         }
         Update: {
           braco?: string
-          cor?: string
           created_at?: string
           created_by?: string | null
           data_visita_tecnica?: string | null
@@ -370,7 +367,6 @@ export type Database = {
           cliente_nome: string
           cliente_telefone: string
           condicao_pagamento: string | null
-          cor: string | null
           created_at: string
           created_by: string
           data_previsao_entrega: string | null
@@ -413,7 +409,6 @@ export type Database = {
           cliente_nome: string
           cliente_telefone: string
           condicao_pagamento?: string | null
-          cor?: string | null
           created_at?: string
           created_by: string
           data_previsao_entrega?: string | null
@@ -456,7 +451,6 @@ export type Database = {
           cliente_nome?: string
           cliente_telefone?: string
           condicao_pagamento?: string | null
-          cor?: string | null
           created_at?: string
           created_by?: string
           data_previsao_entrega?: string | null
@@ -632,7 +626,7 @@ export type Database = {
         | "espuma"
         | "bancada"
         | "tecido"
-      app_store: "loja_1" | "loja_2" | "loja_3" | "todas"
+      app_store: "loja_1" | "loja_2" | "todas" | "loja_3"
       etapa_producao:
         | "marcenaria"
         | "corte_costura"
@@ -778,7 +772,7 @@ export const Constants = {
         "bancada",
         "tecido",
       ],
-      app_store: ["loja_1", "loja_2", "loja_3", "todas"],
+      app_store: ["loja_1", "loja_2", "todas", "loja_3"],
       etapa_producao: [
         "marcenaria",
         "corte_costura",

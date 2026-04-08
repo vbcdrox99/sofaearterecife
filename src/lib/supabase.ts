@@ -19,7 +19,6 @@ export interface Pedido {
   cliente_endereco?: string;
   descricao_sofa?: string;
   tipo_sofa?: string;
-  cor?: string;
   tecido?: string;
   dimensoes?: string;
   valor_total?: number;
@@ -37,6 +36,7 @@ export interface Pedido {
 export interface ItemProducao {
   id?: string;
   pedido_id: string;
+  pedido_item_id?: string;
   etapa: 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido';
   concluida: boolean;
   status?: StatusProducao;
@@ -54,7 +54,7 @@ export interface ItemProducao {
     tipo_servico?: string;
     data_previsao_entrega?: string;
     observacoes?: string;
-    cor?: string;
+    etapas_necessarias?: string[];
     espuma?: string;
     tecido?: string;
     tipo_pe?: string;
@@ -197,7 +197,6 @@ export const producaoService = {
           tipo_servico,
           data_previsao_entrega,
           observacoes,
-          cor,
           espuma,
           tecido,
           tipo_pe,

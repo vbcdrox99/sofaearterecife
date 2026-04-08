@@ -36,7 +36,6 @@ interface FormData {
   dataEntrega: string;
   descricao: string;
   tipoSofa: string;
-  cor: string;
   dimensoes: string;
   dimensaoLargura: string;
   dimensaoComprimento: string;
@@ -85,37 +84,39 @@ const NovoPedido = () => {
     }
   }, [selectedStore]);
 
-  const [proximoNumeroPreview, setProximoNumeroPreview] = useState<string>('Carregando...');
-
   useEffect(() => {
     const fetchNextNumber = async () => {
-      if (!lojaSelecionadaForm) return;
       try {
-        const { data, error } = await supabase.rpc('get_next_order_number', { p_loja: lojaSelecionadaForm });
-        if (!error && data !== null) {
-          setProximoNumeroPreview(formatOrderNumber(data, new Date().toISOString()));
-        } else {
-          setProximoNumeroPreview('Gerado automaticamente');
+        // Encontrar o maior numero_pedido no banco de dados para criar um número real automático e editável
+        const { data, error } = await supabase
+          .from('pedidos')
+          .select('numero_pedido')
+          .order('numero_pedido', { ascending: false })
+          .limit(1);
+
+        let maxNumber = 0;
+        if (!error && data && data.length > 0) {
+          maxNumber = data[0].numero_pedido || 0;
         }
+
+        const nextNumber = maxNumber + 1;
+        const formattedNextNumber = formatOrderNumber(nextNumber, new Date().toISOString());
+        
+        setFormData((prev) => ({
+          ...prev,
+          numeroPedido: prev.numeroPedido || formattedNextNumber
+        }));
       } catch (err) {
-        console.error(err);
-        setProximoNumeroPreview('Gerado automaticamente');
+        console.error('Erro ao buscar próximo número do pedido:', err);
       }
     };
+
     if (!isEditMode) {
       fetchNextNumber();
-    } else {
-      setProximoNumeroPreview('Gerado automaticamente');
     }
-  }, [lojaSelecionadaForm, isEditMode]);
+  }, [isEditMode]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [coresDisponiveis, setCoresDisponiveis] = useState<string[]>([
-    'Preto', 'Branco', 'Cinza', 'Marrom', 'Bege', 'Azul', 'Verde', 'Vermelho', 'Rosa', 'Amarelo'
-  ]);
-  const [novaCor, setNovaCor] = useState('');
-  const [modalNovaCorAberto, setModalNovaCorAberto] = useState(false);
-  const [corParaExcluir, setCorParaExcluir] = useState<string | null>(null);
 
   // Estados para Tipo de Sofá
   const [tiposSofaDisponiveis, setTiposSofaDisponiveis] = useState<string[]>([
@@ -204,6 +205,42 @@ const NovoPedido = () => {
         });
         return;
       }
+      if (!formData.dataEntrega) {
+        toast({
+          title: 'Atenção',
+          description: 'O campo Data de Entrega é obrigatório.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    } else if (wizardStep === 2) {
+      // Validações do Produto
+      const missingFields: string[] = [];
+      if (!formData.descricao) missingFields.push('Descrição');
+      if (!formData.tipoSofa) missingFields.push('Tipo de Sofá');
+      if (!formData.tipoServico) missingFields.push('Tipo de Serviço');
+      if (!formData.espuma) missingFields.push('Espuma');
+      if (!formData.tecido) missingFields.push('Tecido');
+      if (!formData.braco) missingFields.push('Braço');
+      if (!formData.tipoPe) missingFields.push('Tipo de Pé');
+
+      if (missingFields.length > 0) {
+        toast({
+          title: 'Campos Obrigatórios (Produto 1)',
+          description: `Os seguintes campos são obrigatórios: ${missingFields.join(', ')}.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (etapasSelecionadas.length === 0) {
+        toast({
+          title: 'Atenção',
+          description: 'Selecione pelo menos uma etapa necessária para o pedido.',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
     setWizardStep((prev) => Math.min(3, prev + 1));
   };
@@ -221,8 +258,7 @@ const NovoPedido = () => {
     dataEntrega: '',
     descricao: '',
     tipoSofa: '',
-    cor: '',
-    dimensoes: '',
+      dimensoes: '',
     dimensaoLargura: '',
     dimensaoComprimento: '',
     tipoServico: '',
@@ -263,8 +299,7 @@ const NovoPedido = () => {
     descricao: string;
     fotosPedido: UploadedImage[];
     tipoSofa: string;
-    cor: string;
-    dimensoes: string;
+      dimensoes: string;
     dimensaoLargura?: string;
     dimensaoComprimento?: string;
     tipoServico: string;
@@ -285,8 +320,7 @@ const NovoPedido = () => {
     descricao: '',
     fotosPedido: [],
     tipoSofa: '',
-    cor: '',
-    dimensoes: '',
+      dimensoes: '',
     dimensaoLargura: '',
     dimensaoComprimento: '',
     tipoServico: '',
@@ -456,7 +490,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           dataEntrega: converterDataISOParaBR(pedido.data_previsao_entrega),
           descricao: pedido.descricao_sofa || '',
           tipoSofa: pedido.tipo_sofa || '',
-          cor: pedido.cor || '',
           dimensoes: dimensoesNormalizadas,
           dimensaoLargura: largura,
           dimensaoComprimento: comprimento,
@@ -486,9 +519,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         // Garantir que os selects exibam o valor salvo mesmo que não esteja nas listas
         if (pedido.tipo_sofa) {
           setTiposSofaDisponiveis(prev => prev.includes(pedido.tipo_sofa) ? prev : [...prev, pedido.tipo_sofa]);
-        }
-        if (pedido.cor) {
-          setCoresDisponiveis(prev => prev.includes(pedido.cor) ? prev : [...prev, pedido.cor]);
         }
         if (pedido.espuma) {
           setEspumasDisponiveis(prev => prev.includes(pedido.espuma) ? prev : [...prev, pedido.espuma]);
@@ -525,7 +555,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
               const adicionais = itensDb.slice(1).map((it: any) => ({
                 descricao: it.descricao || '',
                 tipoSofa: it.tipo_sofa || '',
-                cor: it.cor || '',
                 dimensoes: it.dimensoes || '',
                 dimensaoLargura: (() => {
                   const d = (it.dimensoes || '').replace('×', 'x');
@@ -834,13 +863,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     }
   };
 
-  // Gerar número do pedido automaticamente apenas em modo de criação
-  useEffect(() => {
-    if (!isEditMode) {
-      const numeroPedido = generatePedidoNumber();
-      setFormData(prev => ({ ...prev, numeroPedido }));
-    }
-  }, [isEditMode]);
+
 
   // Carregar categorias do banco de dados
   useEffect(() => {
@@ -857,15 +880,13 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
 
         if (categorias) {
           // Separar categorias por tipo
-          const cores = categorias.filter(cat => cat.tipo === 'cor').map(cat => cat.nome);
-          const tiposSofa = categorias.filter(cat => cat.tipo === 'tipo_sofa').map(cat => cat.nome);
+                    const tiposSofa = categorias.filter(cat => cat.tipo === 'tipo_sofa').map(cat => cat.nome);
           const espumas = categorias.filter(cat => cat.tipo === 'espuma').map(cat => cat.nome);
           const bracos = categorias.filter(cat => cat.tipo === 'braco').map(cat => cat.nome);
           const tiposPe = categorias.filter(cat => cat.tipo === 'tipo_pe').map(cat => cat.nome);
           const tecidos = categorias.filter(cat => cat.tipo === 'tecido').map(cat => cat.nome);
 
           // Atualizar estados apenas se houver dados no banco
-          if (cores.length > 0) setCoresDisponiveis(cores);
           if (tiposSofa.length > 0) setTiposSofaDisponiveis(tiposSofa);
           if (espumas.length > 0) setEspumasDisponiveis(espumas);
           if (bracos.length > 0) setBracosDisponiveis(bracos);
@@ -882,24 +903,20 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
 
   // Garantir que os selects sempre incluam o valor atual do formulário
   useEffect(() => {
-    const { tipoSofa, cor, espuma, braco, tipoPe, tipoServico, tecido } = formData;
+    const { tipoSofa, espuma, braco, tipoPe, tipoServico, tecido } = formData;
     if (tipoSofa) setTiposSofaDisponiveis(prev => prev.includes(tipoSofa) ? prev : [...prev, tipoSofa]);
-    if (cor) setCoresDisponiveis(prev => prev.includes(cor) ? prev : [...prev, cor]);
     if (espuma) setEspumasDisponiveis(prev => prev.includes(espuma) ? prev : [...prev, espuma]);
     if (braco) setBracosDisponiveis(prev => prev.includes(braco) ? prev : [...prev, braco]);
     if (tipoPe) setTiposPeDisponiveis(prev => prev.includes(tipoPe) ? prev : [...prev, tipoPe]);
     if (tipoServico) setTiposServicoDisponiveis(prev => prev.includes(tipoServico) ? prev : [...prev, tipoServico]);
     if (tecido) setTecidosDisponiveis(prev => prev.includes(tecido) ? prev : [...prev, tecido]);
-  }, [formData.tipoSofa, formData.cor, formData.espuma, formData.braco, formData.tipoPe, formData.tipoServico, formData.tecido]);
+  }, [formData.tipoSofa, formData.espuma, formData.braco, formData.tipoPe, formData.tipoServico, formData.tecido]);
 
   // Reforçar que os valores atuais permaneçam visíveis quando listas são recarregadas
   useEffect(() => {
-    const { tipoSofa, cor, espuma, braco, tipoPe, tipoServico, tecido } = formData;
+    const { tipoSofa, espuma, braco, tipoPe, tipoServico, tecido } = formData;
     if (tipoSofa && !tiposSofaDisponiveis.includes(tipoSofa)) {
       setTiposSofaDisponiveis(prev => [...prev, tipoSofa]);
-    }
-    if (cor && !coresDisponiveis.includes(cor)) {
-      setCoresDisponiveis(prev => [...prev, cor]);
     }
     if (espuma && !espumasDisponiveis.includes(espuma)) {
       setEspumasDisponiveis(prev => [...prev, espuma]);
@@ -916,88 +933,10 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     if (tecido && !tecidosDisponiveis.includes(tecido)) {
       setTecidosDisponiveis(prev => [...prev, tecido]);
     }
-  }, [tiposSofaDisponiveis, coresDisponiveis, espumasDisponiveis, bracosDisponiveis, tiposPeDisponiveis, tiposServicoDisponiveis, tecidosDisponiveis]);
+  }, [tiposSofaDisponiveis, espumasDisponiveis, bracosDisponiveis, tiposPeDisponiveis, tiposServicoDisponiveis, tecidosDisponiveis]);
 
-  const generatePedidoNumber = () => {
-    const now = new Date();
-    const year = now.getFullYear().toString().slice(-2);
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const day = now.getDate().toString().padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `PED${year}${month}${day}${random}`;
-  };
 
-  const adicionarNovaCor = async () => {
-    if (novaCor.trim() && !coresDisponiveis.includes(novaCor.trim())) {
-      try {
-        const novaCorFormatada = novaCor.trim();
 
-        // Salvar no banco de dados
-        const { error } = await supabase
-          .from('categorias')
-          .insert({
-            tipo: 'cor',
-            nome: novaCorFormatada
-          });
-
-        if (error) throw error;
-
-        setCoresDisponiveis(prev => [...prev, novaCorFormatada]);
-        setTimeout(() => {
-          setFormData(prev => ({ ...prev, cor: novaCorFormatada }));
-        }, 50);
-        setNovaCor('');
-        setModalNovaCorAberto(false);
-        toast({
-          title: "Cor adicionada!",
-          description: `A cor "${novaCorFormatada}" foi adicionada com sucesso.`,
-        });
-      } catch (error) {
-        console.error('Erro ao adicionar cor:', error);
-        toast({
-          title: "Erro ao adicionar cor",
-          description: "Não foi possível adicionar a cor. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    } else if (coresDisponiveis.includes(novaCor.trim())) {
-      toast({
-        title: "Cor já existe",
-        description: "Esta cor já está na lista de cores disponíveis.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const excluirCor = async (corParaRemover: string) => {
-    try {
-      // Remover do banco de dados
-      const { error } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('tipo', 'cor')
-        .eq('nome', corParaRemover);
-
-      if (error) throw error;
-
-      setCoresDisponiveis(prev => prev.filter(cor => cor !== corParaRemover));
-      if (formData.cor === corParaRemover) {
-        setFormData(prev => ({ ...prev, cor: '' }));
-      }
-      setCorParaExcluir(null);
-      toast({
-        title: "Cor removida!",
-        description: `A cor "${corParaRemover}" foi removida da lista.`,
-      });
-    } catch (error) {
-      console.error('Erro ao excluir cor:', error);
-      toast({
-        title: "Erro ao excluir cor",
-        description: "Não foi possível excluir a cor. Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
 
   // Funções para Tipo de Sofá
   const adicionarNovoTipoSofa = async () => {
@@ -1466,8 +1405,8 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       const comprimentoFinal = c1 || c2;
       const dimensoesCombinadas = [larguraFinal, comprimentoFinal].filter(Boolean).join(' x ');
 
-      if (!formData.tipoSofa || !formData.cor) {
-        throw new Error('Preencha o tipo e cor do sofá');
+      if (!formData.tipoSofa) {
+        throw new Error('Preencha o tipo do sofá');
       }
 
       if (!formData.tipoServico) {
@@ -1504,7 +1443,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         descricao_sofa: formData.descricao,
         tipo_sofa: formData.tipoSofa,
         tipo_servico: formData.tipoServico,
-        cor: formData.cor,
         dimensoes: dimensoesCombinadas,
         observacoes: formData.observacoes,
         espuma: formData.espuma,
@@ -1521,7 +1459,15 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         desconto_valor: parseValor(formData.pedidoDescontoValor)
       };
 
-      // numero_pedido is intentionally omitted here to let the database sequence handle it and ensure 0001 sequence pattern
+      if (formData.numeroPedido) {
+        const match = formData.numeroPedido.match(/\d+/);
+        if (match) {
+          const parsedNumero = parseInt(match[0], 10);
+          if (!isNaN(parsedNumero)) {
+            pedidoData.numero_pedido = parsedNumero;
+          }
+        }
+      }
 
       // Incluir preco_unitario se informado e válido
       if (formData.precoUnitario.trim()) {
@@ -1639,7 +1585,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       const primeiroItem = {
         descricao: formData.descricao,
         tipoSofa: formData.tipoSofa,
-        cor: formData.cor,
         dimensoes: dimensoesCombinadas,
         tipoServico: formData.tipoServico,
         espuma: formData.espuma,
@@ -1680,7 +1625,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           pedido_id: pedidoAtualId,
           descricao: it.descricao || null,
           tipo_sofa: it.tipoSofa || null,
-          cor: it.cor || null,
           dimensoes: it.dimensoes || null,
           tipo_servico: it.tipoServico || null,
           espuma: it.espuma || null,
@@ -1860,8 +1804,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           dataEntrega: '',
           descricao: '',
           tipoSofa: '',
-          cor: '',
-          dimensoes: '',
+                  dimensoes: '',
           dimensaoLargura: '',
           dimensaoComprimento: '',
           tipoServico: '',
@@ -2077,9 +2020,9 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                     <Label htmlFor="numeroPedido">Número do Pedido</Label>
                     <Input
                       id="numeroPedido"
-                      value={proximoNumeroPreview}
-                      disabled
-                      className="bg-muted text-muted-foreground font-medium"
+                      value={formData.numeroPedido}
+                      onChange={(e) => handleInputChange('numeroPedido', e.target.value)}
+                      className="font-medium"
                     />
                   </div>
                   <div className="space-y-2">
@@ -2281,116 +2224,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                                 type="button"
                                 variant="destructive"
                                 onClick={() => tipoSofaParaExcluir && excluirTipoSofa(tipoSofaParaExcluir)}
-                              >
-                                Excluir
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cor">Cor</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.cor} onValueChange={(value) => handleInputChange('cor', value)}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione a cor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {coresDisponiveis.map((cor) => (
-                            <div key={cor} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                              <SelectItem value={cor} className="flex-1 border-0 p-0 focus:bg-transparent">
-                                {cor}
-                              </SelectItem>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setCorParaExcluir(cor);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3 text-red-500" />
-                              </Button>
-                            </div>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={modalNovaCorAberto} onOpenChange={setModalNovaCorAberto}>
-                        <DialogTrigger asChild>
-                          <Button type="button" variant="outline" size="icon" className="shrink-0">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Adicionar Nova Cor</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="nova-cor">Nome da Cor</Label>
-                              <Input
-                                id="nova-cor"
-                                value={novaCor}
-                                onChange={(e) => setNovaCor(e.target.value)}
-                                placeholder="Digite o nome da nova cor"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    adicionarNovaCor();
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  setModalNovaCorAberto(false);
-                                  setNovaCor('');
-                                }}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                onClick={adicionarNovaCor}
-                                disabled={!novaCor.trim()}
-                              >
-                                Adicionar
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-
-                      {/* Modal de Confirmação para Excluir Cor */}
-                      <Dialog open={!!corParaExcluir} onOpenChange={() => setCorParaExcluir(null)}>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Excluir Cor</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                              Tem certeza que deseja excluir a cor <strong>"{corParaExcluir}"</strong>?
-                            </p>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setCorParaExcluir(null)}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                onClick={() => corParaExcluir && excluirCor(corParaExcluir)}
                               >
                                 Excluir
                               </Button>
@@ -3068,7 +2901,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                               descricao: item.descricao,
                               fotosPedido: item.fotosPedido || [],
                               tipoSofa: item.tipoSofa,
-                              cor: item.cor,
                               dimensaoLargura: item.dimensaoLargura || '',
                               dimensaoComprimento: item.dimensaoComprimento || '',
                               tipoServico: item.tipoServico,
@@ -3086,21 +2918,18 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                             onDimensaoChange={(field, value) => handleItemDimensaoChange(index, field, value)}
                             imageFolder={`fotos-pedido/item-${index + 2}`}
                             tiposSofaDisponiveis={tiposSofaDisponiveis}
-                            coresDisponiveis={coresDisponiveis}
                             tiposServicoDisponiveis={tiposServicoDisponiveis}
                             espumasDisponiveis={espumasDisponiveis}
                             bracosDisponiveis={bracosDisponiveis}
                             tiposPeDisponiveis={tiposPeDisponiveis}
                             tecidosDisponiveis={tecidosDisponiveis}
                             setModalNovoTipoSofaAberto={setModalNovoTipoSofaAberto}
-                            setModalNovaCorAberto={setModalNovaCorAberto}
                             setModalNovoTipoServicoAberto={setModalNovoTipoServicoAberto}
                             setModalNovaEspumaAberto={setModalNovaEspumaAberto}
                             setModalNovoBracoAberto={setModalNovoBracoAberto}
                             setModalNovoTipoPeAberto={setModalNovoTipoPeAberto}
                             setModalNovoTecidoAberto={setModalNovoTecidoAberto}
                             setTipoSofaParaExcluir={setTipoSofaParaExcluir}
-                            setCorParaExcluir={setCorParaExcluir}
                             setTipoServicoParaExcluir={setTipoServicoParaExcluir}
                             setEspumaParaExcluir={setEspumaParaExcluir}
                             setBracoParaExcluir={setBracoParaExcluir}

@@ -11,7 +11,6 @@ export interface ProdutoValues {
   descricao: string;
   fotosPedido: UploadedImage[];
   tipoSofa: string;
-  cor: string;
   dimensaoLargura: string;
   dimensaoComprimento: string;
   tipoServico: string;
@@ -35,7 +34,6 @@ interface ProdutoCamposProps {
 
   // Opções
   tiposSofaDisponiveis: string[];
-  coresDisponiveis: string[];
   tiposServicoDisponiveis: string[];
   espumasDisponiveis: string[];
   bracosDisponiveis: string[];
@@ -44,7 +42,6 @@ interface ProdutoCamposProps {
 
   // Abertura dos modais (controlados no pai)
   setModalNovoTipoSofaAberto: (open: boolean) => void;
-  setModalNovaCorAberto: (open: boolean) => void;
   setModalNovoTipoServicoAberto: (open: boolean) => void;
   setModalNovaEspumaAberto: (open: boolean) => void;
   setModalNovoBracoAberto: (open: boolean) => void;
@@ -53,7 +50,6 @@ interface ProdutoCamposProps {
 
   // Exclusões (controladas no pai)
   setTipoSofaParaExcluir: (value: string | null) => void;
-  setCorParaExcluir: (value: string | null) => void;
   setTipoServicoParaExcluir: (value: string | null) => void;
   setEspumaParaExcluir: (value: string | null) => void;
   setBracoParaExcluir: (value: string | null) => void;
@@ -74,21 +70,18 @@ const ProdutoCampos = ({
   onDimensaoChange,
   imageFolder,
   tiposSofaDisponiveis,
-  coresDisponiveis,
   tiposServicoDisponiveis,
   espumasDisponiveis,
   bracosDisponiveis,
   tiposPeDisponiveis,
   tecidosDisponiveis,
   setModalNovoTipoSofaAberto,
-  setModalNovaCorAberto,
   setModalNovoTipoServicoAberto,
   setModalNovaEspumaAberto,
   setModalNovoBracoAberto,
   setModalNovoTipoPeAberto,
   setModalNovoTecidoAberto,
   setTipoSofaParaExcluir,
-  setCorParaExcluir,
   setTipoServicoParaExcluir,
   setEspumaParaExcluir,
   setBracoParaExcluir,
@@ -166,41 +159,6 @@ const ProdutoCampos = ({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Cor</Label>
-        <div className="flex gap-2">
-          <Select value={values.cor} onValueChange={(v) => onChange('cor', v)}>
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Selecione a cor" />
-            </SelectTrigger>
-            <SelectContent>
-              {coresDisponiveis.map((cor) => (
-                <div key={cor} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                  <SelectItem value={cor} className="flex-1 border-0 p-0 focus:bg-transparent">
-                    {cor}
-                  </SelectItem>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setCorParaExcluir(cor);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 text-red-500" />
-                  </Button>
-                </div>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => setModalNovaCorAberto(true)}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
 
       <div className="space-y-2">
         <Label>Dimensões (metros)</Label>
