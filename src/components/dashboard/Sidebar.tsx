@@ -152,12 +152,11 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
   if (profile?.role === 'admin' || profile?.tipo === 'admin') {
     // Admin sees everything
     allItems = [...navigationItems, ...adminItems];
-  } else if (profile?.role === 'gerente') {
-    // Gerente sees everything except Admin Items
+  } else if (profile?.role === 'gerente' || profile?.role === 'funcionario') {
+    // Gerente and Funcionario see everything except Admin Items
     allItems = [...navigationItems];
   } else {
-    // Funcionario can only see producao and novo pedido
-    allItems = navigationItems.filter(item => item.name === 'Produção' || item.name === 'Novo Pedido');
+    allItems = [...navigationItems];
   }
 
   const isActive = (href: string) => {

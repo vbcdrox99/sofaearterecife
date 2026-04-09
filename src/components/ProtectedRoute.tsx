@@ -58,12 +58,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, blockGerenteDas
     return <Navigate to="/dashboard/producao" replace />;
   }
 
-  // Funcionario can only access producao and novo-pedido
-  if (profile?.role === 'funcionario' && 
-      !['/dashboard/producao', '/dashboard/novo-pedido'].includes(window.location.pathname)) {
-    return <Navigate to="/dashboard/producao" replace />;
-  }
-
+  // Acesso liberado conforme papéis (validações requireAdmin tratam acessos não autorizados)
   // Gerente cannot access dashboard (Administração)
   if (blockGerenteDashboard && profile?.role === 'gerente') {
     return <Navigate to="/dashboard/novo-pedido" replace />;

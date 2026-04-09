@@ -36,7 +36,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
   const { pedidos } = usePedidos();
-  const { selectedStore, isAdmin } = useAuth();
+  const { selectedStore, isAdmin, isGerente } = useAuth();
   const navigate = useNavigate();
   const { printRef, printCurrentView, isPrinting, generatePedidoPDF, generatePedidoClientePDF } = usePDFGenerator();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
@@ -458,8 +458,8 @@ const Dashboard = () => {
                         <div className="col-span-1">Braço</div>
                         <div className="col-span-1">Pagamento</div>
                         <div className="col-span-2 print:col-span-2">Status Produção</div>
-                        {isAdmin && <div className="col-span-1 print-hide">Cliente</div>}
-                        {isAdmin && <div className="col-span-1 print-hide">Ações</div>}
+                        <div className="col-span-1 print-hide">Cliente</div>
+                        <div className="col-span-1 print-hide">Ações</div>
                       </div>
                     </div>
 
@@ -587,9 +587,8 @@ const Dashboard = () => {
                               </div>
 
                               {/* Cliente (oculto na impressão) */}
-                              {isAdmin && (
-                                <div className="col-span-1 print-hide">
-                                  <Dialog>
+                              <div className="col-span-1 print-hide">
+                                <Dialog>
                                     <DialogTrigger asChild>
                                       <button
                                         className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -628,12 +627,10 @@ const Dashboard = () => {
                                     </DialogContent>
                                   </Dialog>
                                 </div>
-                              )}
 
                               {/* Ações (oculto na impressão) */}
-                              {isAdmin && (
-                                <div className="col-span-1 print-hide">
-                                  <div className="flex items-center space-x-2">
+                              <div className="col-span-1 print-hide">
+                                <div className="flex items-center space-x-2">
                                     {/* Ícone para fotos */}
                                     <button
                                       className="text-gray-400 hover:text-blue-600 transition-colors"
@@ -666,13 +663,15 @@ const Dashboard = () => {
                                     {/* Removido: botão pdfmake, seguimos com gerador SVG */}
 
                                     {/* Ícone para editar pedido */}
-                                    <button
-                                      className="text-gray-400 hover:text-gray-600 transition-colors"
-                                      title="Editar pedido"
-                                      onClick={() => navigate(`/dashboard/editar-pedido/${pedido.id}`)}
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </button>
+                                    {(isAdmin || isGerente) && (
+                                      <button
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                        title="Editar pedido"
+                                        onClick={() => navigate(`/dashboard/editar-pedido/${pedido.id}`)}
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </button>
+                                    )}
 
                                     {/* Ícone para observações (prioriza observações do produto) */}
                                     {(item?.observacoes || pedido.observacoes) && (
@@ -710,7 +709,6 @@ const Dashboard = () => {
                                     {/* Ícone sem função removido */}
                                   </div>
                                 </div>
-                              )}
                             </div>
 
                             {/* Datas expandidas */}

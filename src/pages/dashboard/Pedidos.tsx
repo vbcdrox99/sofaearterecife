@@ -23,7 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Pedidos = () => {
   const { toast } = useToast();
-  const { selectedStore } = useAuth();
+  const { selectedStore, isAdmin, isGerente } = useAuth();
   const navigate = useNavigate();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
@@ -392,20 +392,24 @@ const Pedidos = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditarPedido(pedido)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleExcluirPedido(pedido)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          {(isAdmin || isGerente) && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditarPedido(pedido)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleExcluirPedido(pedido)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </CardHeader>

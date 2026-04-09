@@ -133,24 +133,28 @@ const ProdutoCampos = ({
             </SelectTrigger>
             <SelectContent>
               {tiposSofaDisponiveis.map((tipo) => (
-                <div key={tipo} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                  <SelectItem value={tipo} className="flex-1 border-0 p-0 focus:bg-transparent">
-                    {tipo}
-                  </SelectItem>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setTipoSofaParaExcluir(tipo);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 text-red-500" />
-                  </Button>
-                </div>
+                <SelectItem key={tipo} value={tipo} className="group pr-8 cursor-pointer">
+                  <div className="flex w-full items-center justify-between">
+                    <span>{tipo}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setTipoSofaParaExcluir(tipo);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -195,24 +199,28 @@ const ProdutoCampos = ({
             </SelectTrigger>
             <SelectContent>
               {tiposServicoDisponiveis.map((ts) => (
-                <div key={ts} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                  <SelectItem value={ts} className="flex-1 border-0 p-0 focus:bg-transparent">
-                    {ts}
-                  </SelectItem>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setTipoServicoParaExcluir(ts);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 text-red-500" />
-                  </Button>
-                </div>
+                <SelectItem key={ts} value={ts} className="group pr-8 cursor-pointer">
+                  <div className="flex w-full items-center justify-between">
+                    <span>{ts}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setTipoServicoParaExcluir(ts);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -258,24 +266,28 @@ const ProdutoCampos = ({
             </SelectTrigger>
             <SelectContent>
               {espumasDisponiveis.map((es) => (
-                <div key={es} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                  <SelectItem value={es} className="flex-1 border-0 p-0 focus:bg-transparent">
-                    {es}
-                  </SelectItem>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setEspumaParaExcluir(es);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 text-red-500" />
-                  </Button>
-                </div>
+                <SelectItem key={es} value={es} className="group pr-8 cursor-pointer">
+                  <div className="flex w-full items-center justify-between">
+                    <span>{es}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEspumaParaExcluir(es);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -294,24 +306,28 @@ const ProdutoCampos = ({
             </SelectTrigger>
             <SelectContent>
               {tecidosDisponiveis.map((tec) => (
-                <div key={tec} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                  <SelectItem value={tec} className="flex-1 border-0 p-0 focus:bg-transparent">
-                    {tec}
-                  </SelectItem>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setTecidoParaExcluir(tec);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 text-red-500" />
-                  </Button>
-                </div>
+                <SelectItem key={tec} value={tec} className="group pr-8 cursor-pointer">
+                  <div className="flex w-full items-center justify-between">
+                    <span>{tec}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setTecidoParaExcluir(tec);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -330,24 +346,28 @@ const ProdutoCampos = ({
             </SelectTrigger>
             <SelectContent>
               {bracosDisponiveis.map((b) => (
-                <div key={b} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                  <SelectItem value={b} className="flex-1 border-0 p-0 focus:bg-transparent">
-                    {b}
-                  </SelectItem>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setBracoParaExcluir(b);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 text-red-500" />
-                  </Button>
-                </div>
+                <SelectItem key={b} value={b} className="group pr-8 cursor-pointer">
+                  <div className="flex w-full items-center justify-between">
+                    <span>{b}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setBracoParaExcluir(b);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -366,24 +386,28 @@ const ProdutoCampos = ({
             </SelectTrigger>
             <SelectContent>
               {tiposPeDisponiveis.map((tp) => (
-                <div key={tp} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                  <SelectItem value={tp} className="flex-1 border-0 p-0 focus:bg-transparent">
-                    {tp}
-                  </SelectItem>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setTipoPeParaExcluir(tp);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 text-red-500" />
-                  </Button>
-                </div>
+                <SelectItem key={tp} value={tp} className="group pr-8 cursor-pointer">
+                  <div className="flex w-full items-center justify-between">
+                    <span>{tp}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setTipoPeParaExcluir(tp);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
