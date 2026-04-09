@@ -180,8 +180,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       const { error } = await supabase.auth.signOut();
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Alerta do Supabase ao sair:', error);
+      }
 
+      // Forçar limpeza dos estados locais de forma incondicional
       setUser(null);
       setProfile(null);
       setSession(null);
@@ -191,10 +194,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: 'Você foi desconectado do sistema',
       });
     } catch (error) {
-      console.error('Erro no logout:', error);
+      console.error('Erro crítico no logout:', error);
+      
+      // Garantir limpeza mesmo em falha catastrófica de runtime
+      setUser(null);
+      setProfile(null);
+      setSession(null);
+      
       toast({
         title: 'Erro no logout',
-        description: 'Ocorreu um erro ao sair do sistema',
+        description: 'Ocorreu um erro ao sair, mas a sessão local foi limpa.',
         variant: 'destructive',
       });
     } finally {

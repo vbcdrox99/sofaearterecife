@@ -1849,10 +1849,10 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         setEtapasSelecionadas([]);
         setItensAdicionais([]);
         setTimeout(() => {
-          navigate('/dashboard/pedidos');
+          navigate('/dashboard/producao');
         }, 2000);
       } else {
-        navigate('/dashboard/pedidos');
+        navigate('/dashboard/producao');
       }
 
     } catch (error: any) {

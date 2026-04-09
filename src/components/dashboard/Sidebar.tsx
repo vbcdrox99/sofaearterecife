@@ -84,61 +84,15 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
       description: 'Cadastrar novo pedido',
     },
     {
-      // Temporariamente desativado: manter item visível mas não clicável.
-      // Futuro: remover 'disabled' e voltar a usar NavLink para navegação.
-      name: 'Pedidos',
-      href: '/dashboard/pedidos',
-      icon: ClipboardList,
-      description: 'Gerenciar pedidos',
-      disabled: true,
-      disabledNote: 'Em breve',
-    },
-    {
       name: 'Produção',
       href: '/dashboard/producao',
       icon: Wrench,
       description: 'Controle de produção',
     },
-    {
-      name: 'Finalizados',
-      href: '/dashboard/finalizados',
-      icon: CheckCircle,
-      // Temporariamente desativado: manter item visível mas não clicável.
-      // Futuro: remover 'disabled' e voltar a usar NavLink para navegação.
-      description: 'Produtos finalizados',
-      disabled: true,
-      disabledNote: 'Em breve',
-    },
-    {
-      name: 'Entrega',
-      href: '/dashboard/entrega',
-      icon: Truck,
-      // Temporariamente desativado: manter item visível mas não clicável.
-      // Futuro: remover 'disabled' e voltar a usar NavLink para navegação.
-      description: 'Controle de entregas',
-      disabled: true,
-      disabledNote: 'Em breve',
-    },
   ];
 
   // Itens apenas para administradores
   const adminItems: NavItem[] = [
-    {
-      name: 'Estoque',
-      href: '/dashboard/estoque',
-      icon: Package2,
-      description: 'Gerenciar materiais',
-      disabled: true,
-      disabledNote: 'Em breve',
-    },
-    {
-      name: 'Relatórios',
-      href: '/dashboard/relatorios',
-      icon: BarChart3,
-      description: 'Relatórios e análises',
-      disabled: true,
-      disabledNote: 'Em breve',
-    },
     {
       name: 'Cadastro de Funcionários',
       href: '/dashboard/cadastro-funcionarios',

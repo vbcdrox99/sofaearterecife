@@ -10,10 +10,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import Login from "./pages/Login";
 import Dashboard from "./pages/dashboard/Dashboard";
 import NovoPedido from "./pages/dashboard/NovoPedido";
-import Pedidos from "./pages/dashboard/Pedidos";
 import Producao from "./pages/dashboard/Producao";
-import Finalizados from "./pages/dashboard/Finalizados";
-import Entrega from "./pages/dashboard/Entrega";
 import CadastroFuncionarios from "./pages/dashboard/CadastroFuncionarios";
 import NotFound from "./pages/NotFound";
 
@@ -46,26 +43,12 @@ const App = () => (
                     <NovoPedido />
                   </ProtectedRoute>
                 } />
-                <Route path="/dashboard/pedidos" element={
-                  <ProtectedRoute>
-                    <Pedidos />
-                  </ProtectedRoute>
-                } />
                 <Route path="/dashboard/producao" element={
                   <ProtectedRoute>
                     <Producao />
                   </ProtectedRoute>
                 } />
-                <Route path="/dashboard/finalizados" element={
-                  <ProtectedRoute>
-                    <Finalizados />
-                  </ProtectedRoute>
-                } />
-                <Route path="/dashboard/entrega" element={
-                  <ProtectedRoute>
-                    <Entrega />
-                  </ProtectedRoute>
-                } />
+
                 <Route path="/dashboard/cadastro-funcionarios" element={
                   <ProtectedRoute requireAdmin={true}>
                     <CadastroFuncionarios />
