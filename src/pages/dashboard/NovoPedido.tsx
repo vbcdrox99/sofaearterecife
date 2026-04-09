@@ -58,6 +58,7 @@ interface FormData {
   garantiaTexto: string;
   termoEntregaAtivo: boolean;
   termoEntregaTexto: string;
+  quantidade: number;
   etapasNecessarias: string[];
   fotosPedido: UploadedImage[];
   fotosControle: UploadedImage[];
@@ -101,7 +102,7 @@ const NovoPedido = () => {
 
         const nextNumber = maxNumber + 1;
         const formattedNextNumber = formatOrderNumber(nextNumber, new Date().toISOString());
-        
+
         setFormData((prev) => ({
           ...prev,
           numeroPedido: prev.numeroPedido || formattedNextNumber
@@ -258,7 +259,7 @@ const NovoPedido = () => {
     dataEntrega: '',
     descricao: '',
     tipoSofa: '',
-      dimensoes: '',
+    dimensoes: '',
     dimensaoLargura: '',
     dimensaoComprimento: '',
     tipoServico: '',
@@ -280,6 +281,7 @@ const NovoPedido = () => {
     garantiaTexto: '',
     termoEntregaAtivo: false,
     termoEntregaTexto: '',
+    quantidade: 1,
     etapasNecessarias: [],
     fotosPedido: [],
     fotosControle: [],
@@ -299,9 +301,10 @@ const NovoPedido = () => {
     descricao: string;
     fotosPedido: UploadedImage[];
     tipoSofa: string;
-      dimensoes: string;
+    dimensoes: string;
     dimensaoLargura?: string;
     dimensaoComprimento?: string;
+    quantidade: number;
     tipoServico: string;
     precoUnitario: string;
     descontoTipo: 'percentage' | 'fixed';
@@ -320,9 +323,10 @@ const NovoPedido = () => {
     descricao: '',
     fotosPedido: [],
     tipoSofa: '',
-      dimensoes: '',
+    dimensoes: '',
     dimensaoLargura: '',
     dimensaoComprimento: '',
+    quantidade: 1,
     tipoServico: '',
     precoUnitario: '',
     descontoTipo: 'percentage',
@@ -417,19 +421,21 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   };
 
   const totalProdutos = useMemo(() => {
-    const principalPreco = parseValor(formData.precoUnitario);
+    const principalPrecoObj = parseValor(formData.precoUnitario);
+    const principalPreco = principalPrecoObj * (formData.quantidade || 1);
     const principalDescontoValor = parseFloat(formData.descontoValor) || 0;
     const principalFinal = calculateFinalPrice(principalPreco, formData.descontoTipo, principalDescontoValor);
 
     const adicionais = itensAdicionais.reduce((acc, it) => {
-      const preco = parseValor(it.precoUnitario || '');
+      const precoObj = parseValor(it.precoUnitario || '');
+      const preco = precoObj * (it.quantidade || 1);
       const descontoValor = it.descontoValor || 0;
       const final = calculateFinalPrice(preco, it.descontoTipo, descontoValor);
       return acc + final;
     }, 0);
 
     return principalFinal + adicionais;
-  }, [formData.precoUnitario, formData.descontoTipo, formData.descontoValor, itensAdicionais]);
+  }, [formData.precoUnitario, formData.quantidade, formData.descontoTipo, formData.descontoValor, itensAdicionais]);
 
   const totalComFrete = useMemo(() => {
     const frete = parseValor(formData.frete || '');
@@ -573,6 +579,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                 braco: it.braco || '',
                 tipoPe: it.tipo_pe || '',
                 precoUnitario: it.preco_unitario != null ? String(it.preco_unitario) : '',
+                quantidade: it.quantidade || 1,
                 descontoTipo: 'percentage' as 'percentage' | 'fixed',
                 descontoValor: 0,
                 fotosPedido: [],
@@ -691,7 +698,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     carregarPedido();
   }, [isEditMode, pedidoIdParam]);
 
-  const handleInputChange = (field: keyof FormData, value: string) => {
+  const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -880,7 +887,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
 
         if (categorias) {
           // Separar categorias por tipo
-                    const tiposSofa = categorias.filter(cat => cat.tipo === 'tipo_sofa').map(cat => cat.nome);
+          const tiposSofa = categorias.filter(cat => cat.tipo === 'tipo_sofa').map(cat => cat.nome);
           const espumas = categorias.filter(cat => cat.tipo === 'espuma').map(cat => cat.nome);
           const bracos = categorias.filter(cat => cat.tipo === 'braco').map(cat => cat.nome);
           const tiposPe = categorias.filter(cat => cat.tipo === 'tipo_pe').map(cat => cat.nome);
@@ -1456,7 +1463,8 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         created_by: user.id,
         etapas_necessarias: etapasSelecionadas,
         desconto_tipo: formData.pedidoDescontoTipo,
-        desconto_valor: parseValor(formData.pedidoDescontoValor)
+        desconto_valor: parseValor(formData.pedidoDescontoValor),
+        quantidade: formData.quantidade || 1
       };
 
       if (formData.numeroPedido) {
@@ -1593,6 +1601,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         tipoPe: formData.tipoPe,
         precoUnitario: formData.precoUnitario,
         observacoes: formData.observacoes,
+        quantidade: formData.quantidade || 1,
         descontoTipo: formData.descontoTipo,
         descontoValor: parseFloat(formData.descontoValor) || 0,
       } as PedidoItemForm;
@@ -1633,6 +1642,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           tipo_pe: it.tipoPe || null,
           created_by: user.id,
           observacoes: it.observacoes || null,
+          quantidade: it.quantidade || 1,
           sequencia: (idx + 1),
           visita_tecnica: idx === 0 ? !!formData.visitaTecnicaAtiva : !!it.visitaTecnicaAtiva,
           data_visita_tecnica: (() => {
@@ -1804,7 +1814,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           dataEntrega: '',
           descricao: '',
           tipoSofa: '',
-                  dimensoes: '',
+          dimensoes: '',
           dimensaoLargura: '',
           dimensaoComprimento: '',
           tipoServico: '',
@@ -1815,6 +1825,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           tipoPe: '',
           frete: '',
           precoUnitario: '',
+          quantidade: 1,
           descontoTipo: 'percentage',
           descontoValor: '',
           pedidoDescontoTipo: 'percentage',
@@ -1860,13 +1871,13 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key === 'Enter' && wizardStep < 3) {
       const target = e.target as HTMLElement;
-      
+
       // Ignorar se o Enter for dado em um textarea (para permitir quebras de linha)
       if (target.tagName.toLowerCase() === 'textarea') return;
-      
+
       // Ignorar se o Enter for dado num botão (eles já cuidam do próprio form action / onClick)
       if (target.tagName.toLowerCase() === 'button') return;
-      
+
       // Se o alvo for de um Dialog, Popover (e.g., cmdk combobox) ou qualquer sobreposição Radix, ignora o auto-avanço geral
       if (target.closest('[role="dialog"]') || target.closest('[role="combobox"]') || target.closest('[role="listbox"]') || target.hasAttribute('cmdk-input')) {
         return;
@@ -2118,7 +2129,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                     <ImageUpload
                       images={formData.fotosPedido}
                       onImagesChange={handleFotosPedidoChange}
-                      maxImages={1}
+                      maxImages={5}
                       bucketName="pedido-imagens"
                       folder="fotos-pedido"
                     />
@@ -2346,6 +2357,19 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       placeholder="Ex: 199.90"
                       value={formData.precoUnitario}
                       onChange={(e) => handleInputChange('precoUnitario', formatCurrencyInput(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="quantidade">Unidade(s)</Label>
+                    <Input
+                      id="quantidade"
+                      type="number"
+                      min={1}
+                      value={formData.quantidade || 1}
+                      onChange={(e) => handleInputChange('quantidade', parseInt(e.target.value) || 1)}
+                      placeholder="Ex: 1"
                       className="w-full"
                     />
                   </div>
@@ -2905,6 +2929,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                               dimensaoComprimento: item.dimensaoComprimento || '',
                               tipoServico: item.tipoServico,
                               precoUnitario: item.precoUnitario,
+                              quantidade: item.quantidade || 1,
                               observacoes: item.observacoes,
                               espuma: item.espuma,
                               tecido: item.tecido,
@@ -3133,7 +3158,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                     <ImageUpload
                       images={formData.fotosControle}
                       onImagesChange={handleFotosControleChange}
-                      maxImages={3}
+                      maxImages={5}
                       bucketName="pedido-imagens"
                       folder="fotos-controle"
                     />

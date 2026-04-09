@@ -257,6 +257,7 @@ export type Database = {
           observacoes: string | null
           pedido_id: string
           preco_unitario: number | null
+          quantidade: number
           sequencia: number
           tecido: string
           tipo_pe: string
@@ -278,6 +279,7 @@ export type Database = {
           observacoes?: string | null
           pedido_id: string
           preco_unitario?: number | null
+          quantidade?: number
           sequencia?: number
           tecido: string
           tipo_pe: string
@@ -299,6 +301,7 @@ export type Database = {
           observacoes?: string | null
           pedido_id?: string
           preco_unitario?: number | null
+          quantidade?: number
           sequencia?: number
           tecido?: string
           tipo_pe?: string
@@ -388,6 +391,7 @@ export type Database = {
           observacoes: string | null
           preco_unitario: number | null
           prioridade: string | null
+          quantidade: number
           status: Database["public"]["Enums"]["status_pedido"]
           tecido: string | null
           termo_entrega_ativo: boolean | null

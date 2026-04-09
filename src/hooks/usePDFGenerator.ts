@@ -320,13 +320,14 @@ export const usePDFGenerator = () => {
         descricao: pedido.descricao_sofa,
         tipo_sofa: pedido.tipo_sofa,
         tipo_servico: pedido.tipo_servico,
-        cor: pedido.cor,
+        cor: (pedido as any).cor,
         dimensoes: pedido.dimensoes,
         espuma: pedido.espuma,
         tecido: pedido.tecido,
         braco: pedido.braco,
         tipo_pe: pedido.tipo_pe,
         preco_unitario: pedido.preco_unitario || pedido.valor_total || 0,
+        quantidade: pedido.quantidade || 1,
         observacoes: pedido.observacoes,
       }]).map((it: any, idx: number) => {
         const descricao = [safe(it.tipo_sofa), safe(it.tipo_servico)].filter(Boolean).join(' - ');
@@ -341,16 +342,17 @@ export const usePDFGenerator = () => {
 
         // Cálculos de preço item a item
         const precoUnitario = it.preco_unitario || 0;
+        const quantidade = it.quantidade || 1;
         const descontoTipo = it.desconto_tipo || 'fixed';
         const descontoValor = it.desconto_valor || 0;
-        const precoFinal = calculateFinalPrice(precoUnitario, descontoTipo, descontoValor);
+        const precoFinal = calculateFinalPrice(precoUnitario * quantidade, descontoTipo, descontoValor);
 
         totalProdutosCalculado += precoFinal;
-        totalGross += precoUnitario;
+        totalGross += (precoUnitario * quantidade);
 
         // Visualização LIMPA (apenas preço original)
         const priceDisplay = currency(precoUnitario);
-        const totalDisplay = currency(precoUnitario);
+        const totalDisplay = currency(precoUnitario * quantidade);
 
         const fotosItem = it.id ? (fotosPorItem[it.id] || []) : (idx === 0 ? (fotosPorItem['sem_item'] || []) : []);
         const primeiraFoto = fotosItem && fotosItem.length > 0 ? fotosItem[0] : null;
@@ -373,7 +375,7 @@ export const usePDFGenerator = () => {
               </div>
             </td>
             <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${priceDisplay}</td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">1</td>
+            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">${quantidade}</td>
             <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${totalDisplay}</td>
           </tr>
         `;
@@ -953,13 +955,14 @@ export const usePDFGenerator = () => {
         descricao: pedido.descricao_sofa,
         tipo_sofa: pedido.tipo_sofa,
         tipo_servico: pedido.tipo_servico,
-        cor: pedido.cor,
+        cor: (pedido as any).cor,
         dimensoes: pedido.dimensoes,
         espuma: pedido.espuma,
         tecido: pedido.tecido,
         braco: pedido.braco,
         tipo_pe: pedido.tipo_pe,
         preco_unitario: pedido.preco_unitario || pedido.valor_total || 0,
+        quantidade: pedido.quantidade || 1,
         observacoes: pedido.observacoes,
       }]).map((it: any, idx: number) => {
         const descricao = [safe(it.tipo_sofa), safe(it.tipo_servico)].filter(Boolean).join(' - ');
@@ -992,12 +995,12 @@ export const usePDFGenerator = () => {
                 </div>
               </div>
             </td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">1</td>
+            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">${it.quantidade || 1}</td>
           </tr>
         `;
       }).join('');
 
-      const somaTotal = (Array.isArray(itens) ? itens.reduce((acc: number, it: any) => acc + (it.preco_unitario || 0), 0) : (pedido.valor_total || 0));
+      const somaTotal = (Array.isArray(itens) ? itens.reduce((acc: number, it: any) => acc + ((it.preco_unitario || 0) * (it.quantidade || 1)), 0) : (pedido.valor_total || 0));
 
       const termoEntregaAtivo = pedido.termo_entrega_ativo ?? true;
       const termoEntregaTexto = pedido.termo_entrega_texto || `

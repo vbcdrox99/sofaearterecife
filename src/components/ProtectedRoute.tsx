@@ -58,8 +58,9 @@ export const ProtectedRoute = ({ children, requireAdmin = false, blockGerenteDas
     return <Navigate to="/dashboard/producao" replace />;
   }
 
-  // Funcionario can only access producao
-  if (profile?.role === 'funcionario' && window.location.pathname !== '/dashboard/producao') {
+  // Funcionario can only access producao and novo-pedido
+  if (profile?.role === 'funcionario' && 
+      !['/dashboard/producao', '/dashboard/novo-pedido'].includes(window.location.pathname)) {
     return <Navigate to="/dashboard/producao" replace />;
   }
 

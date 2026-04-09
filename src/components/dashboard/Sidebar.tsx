@@ -156,8 +156,8 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
     // Gerente sees everything except Admin Items
     allItems = [...navigationItems];
   } else {
-    // Funcionario can only see producao
-    allItems = navigationItems.filter(item => item.name === 'Produção');
+    // Funcionario can only see producao and novo pedido
+    allItems = navigationItems.filter(item => item.name === 'Produção' || item.name === 'Novo Pedido');
   }
 
   const isActive = (href: string) => {

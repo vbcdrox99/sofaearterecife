@@ -15,6 +15,7 @@ export interface ProdutoValues {
   dimensaoComprimento: string;
   tipoServico: string;
   precoUnitario: string;
+  quantidade: number;
   observacoes: string;
   espuma: string;
   tecido: string;
@@ -117,7 +118,7 @@ const ProdutoCampos = ({
         <ImageUpload
           images={values.fotosPedido}
           onImagesChange={onFotosChange}
-          maxImages={1}
+          maxImages={5}
           bucketName="pedido-imagens"
           folder={imageFolder}
         />
@@ -232,6 +233,18 @@ const ProdutoCampos = ({
           value={values.precoUnitario}
           onChange={(e) => onChange('precoUnitario', formatCurrencyInput(e.target.value))}
           placeholder="Ex: 199.90"
+          className="w-full"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Unidade(s)</Label>
+        <Input
+          type="number"
+          min={1}
+          value={values.quantidade || 1}
+          onChange={(e) => onChange('quantidade', parseInt(e.target.value) || 1)}
+          placeholder="Ex: 1"
           className="w-full"
         />
       </div>

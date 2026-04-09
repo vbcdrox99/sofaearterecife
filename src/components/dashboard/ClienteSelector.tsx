@@ -259,7 +259,7 @@ export function ClienteSelector({ onClienteSelect, selectedCliente }: ClienteSel
       </div>
 
       <Dialog open={showNewClienteDialog} onOpenChange={setShowNewClienteDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Cadastrar Novo Cliente</DialogTitle>
           </DialogHeader>
