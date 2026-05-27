@@ -383,10 +383,10 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
                       <DollarSign className="h-4 w-4 text-gray-500" />
                       <span className="font-medium">Resumo Financeiro</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-1">
                         <span className="text-xs text-gray-500">Total dos Produtos</span>
-                        <p className="text-sm font-medium">{formatCurrency(pedido.valor_total)}</p>
+                        <p className="text-sm font-medium">{formatCurrency((pedido.valor_total || 0) - (pedido.frete || 0))}</p>
                       </div>
                       <div className="space-y-1">
                         <span className="text-xs text-gray-500">Frete</span>
@@ -394,17 +394,7 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
                       </div>
                       <div className="space-y-1">
                         <span className="text-xs text-gray-500">Total com Frete</span>
-                        <p className="text-sm font-medium">{formatCurrency((pedido.valor_total || 0) + (pedido.frete || 0))}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-xs text-gray-500">Valor Pago</span>
-                        <p className="text-sm font-medium text-green-600">{formatCurrency(pedido.valor_pago)}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-xs text-gray-500">Saldo Devedor</span>
-                        <p className={`text-sm font-medium ${(((pedido.valor_total || 0) + (pedido.frete || 0) - (pedido.valor_pago || 0)) > 0) ? 'text-red-600' : 'text-green-600'}`}>
-                          {formatCurrency((pedido.valor_total || 0) + (pedido.frete || 0) - (pedido.valor_pago || 0))}
-                        </p>
+                        <p className="text-sm font-medium">{formatCurrency(pedido.valor_total)}</p>
                       </div>
                     </div>
 

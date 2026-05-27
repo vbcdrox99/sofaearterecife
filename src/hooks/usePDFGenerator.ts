@@ -354,24 +354,12 @@ export const usePDFGenerator = () => {
         const priceDisplay = currency(precoUnitario);
         const totalDisplay = currency(precoUnitario * quantidade);
 
-        const fotosItem = it.id ? (fotosPorItem[it.id] || []) : (idx === 0 ? (fotosPorItem['sem_item'] || []) : []);
-        const primeiraFoto = fotosItem && fotosItem.length > 0 ? fotosItem[0] : null;
-        if (primeiraFoto?.id) usedPhotoIds.push(primeiraFoto.id);
-        const imagemItemHTML = primeiraFoto ? `
-              <div style="width:120px; min-width:120px;">
-                <img src="${primeiraFoto.url_arquivo}" style="width:120px; height:90px; object-fit:cover; border-radius:6px;" crossorigin="anonymous" />
-              </div>
-            ` : '';
-
         return `
           <tr>
             <td style="padding:10px; border-bottom:1px solid #eee;">
-              <div style="display:flex; gap:12px; align-items:flex-start;">
-                ${imagemItemHTML}
-                <div style="flex:1;">
-                  <div style="font-weight:600;">${descricao || safe(it.descricao)}</div>
-                  ${detalhes ? `<div style="color:#555; font-size:12px; margin-top:4px;">${detalhes}</div>` : ''}
-                </div>
+              <div style="flex:1;">
+                <div style="font-weight:600;">${descricao || safe(it.descricao)}</div>
+                ${detalhes ? `<div style="color:#555; font-size:12px; margin-top:4px;">${detalhes}</div>` : ''}
               </div>
             </td>
             <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${priceDisplay}</td>
@@ -814,7 +802,9 @@ export const usePDFGenerator = () => {
 
         let y = typeof startY === 'number' ? startY : (marginTop + 8);
         const titleHeight = 6;
-        if (y + titleHeight > pageHeight - marginBottom) {
+        const requiredSpace = titleHeight + cellH + 6; // Espaço para o título e ao menos 1 linha de fotos
+        
+        if (y + requiredSpace > pageHeight - marginBottom) {
           pdf.addPage();
           y = marginTop + 8;
         }
@@ -829,9 +819,6 @@ export const usePDFGenerator = () => {
         for (const f of fotos) {
           if (y + cellH > pageHeight - marginBottom) {
             pdf.addPage();
-            pdf.setFontSize(14);
-            pdf.setTextColor(17);
-            pdf.text(tituloSecao, marginLeft, marginTop);
             y = marginTop + 8;
             colIndex = 0;
             x = marginLeft;
@@ -1401,10 +1388,12 @@ export const usePDFGenerator = () => {
 
         // Decidir posição inicial: tentar continuar na mesma página logo abaixo do último texto
         let y = typeof startY === 'number' ? startY : (marginTop + 8);
-        // Espaço necessário para título
+        // Espaço necessário para título e ao menos 1 linha de fotos
         const titleHeight = 6; // mm aproximado
-        // Se não couber o título na página atual, ir para nova página
-        if (y + titleHeight > pageHeight - marginBottom) {
+        const requiredSpace = titleHeight + cellH + 6;
+        
+        // Se não couber o título e a primeira linha na página atual, ir para nova página
+        if (y + requiredSpace > pageHeight - marginBottom) {
           pdf.addPage();
           y = marginTop + 8;
         }
@@ -1420,9 +1409,6 @@ export const usePDFGenerator = () => {
           // Se não couber mais uma linha completa, ir para próxima página
           if (y + cellH > pageHeight - marginBottom) {
             pdf.addPage();
-            pdf.setFontSize(14);
-            pdf.setTextColor(17);
-            pdf.text(tituloSecao, marginLeft, marginTop);
             y = marginTop + 8;
             colIndex = 0;
             x = marginLeft;

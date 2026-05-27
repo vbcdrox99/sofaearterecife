@@ -1651,7 +1651,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
             return dataISO || null;
           })(),
           preco_unitario: (() => {
-            const v = (it.precoUnitario || '').toString().replace(',', '.');
+            const v = (it.precoUnitario || '').toString().replace(/\./g, '').replace(',', '.');
             const n = parseFloat(v);
             return isNaN(n) ? null : n;
           })(),
@@ -2143,24 +2143,28 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                         </SelectTrigger>
                         <SelectContent>
                           {tiposSofaDisponiveis.map((tipo) => (
-                            <div key={tipo} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                              <SelectItem value={tipo} className="flex-1 border-0 p-0 focus:bg-transparent">
-                                {tipo}
-                              </SelectItem>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setTipoSofaParaExcluir(tipo);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3 text-red-500" />
-                              </Button>
-                            </div>
+                            <SelectItem key={tipo} value={tipo} className="group pr-8 cursor-pointer">
+                              <div className="flex w-full items-center justify-between">
+                                <span>{tipo}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setTipoSofaParaExcluir(tipo);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </div>
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -2279,24 +2283,28 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                         </SelectTrigger>
                         <SelectContent>
                           {tiposServicoDisponiveis.map((tipoServico) => (
-                            <div key={tipoServico} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                              <SelectItem value={tipoServico} className="flex-1 border-0 p-0 focus:bg-transparent">
-                                {tipoServico}
-                              </SelectItem>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setTipoServicoParaExcluir(tipoServico);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
+                            <SelectItem key={tipoServico} value={tipoServico} className="group pr-8 cursor-pointer">
+                              <div className="flex w-full items-center justify-between">
+                                <span>{tipoServico}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setTipoServicoParaExcluir(tipoServico);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </div>
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -2462,24 +2470,28 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                         </SelectTrigger>
                         <SelectContent>
                           {espumasDisponiveis.map((espuma) => (
-                            <div key={espuma} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                              <SelectItem value={espuma} className="flex-1 border-0 p-0 focus:bg-transparent">
-                                {espuma}
-                              </SelectItem>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setEspumaParaExcluir(espuma);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3 text-red-500" />
-                              </Button>
-                            </div>
+                            <SelectItem key={espuma} value={espuma} className="group pr-8 cursor-pointer">
+                              <div className="flex w-full items-center justify-between">
+                                <span>{espuma}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setEspumaParaExcluir(espuma);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </div>
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -2573,24 +2585,28 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                         </SelectTrigger>
                         <SelectContent>
                           {tecidosDisponiveis.map((tecido) => (
-                            <div key={tecido} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                              <SelectItem value={tecido} className="flex-1 border-0 p-0 focus:bg-transparent">
-                                {tecido}
-                              </SelectItem>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setTecidoParaExcluir(tecido);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3 text-red-500" />
-                              </Button>
-                            </div>
+                            <SelectItem key={tecido} value={tecido} className="group pr-8 cursor-pointer">
+                              <div className="flex w-full items-center justify-between">
+                                <span>{tecido}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setTecidoParaExcluir(tecido);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </div>
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -2684,24 +2700,28 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                         </SelectTrigger>
                         <SelectContent>
                           {bracosDisponiveis.map((braco) => (
-                            <div key={braco} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                              <SelectItem value={braco} className="flex-1 border-0 p-0 focus:bg-transparent">
-                                {braco}
-                              </SelectItem>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setBracoParaExcluir(braco);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3 text-red-500" />
-                              </Button>
-                            </div>
+                            <SelectItem key={braco} value={braco} className="group pr-8 cursor-pointer">
+                              <div className="flex w-full items-center justify-between">
+                                <span>{braco}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setBracoParaExcluir(braco);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </div>
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -2795,24 +2815,28 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                         </SelectTrigger>
                         <SelectContent>
                           {tiposPeDisponiveis.map((tipoPe) => (
-                            <div key={tipoPe} className="flex items-center justify-between group hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm cursor-pointer">
-                              <SelectItem value={tipoPe} className="flex-1 border-0 p-0 focus:bg-transparent">
-                                {tipoPe}
-                              </SelectItem>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setTipoPeParaExcluir(tipoPe);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3 text-red-500" />
-                              </Button>
-                            </div>
+                            <SelectItem key={tipoPe} value={tipoPe} className="group pr-8 cursor-pointer">
+                              <div className="flex w-full items-center justify-between">
+                                <span>{tipoPe}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setTipoPeParaExcluir(tipoPe);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </div>
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
