@@ -22,6 +22,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   isGerente: boolean;
+  isFuncionario: boolean;
   userStore: 'loja_1' | 'loja_2' | 'loja_3' | 'todas' | null;
   selectedStore: 'loja_1' | 'loja_2' | 'loja_3' | 'todas';
   setSelectedStore: (store: 'loja_1' | 'loja_2' | 'loja_3' | 'todas') => void;
@@ -50,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = profile?.role === 'admin' || profile?.tipo === 'admin';
   const isGerente = profile?.role === 'gerente';
+  const isFuncionario = profile?.role === 'funcionario';
   const userStore = profile?.store || null;
 
   const fetchProfile = async (userId: string) => {
@@ -218,6 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     isAdmin,
     isGerente,
+    isFuncionario,
     userStore,
     selectedStore,
     setSelectedStore,

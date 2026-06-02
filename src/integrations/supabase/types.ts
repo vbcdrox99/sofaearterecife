@@ -399,6 +399,7 @@ export type Database = {
           tipo_pe: string | null
           tipo_servico: string | null
           tipo_sofa: string | null
+          tipo_pedido: string
           updated_at: string
           valor_orcamento: number | null
           valor_pago: number | null
@@ -441,6 +442,7 @@ export type Database = {
           tipo_pe?: string | null
           tipo_servico?: string | null
           tipo_sofa?: string | null
+          tipo_pedido?: string
           updated_at?: string
           valor_orcamento?: number | null
           valor_pago?: number | null
@@ -483,6 +485,7 @@ export type Database = {
           tipo_pe?: string | null
           tipo_servico?: string | null
           tipo_sofa?: string | null
+          tipo_pedido?: string
           updated_at?: string
           valor_orcamento?: number | null
           valor_pago?: number | null

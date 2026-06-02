@@ -12,6 +12,7 @@ interface DiscountInputProps {
   onDiscountTypeChange: (type: 'percentage' | 'fixed') => void;
   onDiscountValueChange: (value: string | number) => void;
   label?: string;
+  disabled?: boolean;
 }
 
 const parseValor = (v: string | number) => {
@@ -27,7 +28,8 @@ const DiscountInput: React.FC<DiscountInputProps> = ({
   discountValue,
   onDiscountTypeChange,
   onDiscountValueChange,
-  label = "Desconto"
+  label = "Desconto",
+  disabled = false
 }) => {
   const numDiscountValue = useMemo(() => parseValor(discountValue), [discountValue]);
 
@@ -47,6 +49,7 @@ const DiscountInput: React.FC<DiscountInputProps> = ({
         <Select
           value={discountType}
           onValueChange={(v) => onDiscountTypeChange(v as 'percentage' | 'fixed')}
+          disabled={disabled}
         >
           <SelectTrigger className="w-[110px]">
             <SelectValue />
@@ -74,6 +77,7 @@ const DiscountInput: React.FC<DiscountInputProps> = ({
           step={discountType === 'percentage' ? "1" : undefined}
           max={discountType === 'percentage' ? "100" : undefined}
           value={discountValue || ''}
+          disabled={disabled}
           onChange={(e) => {
             if (discountType === 'percentage') {
               onDiscountValueChange(parseFloat(e.target.value) || 0);

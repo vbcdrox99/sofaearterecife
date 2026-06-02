@@ -61,6 +61,7 @@ interface ProdutoCamposProps {
   etapasDisponiveis: string[];
   etapasSelecionadas: string[];
   onToggleEtapa: (etapa: string) => void;
+  isFuncionario?: boolean;
 }
 
 const ProdutoCampos = ({
@@ -91,6 +92,7 @@ const ProdutoCampos = ({
   etapasDisponiveis,
   etapasSelecionadas,
   onToggleEtapa,
+  isFuncionario = false,
 }: ProdutoCamposProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -242,6 +244,7 @@ const ProdutoCampos = ({
           onChange={(e) => onChange('precoUnitario', formatCurrencyInput(e.target.value))}
           placeholder="Ex: 199.90"
           className="w-full"
+          disabled={isFuncionario}
         />
       </div>
 

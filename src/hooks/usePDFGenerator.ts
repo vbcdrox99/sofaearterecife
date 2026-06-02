@@ -239,7 +239,7 @@ export const usePDFGenerator = () => {
   }, []);
 
   // PDF "Pedido do Cliente" alinhado ao layout da OS, adicionando apenas a seção Pagamento
-  const generatePedidoClientePDF = useCallback(async (pedidoId: string) => {
+  const generatePedidoClientePDF = useCallback(async (pedidoId: string, isOrcamento: boolean = false) => {
     try {
       const { data: pedido, error: pedidoError } = await supabase
         .from('pedidos')
@@ -486,9 +486,10 @@ export const usePDFGenerator = () => {
         </div>
       `;
 
+      const titleLabel = isOrcamento ? 'Orçamento' : 'Pedido do cliente';
       const pedidoHeaderHTML = `
         <div style="margin-top:12px; background:${brandMetallic}; color:#fff; border-radius:4px; padding:8px 12px; width:100%; text-align:left;">
-          <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;">Pedido do cliente ${numero}-${anoAtual}</div>
+          <div style="font-size:16px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;">${titleLabel} ${numero}-${anoAtual}</div>
           <div style="font-size:12px; font-weight:400; opacity:0.9; margin-top:2px;">Vendedor: ${vendedorNome}</div>
         </div>
       `;
@@ -879,7 +880,8 @@ export const usePDFGenerator = () => {
       await addPhotosSection('Fotos do pedido', fotosRestantes, startYPhotos);
       await addPhotosSection('Fotos de controle', fotosControle, startYPhotos);
 
-      const fileName = `pedido-cliente-${numero}.pdf`;
+      const prefix = isOrcamento ? 'orcamento' : 'pedido-cliente';
+      const fileName = `${prefix}-${numero}.pdf`;
       pdf.save(fileName);
     } catch (err) {
       console.error('Erro ao gerar PDF do cliente:', err);

@@ -67,6 +67,7 @@ interface FormData {
   pedidoDescontoTipo: 'percentage' | 'fixed';
   pedidoDescontoValor: string;
   vendedorId?: string;
+  tipoPedido: 'pedido' | 'orcamento';
 }
 
 const NovoPedido = () => {
@@ -74,7 +75,7 @@ const NovoPedido = () => {
   const isEditMode = !!pedidoIdParam;
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, selectedStore } = useAuth();
+  const { user, selectedStore, isFuncionario } = useAuth();
   const [lojaSelecionadaForm, setLojaSelecionadaForm] = useState<string>('');
 
   useEffect(() => {
@@ -289,7 +290,8 @@ const NovoPedido = () => {
     visitaTecnicaData: '',
     pedidoDescontoTipo: 'percentage',
     pedidoDescontoValor: '',
-    vendedorId: ''
+    vendedorId: '',
+    tipoPedido: 'pedido'
   });
 
   // Guardar anexos originais para comparação em edição
@@ -519,7 +521,8 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           termoEntregaTexto: pedido.termo_entrega_texto || '',
           etapasNecessarias: pedido.etapas_necessarias || [],
           fotosPedido: [],
-          fotosControle: []
+          fotosControle: [],
+          tipoPedido: (pedido as any).tipo_pedido || 'pedido'
         }));
 
         // Garantir que os selects exibam o valor salvo mesmo que não esteja nas listas
@@ -1464,7 +1467,8 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
         etapas_necessarias: etapasSelecionadas,
         desconto_tipo: formData.pedidoDescontoTipo,
         desconto_valor: parseValor(formData.pedidoDescontoValor),
-        quantidade: formData.quantidade || 1
+        quantidade: formData.quantidade || 1,
+        tipo_pedido: formData.tipoPedido
       };
 
       if (formData.numeroPedido) {
@@ -2027,6 +2031,27 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Tipo de Registro</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant={formData.tipoPedido === 'pedido' ? 'default' : 'outline'}
+                        className="h-10 font-semibold"
+                        onClick={() => handleInputChange('tipoPedido', 'pedido')}
+                      >
+                        Pedido
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={formData.tipoPedido === 'orcamento' ? 'default' : 'outline'}
+                        className="h-10 font-semibold"
+                        onClick={() => handleInputChange('tipoPedido', 'orcamento')}
+                      >
+                        Orçamento
+                      </Button>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="numeroPedido">Número do Pedido</Label>
                     <Input
@@ -2057,6 +2082,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       placeholder="Valor do frete (se houver)"
                       value={formData.frete}
                       onChange={(e) => handleInputChange('frete', formatCurrencyInput(e.target.value))}
+                      disabled={isFuncionario}
                     />
                   </div>
                 </CardContent>
@@ -2366,6 +2392,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       value={formData.precoUnitario}
                       onChange={(e) => handleInputChange('precoUnitario', formatCurrencyInput(e.target.value))}
                       className="w-full"
+                      disabled={isFuncionario}
                     />
                   </div>
 
@@ -2963,6 +2990,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                               descontoValor: item.descontoValor,
                             }}
                             onChange={(field, value) => handleItemChange(index, field as any, value)}
+                            isFuncionario={isFuncionario}
                             onFotosChange={(imgs) => handleItemFotosChange(index, imgs)}
                             onDimensaoChange={(field, value) => handleItemDimensaoChange(index, field, value)}
                             imageFolder={`fotos-pedido/item-${index + 2}`}
@@ -3067,6 +3095,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                               onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, pedidoDescontoTipo: type }))}
                               onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, pedidoDescontoValor: value.toString() }))}
                               label=""
+                              disabled={isFuncionario}
                             />
                           </div>
                         </div>
@@ -3199,7 +3228,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate('/dashboard/pedidos')}
+                  onClick={() => navigate('/dashboard')}
                   disabled={isLoading}
                 >
                   Cancelar
@@ -3217,7 +3246,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate('/dashboard/pedidos')}
+                  onClick={() => navigate('/dashboard')}
                   disabled={isLoading}
                 >
                   Cancelar

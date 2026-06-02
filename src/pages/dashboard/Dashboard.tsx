@@ -36,7 +36,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
   const { pedidos } = usePedidos();
-  const { selectedStore, isAdmin, isGerente } = useAuth();
+  const { selectedStore, isAdmin, isGerente, isFuncionario } = useAuth();
   const navigate = useNavigate();
   const { printRef, printCurrentView, isPrinting, generatePedidoPDF, generatePedidoClientePDF } = usePDFGenerator();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
@@ -482,13 +482,24 @@ const Dashboard = () => {
                             <div className="grid grid-cols-12 gap-3 items-center">
                               {/* Número do Pedido + indicador de mesmo pedido (sub-item) */}
                               <div className="col-span-1">
-                                <div className="flex items-center space-x-2">
-                                  {(seq && seq > 1) ? (
-                                    <CornerDownRight className="w-4 h-4 text-primary" />
-                                  ) : (
-                                    <Package className="w-4 h-4 text-primary" />
+                                <div className="flex flex-col">
+                                  <div className="flex items-center space-x-2">
+                                    {(seq && seq > 1) ? (
+                                      <CornerDownRight className="w-4 h-4 text-primary" />
+                                    ) : (
+                                      <Package className="w-4 h-4 text-primary" />
+                                    )}
+                                    <span className="font-semibold text-sm">#{String(pedido.numero_pedido).padStart(3, '0')}{seq && seq > 1 ? `/${seq}` : ''}</span>
+                                  </div>
+                                  {(!seq || seq === 1) && (
+                                    <span className={`text-[9px] w-fit px-1 py-0.5 rounded font-bold uppercase mt-1 ${
+                                      (pedido as any).tipo_pedido === 'orcamento' 
+                                        ? 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900' 
+                                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900'
+                                    }`}>
+                                      {(pedido as any).tipo_pedido === 'orcamento' ? 'Orçamento' : 'Pedido'}
+                                    </span>
                                   )}
-                                  <span className="font-semibold text-sm">#{String(pedido.numero_pedido).padStart(3, '0')}{seq && seq > 1 ? `/${seq}` : ''}</span>
                                 </div>
                               </div>
 
@@ -654,8 +665,11 @@ const Dashboard = () => {
                                         <DropdownMenuItem onClick={() => generatePedidoPDF(pedido.id)}>
                                           Ordem de Serviço
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => generatePedidoClientePDF(pedido.id)}>
+                                        <DropdownMenuItem onClick={() => generatePedidoClientePDF(pedido.id, false)}>
                                           Pedido do Cliente
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => generatePedidoClientePDF(pedido.id, true)}>
+                                          Orçamento
                                         </DropdownMenuItem>
                                       </DropdownMenuContent>
                                     </DropdownMenu>
@@ -663,7 +677,7 @@ const Dashboard = () => {
                                     {/* Removido: botão pdfmake, seguimos com gerador SVG */}
 
                                     {/* Ícone para editar pedido */}
-                                    {(isAdmin || isGerente) && (
+                                    {(isAdmin || isGerente || isFuncionario) && (
                                       <button
                                         className="text-gray-400 hover:text-gray-600 transition-colors"
                                         title="Editar pedido"
