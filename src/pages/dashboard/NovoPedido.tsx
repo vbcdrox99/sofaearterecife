@@ -2082,7 +2082,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       placeholder="Valor do frete (se houver)"
                       value={formData.frete}
                       onChange={(e) => handleInputChange('frete', formatCurrencyInput(e.target.value))}
-                      disabled={isFuncionario}
+                      disabled={isEditMode && isFuncionario}
                     />
                   </div>
                 </CardContent>
@@ -2392,7 +2392,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       value={formData.precoUnitario}
                       onChange={(e) => handleInputChange('precoUnitario', formatCurrencyInput(e.target.value))}
                       className="w-full"
-                      disabled={isFuncionario}
+                      disabled={isEditMode && isFuncionario}
                     />
                   </div>
 
@@ -2990,7 +2990,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                               descontoValor: item.descontoValor,
                             }}
                             onChange={(field, value) => handleItemChange(index, field as any, value)}
-                            isFuncionario={isFuncionario}
+                            isFuncionario={isEditMode && isFuncionario}
                             onFotosChange={(imgs) => handleItemFotosChange(index, imgs)}
                             onDimensaoChange={(field, value) => handleItemDimensaoChange(index, field, value)}
                             imageFolder={`fotos-pedido/item-${index + 2}`}
@@ -3095,7 +3095,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                               onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, pedidoDescontoTipo: type }))}
                               onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, pedidoDescontoValor: value.toString() }))}
                               label=""
-                              disabled={isFuncionario}
+                              disabled={isEditMode && isFuncionario}
                             />
                           </div>
                         </div>
