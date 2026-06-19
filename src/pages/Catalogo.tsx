@@ -10,8 +10,7 @@ import {
   Sliders, 
   ChevronRight,
   Sparkles,
-  Info,
-  Layers,
+  X,
   Compass
 } from "lucide-react";
 import { SOFAS, CATEGORIES, Sofa } from "../data/sofas";
@@ -32,7 +31,7 @@ const FABRIC_COLORS: Record<string, { hex: string; desc: string }> = {
   "Couro Ecológico Preto": { hex: "#121213", desc: "Couro sintético microtexturizado" }
 };
 
-// Poetic designer notes for each sofa to add "soul" and detail
+// Poetic designer notes for each sofa
 const DESIGNER_NOTES: Record<string, string> = {
   "aurora-organico": "O Aurora desafia a rigidez retilínea tradicional. Cada contorno foi desenhado para acompanhar a ergonomia natural do corpo, agindo como uma escultura viva que ancora a sala.",
   "quadra-modular": "Linhas puras e volumetria monolítica. O Quadra é um exercício de arquitetura interna: módulos autônomos que funcionam como blocos de construção para moldar o espaço de convivência.",
@@ -76,410 +75,195 @@ export default function Catalogo() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050507] text-white font-sans antialiased overflow-x-hidden relative selection:bg-red-600 selection:text-white">
+    <div className="min-h-screen bg-[#F4F4F6] text-[#0A0A0A] font-sans antialiased overflow-x-hidden relative selection:bg-red-600 selection:text-white">
       
-      {/* 1. Fine technical grid pattern background */}
+      {/* 1. Fine technical grid pattern background (Silver/Grey) */}
       <div 
-        className="absolute inset-0 pointer-events-none opacity-[0.015]" 
+        className="absolute inset-0 pointer-events-none opacity-[0.04]" 
         style={{
           backgroundImage: `
-            linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px)
+            linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px)
           `,
-          backgroundSize: "30px 30px"
+          backgroundSize: "35px 35px"
         }}
       />
 
-      {/* 2. SVG Noise/Grain Texture Overlay */}
+      {/* 2. SVG Noise/Grain Texture Overlay (Makes backgrounds look like fine textured plaster/paper) */}
       <svg className="hidden">
         <filter id="noiseFilter">
-          <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-          <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.08 0" />
+          <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" stitchTiles="stitch" />
+          <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.05 0" />
         </filter>
       </svg>
       <div 
-        className="fixed inset-0 w-full h-full pointer-events-none opacity-[0.06] bg-transparent z-40" 
+        className="fixed inset-0 w-full h-full pointer-events-none opacity-[0.08] bg-transparent z-40" 
         style={{ filter: "url(#noiseFilter)" }}
       />
 
-      {/* 3. Floating Interactive Crimson & Silver Glow Orbs */}
-      <div className="absolute top-[-10%] left-[5%] w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.06)_0%,transparent_60%)] rounded-full blur-[90px] pointer-events-none animate-pulse" style={{ animationDuration: "8s" }} />
-      <div className="absolute bottom-[10%] right-[10%] w-[700px] h-[700px] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_0%,transparent_50%)] rounded-full blur-[110px] pointer-events-none" />
+      {/* 3. Subtle background warm/red lights for depth */}
+      <div className="absolute top-[5%] left-[20%] w-[500px] h-[500px] bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.035)_0%,transparent_60%)] rounded-full blur-[80px] pointer-events-none" />
+      <div className="absolute bottom-[20%] right-[10%] w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_0%,transparent_50%)] rounded-full blur-[100px] pointer-events-none" />
 
-      {/* Main Grid Wrapper */}
-      <div className="max-w-[1400px] mx-auto min-h-screen grid grid-cols-1 lg:grid-cols-12 gap-0 relative z-10">
-        
-        {/* ================= LEFT COLUMN: STICKY DETAIL VIEW ================= */}
-        <div className={`${
-          isDetailOpen ? "fixed inset-0 z-50 flex" : "hidden lg:flex"
-        } lg:col-span-5 col-span-1 lg:h-screen lg:sticky lg:top-0 flex-col justify-start lg:justify-between border-r border-neutral-900 bg-[#070709] p-5 sm:p-6 lg:p-8 overflow-y-auto`}>
-          
-          {/* Header Controls */}
-          <div className="flex items-center justify-between z-10 w-full mb-6 lg:mb-4 flex-none">
-            {/* Desktop link (always visible on desktop, goes to dashboard) */}
+      {/* ================= NAVBAR ================= */}
+      <nav className="w-full bg-white/80 backdrop-blur-md border-b border-neutral-200/80 sticky top-0 z-30">
+        <div className="max-w-[1300px] mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-6">
             <Link 
               to="/dashboard" 
-              className="hidden lg:flex items-center gap-2 text-xs uppercase tracking-widest text-neutral-400 hover:text-white transition-colors duration-300 group font-mono"
+              className="flex items-center gap-2 text-xs uppercase tracking-widest text-neutral-500 hover:text-black transition-colors duration-300 group font-mono font-bold"
             >
               <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-              <span>/voltar</span>
+              <span>Painel</span>
             </Link>
-            {/* Mobile close button (only visible in mobile detail overlay) */}
-            <button 
-              onClick={() => setIsDetailOpen(false)} 
-              className="lg:hidden flex items-center gap-2 text-xs uppercase tracking-widest text-neutral-400 hover:text-white transition-colors duration-300 group font-mono"
-            >
-              <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-              <span>/fechar</span>
-            </button>
-            
-            <div className="flex items-center gap-3">
-              <span className="text-[9px] text-neutral-600 font-mono tracking-wider">
-                ID: {selectedSofa.id.toUpperCase()}
-              </span>
-              <button 
-                onClick={(e) => toggleFavorite(selectedSofa.id, e)}
-                className="p-2 rounded-full border border-neutral-900 bg-neutral-950/60 hover:border-red-950/60 hover:bg-red-950/15 transition-all duration-300"
-              >
-                <Heart 
-                  size={15} 
-                  className={favorites.includes(selectedSofa.id) ? "fill-red-600 text-red-600" : "text-neutral-400 hover:text-white"} 
-                />
-              </button>
+            <span className="h-4 w-[1px] bg-neutral-200" />
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600 block animate-pulse" />
+              <span className="text-[10px] tracking-[0.2em] uppercase font-mono text-neutral-500">Recife-PE</span>
             </div>
           </div>
 
-          {/* Sofa Image and Backdrop Ambient Backlight */}
-          <div className="relative flex-none lg:flex-1 flex flex-col justify-center items-center py-6 min-h-[300px] lg:min-h-0 shrink-0 select-none">
-            
-            {/* Ambient Red Glow right behind the sofa to give it POP and depth */}
-            <div className="absolute w-[80%] h-[60%] bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.08)_0%,transparent_60%)] blur-2xl pointer-events-none" />
-
-            {/* Large Watermark Title */}
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 0.12 }}
-              transition={{ duration: 0.8 }}
-              className="absolute top-6 text-center pointer-events-none"
-            >
-              <h2 className="text-6xl sm:text-7xl font-extrabold tracking-[0.25em] text-white">VALLERI</h2>
-              <p className="text-[10px] tracking-[0.4em] uppercase text-red-500 mt-1 font-mono">estofados de alfaiataria</p>
-            </motion.div>
-
-            {/* Sofa Photo Render */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={selectedSofa.id}
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                className="w-full max-w-[420px] aspect-[4/3] rounded-2xl overflow-hidden relative group border border-neutral-900 bg-black/50 p-1"
-              >
-                {/* Tech blueprint corner indicators (+) inside the frame to add graphic texture */}
-                <span className="absolute top-2 left-2 text-[9px] text-neutral-800 font-mono pointer-events-none">+</span>
-                <span className="absolute top-2 right-2 text-[9px] text-neutral-800 font-mono pointer-events-none">+</span>
-                <span className="absolute bottom-2 left-2 text-[9px] text-neutral-800 font-mono pointer-events-none">+</span>
-                <span className="absolute bottom-2 right-2 text-[9px] text-neutral-800 font-mono pointer-events-none">+</span>
-                
-                <img 
-                  src={selectedSofa.images[0]} 
-                  alt={selectedSofa.name}
-                  className="w-full h-full object-cover rounded-xl transition-transform duration-700 group-hover:scale-103"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-              </motion.div>
-            </AnimatePresence>
+          <div className="text-center">
+            <h1 className="text-xl font-extrabold tracking-[0.3em] text-black">VALLERI</h1>
+            <p className="text-[8px] tracking-[0.4em] uppercase text-red-500 -mt-0.5 font-mono">ESTOFADOS SOB MEDIDA</p>
           </div>
 
-          {/* Premium Glassmorphic Card Overlay */}
-          <motion.div 
-            layout
-            className="bg-[#0f0f12]/95 backdrop-blur-xl text-white rounded-3xl p-5 sm:p-6 border border-neutral-800/80 shadow-2xl relative w-full overflow-hidden mt-4 lg:mt-0 flex-none shrink-0"
-          >
-            {/* Top border glowing crimson accent gradient */}
-            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-red-600 to-transparent" />
-            
-            {/* Card Corner indicators */}
-            <span className="absolute top-2.5 left-2.5 text-[8px] text-neutral-700 font-mono">+</span>
-            <span className="absolute top-2.5 right-2.5 text-[8px] text-neutral-700 font-mono">+</span>
+          <div className="flex items-center gap-4 text-xs font-mono text-neutral-500">
+            <span>MOD.2026</span>
+          </div>
+        </div>
+      </nav>
 
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <span className="text-[9px] bg-red-950/20 border border-red-900/40 text-red-500 font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 mb-1.5 font-mono">
-                  <span className="w-1 h-1 rounded-full bg-red-500 animate-pulse" />
-                  Móvel Sob Medida
-                </span>
-                <motion.h3 
-                  key={selectedSofa.name}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-xl sm:text-2xl font-extrabold tracking-tight text-white"
-                >
-                  {selectedSofa.name}
-                </motion.h3>
-              </div>
+      {/* ================= MAIN HERO / INTRODUCTION ================= */}
+      <header className="max-w-[1300px] mx-auto px-6 pt-12 pb-8 relative">
+        {/* Editorial style crosshairs (+) decoration */}
+        <span className="absolute top-2 left-6 text-[10px] text-neutral-300 font-mono pointer-events-none">+</span>
+        <span className="absolute top-2 right-6 text-[10px] text-neutral-300 font-mono pointer-events-none">+</span>
 
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center font-bold text-[10px] text-red-500 font-mono">
-                  VL
-                </div>
-                <div className="text-[10px] leading-tight hidden sm:block">
-                  <p className="font-semibold text-neutral-300">Design Valleri</p>
-                  <p className="text-neutral-500 font-mono">ED. LIMITADA</p>
-                </div>
-              </div>
-            </div>
+        <div className="max-w-4xl">
+          <span className="text-[10px] uppercase tracking-[0.35em] text-red-500 font-bold block mb-2 font-mono">
+            // ALTA ALFAIATARIA EM ESTOFADOS
+          </span>
+          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-neutral-900 leading-[1.1]">
+            A arte de dar forma ao seu espaço. 
+            <span className="block font-serif italic font-normal text-neutral-500 mt-2 text-3xl sm:text-4xl lg:text-5xl">
+              Sofás projetados sob medida para viver e inspirar.
+            </span>
+          </h2>
+          <p className="text-sm text-neutral-600 mt-6 max-w-2xl leading-relaxed">
+            Criamos estofados exclusivos com foco no minimalismo, simetria e conforto ergonômico.
+            Produção local artesanal voltada para quem valoriza a elegância acessível e o design autoral.
+          </p>
+        </div>
+      </header>
 
-            {/* Custom Tab selectors: Design vs technical sheet */}
-            <div className="flex border-b border-neutral-900 mb-4 font-mono text-[10px]">
-              <button 
-                onClick={() => setActiveTab("design")}
-                className={`pb-2 pr-4 uppercase tracking-widest transition-all duration-300 ${
-                  activeTab === "design" 
-                    ? "text-white border-b border-red-600 font-bold" 
-                    : "text-neutral-600 hover:text-neutral-400"
+      {/* ================= FILTERS & SEARCH ROW ================= */}
+      <section className="max-w-[1300px] mx-auto px-6 mb-8">
+        <div className="bg-white rounded-2xl p-4 border border-neutral-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col md:flex-row justify-between items-center gap-4">
+          
+          {/* Category Selector */}
+          <div className="flex flex-wrap gap-1.5 w-full md:w-auto">
+            {CATEGORIES.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`text-[10px] uppercase tracking-widest px-4 py-2.5 rounded-xl border transition-all duration-300 flex items-center gap-1.5 font-mono ${
+                  selectedCategory === category 
+                    ? "bg-black text-white border-black font-bold shadow-md shadow-black/10" 
+                    : "bg-neutral-50 text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-black"
                 }`}
               >
-                /inspiração
-              </button>
-              <button 
-                onClick={() => setActiveTab("especificacoes")}
-                className={`pb-2 px-4 uppercase tracking-widest transition-all duration-300 ${
-                  activeTab === "especificacoes" 
-                    ? "text-white border-b border-red-600 font-bold" 
-                    : "text-neutral-600 hover:text-neutral-400"
-                }`}
-              >
-                /ficha técnica
-              </button>
-            </div>
-
-            {/* Tab Contents */}
-            <div className="min-h-[145px] flex flex-col justify-between">
-              <AnimatePresence mode="wait">
-                {activeTab === "design" ? (
-                  <motion.div
-                    key="design"
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="space-y-3"
-                  >
-                    <p className="text-[11px] text-neutral-400 leading-relaxed italic">
-                      "{DESIGNER_NOTES[selectedSofa.id] || selectedSofa.description}"
-                    </p>
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-neutral-500 font-mono">Estética Proposta</p>
-                      <p className="text-[10px] text-neutral-300 font-medium mt-0.5">
-                        Linhas fluidas, encaixes discretos e design focado no minimalismo contemporâneo.
-                      </p>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="specs"
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="space-y-3"
-                  >
-                    <div className="grid grid-cols-2 gap-2 text-[10px]">
-                      <div>
-                        <p className="text-neutral-500 font-mono uppercase tracking-wider text-[9px]">Dimensões padrão</p>
-                        <p className="font-semibold text-neutral-300 mt-0.5">{selectedSofa.dimensions}</p>
-                      </div>
-                      <div>
-                        <p className="text-neutral-500 font-mono uppercase tracking-wider text-[9px]">Estrutura</p>
-                        <p className="text-neutral-300 mt-0.5">Eucalipto Imunizado</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-neutral-500 font-mono uppercase tracking-wider text-[9px] mb-1">Destaques estruturais</p>
-                      <ul className="space-y-1">
-                        {selectedSofa.details.map((detail, idx) => (
-                          <li key={idx} className="text-[9px] text-neutral-400 flex items-start gap-1">
-                            <Check size={9} className="text-red-500 mt-0.5 shrink-0" />
-                            <span>{detail}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </motion.div>
+                <span>{category}</span>
+                {selectedCategory === category && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 block animate-pulse" />
                 )}
-              </AnimatePresence>
+              </button>
+            ))}
+          </div>
 
-              {/* Fabric Selectors with real color indicators */}
-              <div className="mt-4 pt-3 border-t border-neutral-900/60">
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-[9px] uppercase tracking-wider text-neutral-500 font-mono">Selecione o Tecido</p>
-                  <span className="text-[9px] text-neutral-400 bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800 font-mono">
-                    {selectedFabric}
-                  </span>
-                </div>
-                
-                <div className="flex flex-wrap gap-2">
-                  {selectedSofa.fabrics.map((fabric) => {
-                    const swatch = FABRIC_COLORS[fabric] || { hex: "#8E9094", desc: "" };
-                    const isSelected = selectedFabric === fabric;
-                    return (
-                      <button
-                        key={fabric}
-                        title={`${fabric} - ${swatch.desc}`}
-                        onClick={() => setSelectedFabric(fabric)}
-                        className={`w-6 h-6 rounded-full border transition-all duration-300 flex items-center justify-center relative ${
-                          isSelected 
-                            ? "border-red-500 ring-2 ring-red-950 ring-offset-2 ring-offset-[#0f0f12] scale-110" 
-                            : "border-neutral-800 hover:border-neutral-600 hover:scale-105"
-                        }`}
-                        style={{ backgroundColor: swatch.hex }}
-                      >
-                        {isSelected && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 absolute -top-1 -right-1 border border-black" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Call to Action Button */}
-            <button 
-              onClick={() => handleWhatsAppQuote(selectedSofa)}
-              className="w-full bg-white text-black hover:bg-neutral-200 text-[10px] uppercase tracking-widest font-mono font-bold py-3.5 px-4 rounded-xl flex items-center justify-between transition-all duration-300 group mt-6"
-            >
-              <span className="flex items-center gap-1.5">
-                <MessageCircle size={14} className="fill-black text-black" />
-                //SOLICITAR_ORÇAMENTO
-              </span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-neutral-700 font-bold">R$ {selectedSofa.price.toLocaleString("pt-BR")}</span>
-                <ChevronRight size={13} className="group-hover:translate-x-1 transition-transform" />
-              </div>
-            </button>
-            
-          </motion.div>
+          {/* Search Input */}
+          <div className="relative flex items-center w-full md:max-w-xs">
+            <Search size={14} className="absolute left-3.5 text-neutral-400" />
+            <input 
+              type="text"
+              placeholder="Buscar modelo no catálogo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-neutral-50 border border-neutral-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-black placeholder-neutral-400 focus:outline-none focus:border-black/35 focus:bg-white w-full transition-all duration-300 font-mono"
+            />
+          </div>
 
         </div>
+      </section>
 
-        {/* ================= RIGHT COLUMN: EXPLORER AND PRODUCTS GRID ================= */}
-        <div className="lg:col-span-7 col-span-1 p-6 sm:p-8 lg:p-12 flex flex-col justify-between min-h-screen relative">
+      {/* ================= PRODUCT CATALOG GRID ================= */}
+      <main className="max-w-[1300px] mx-auto px-6 pb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
           
-          {/* Decorative Corner crosshairs in the Explorer layout */}
-          <span className="absolute top-4 left-4 text-[9px] text-neutral-800 font-mono pointer-events-none">+</span>
-          <span className="absolute top-4 right-4 text-[9px] text-neutral-800 font-mono pointer-events-none">+</span>
-          <span className="absolute bottom-4 left-4 text-[9px] text-neutral-800 font-mono pointer-events-none">+</span>
-          <span className="absolute bottom-4 right-4 text-[9px] text-neutral-800 font-mono pointer-events-none">+</span>
+          {/* Decorative grid corner points */}
+          <span className="absolute -top-3 -left-3 text-[10px] text-neutral-300 font-mono pointer-events-none">+</span>
+          <span className="absolute -bottom-3 -right-3 text-[10px] text-neutral-300 font-mono pointer-events-none">+</span>
 
-          {/* Header Title and Search Bar */}
-          <div className="mb-10 relative">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
-              <div>
-                <span className="text-[10px] uppercase tracking-[0.3em] text-red-500 font-bold block mb-1.5 font-mono">
-                  /COLEÇÃO_VALLERI_2026
-                </span>
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-                  Design Moderno.
-                  <span className="block text-neutral-500 font-normal mt-1 italic text-2xl sm:text-3xl">
-                    Feito sob medida para o seu estilo.
-                  </span>
-                </h1>
-              </div>
-
-              {/* Search Input */}
-              <div className="relative flex items-center w-full md:max-w-xs">
-                <Search size={14} className="absolute left-3.5 text-neutral-500" />
-                <input 
-                  type="text"
-                  placeholder="Buscar modelo..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-[#101012]/80 border border-neutral-900 rounded-full pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-red-900/50 w-full transition-all duration-300 font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Custom Modern Tag Pills Filter */}
-            <div className="flex flex-wrap gap-2 mt-8">
-              {CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`text-[10px] uppercase tracking-widest px-4 py-2 rounded-full border transition-all duration-300 flex items-center gap-1.5 font-mono ${
-                    selectedCategory === category 
-                      ? "bg-white text-black border-white font-bold" 
-                      : "bg-[#0d0d0f]/80 text-neutral-400 border-neutral-900 hover:border-neutral-800 hover:text-white"
-                  }`}
-                >
-                  <span>{category}</span>
-                  {selectedCategory === category && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 block animate-pulse" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Product Grid Layout */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 flex-1 mb-8">
-            <AnimatePresence mode="popLayout">
-              {filteredSofas.map((sofa) => (
+          <AnimatePresence mode="popLayout">
+            {filteredSofas.map((sofa) => {
+              const isSelected = selectedSofa.id === sofa.id;
+              return (
                 <motion.div
                   layout
                   key={sofa.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
                   transition={{ duration: 0.4 }}
                   onClick={() => {
                     setSelectedSofa(sofa);
                     setIsDetailOpen(true);
                   }}
-                  className={`group rounded-2xl overflow-hidden cursor-pointer border p-3.5 flex flex-col justify-between transition-all duration-300 relative ${
-                    selectedSofa.id === sofa.id 
-                      ? "bg-[#111114]/90 border-red-950/60 shadow-[0_0_20px_rgba(220,38,38,0.06)]" 
-                      : "bg-[#0a0a0c]/80 backdrop-blur-sm border-neutral-900/80 hover:border-neutral-850 hover:shadow-[0_0_20px_rgba(255,255,255,0.015)]"
+                  className={`group bg-white rounded-3xl overflow-hidden cursor-pointer border p-4 flex flex-col justify-between transition-all duration-400 relative ${
+                    isSelected 
+                      ? "border-red-500 shadow-xl shadow-red-900/5 ring-1 ring-red-500/25" 
+                      : "border-neutral-200/80 hover:border-neutral-400 hover:shadow-[0_10px_30px_rgba(0,0,0,0.04)]"
                   }`}
                 >
-                  {/* Subtle corner crosshair inside the card */}
-                  <span className="absolute top-2 left-2 text-[8px] text-neutral-900 group-hover:text-red-950 font-mono transition-colors pointer-events-none">+</span>
-                  <span className="absolute top-2 right-2 text-[8px] text-neutral-900 group-hover:text-red-950 font-mono transition-colors pointer-events-none">+</span>
+                  {/* Subtle index tag */}
+                  <span className="absolute top-3 left-4 text-[8px] text-neutral-300 font-mono group-hover:text-red-500 transition-colors">
+                    // MODEL.{sofa.id.substring(0, 3).toUpperCase()}
+                  </span>
 
-                  {/* Heart / Favorite Button */}
+                  {/* Heart button */}
                   <button 
                     onClick={(e) => toggleFavorite(sofa.id, e)}
-                    className="absolute top-5 right-5 p-2 rounded-full bg-black/70 backdrop-blur-md border border-neutral-900 hover:bg-black/90 transition-all duration-300 z-10"
+                    className="absolute top-3 right-4 p-2.5 rounded-full bg-neutral-50 hover:bg-neutral-100 border border-neutral-100 hover:border-neutral-200 transition-all duration-300 z-10"
                   >
                     <Heart 
                       size={13} 
-                      className={favorites.includes(sofa.id) ? "fill-red-600 text-red-600" : "text-neutral-400 hover:text-white"} 
+                      className={favorites.includes(sofa.id) ? "fill-red-600 text-red-600 animate-pulse" : "text-neutral-400 group-hover:text-black"} 
                     />
                   </button>
 
-                  {/* Sofa Preview Image */}
-                  <div className="w-full aspect-[4/3] rounded-xl overflow-hidden mb-4 bg-neutral-950 relative border border-neutral-900">
+                  {/* Sofa Image Frame */}
+                  <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden mb-5 bg-neutral-50 relative border border-neutral-100">
                     <img 
                       src={sofa.images[0]} 
                       alt={sofa.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-103"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
                     
-                    {/* Floating Monospace Tag inside the image */}
-                    <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md border border-neutral-800 px-2 py-0.5 rounded text-[8px] text-neutral-400 font-mono tracking-widest">
+                    {/* Badge */}
+                    <div className="absolute bottom-3 left-3 bg-white/95 border border-neutral-200 px-2.5 py-0.5 rounded-md text-[8px] text-neutral-500 font-bold font-mono tracking-wider shadow-sm">
                       {sofa.category.toUpperCase()}
                     </div>
                   </div>
 
-                  {/* Info Row */}
+                  {/* Description Info */}
                   <div>
-                    <div className="flex justify-between items-start gap-2 mb-1.5">
-                      <h4 className="text-sm font-bold tracking-tight text-white group-hover:text-red-400 transition-colors">
+                    <div className="flex justify-between items-baseline gap-2 mb-1.5">
+                      <h3 className="text-base font-extrabold tracking-tight text-neutral-900 group-hover:text-red-600 transition-colors">
                         {sofa.name}
-                      </h4>
-                      <span className="text-xs font-semibold text-neutral-400 group-hover:text-white font-mono shrink-0">
-                        R$ {sofa.price.toLocaleString("pt-BR")}
+                      </h3>
+                      <span className="text-xs font-bold text-neutral-500 font-mono">
+                        A partir de R$ {sofa.price.toLocaleString("pt-BR")}
                       </span>
                     </div>
                     <p className="text-[11px] text-neutral-500 line-clamp-2 leading-relaxed">
@@ -487,43 +271,235 @@ export default function Catalogo() {
                     </p>
                   </div>
 
-                  {/* Custom Minimalist Action Indicator */}
-                  <div className="mt-4 flex items-center justify-between pt-3 border-t border-neutral-900/60">
-                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest group-hover:text-red-500 transition-colors flex items-center gap-1 font-mono">
-                      <Sparkles size={11} className="text-neutral-500 group-hover:text-red-500" />
+                  {/* Action Link Row */}
+                  <div className="mt-5 flex items-center justify-between pt-3.5 border-t border-neutral-100">
+                    <span className="text-[9px] text-neutral-400 uppercase tracking-widest group-hover:text-red-600 transition-colors flex items-center gap-1.5 font-mono font-bold">
+                      <Sparkles size={11} className="text-neutral-400 group-hover:text-red-500" />
                       //ver_detalhes
                     </span>
-                    <ChevronRight 
-                      size={12} 
-                      className="text-neutral-600 group-hover:text-red-500 group-hover:translate-x-1 transition-all" 
-                    />
+                    <div className="w-6 h-6 rounded-full bg-neutral-50 group-hover:bg-red-500 flex items-center justify-center transition-colors duration-300">
+                      <ChevronRight 
+                        size={12} 
+                        className="text-neutral-600 group-hover:text-white transition-colors duration-300" 
+                      />
+                    </div>
                   </div>
+
                 </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-
-          {/* Floating Sticky Bottom Bar (Reference: "Added 13 Pics") */}
-          <div className="bg-[#0a0a0c]/90 border border-neutral-900/80 rounded-2xl p-4 flex items-center justify-between mt-auto backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-                <Sliders size={13} className="text-red-500" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-semibold font-mono">Garantia & Origem</p>
-                <p className="text-xs text-neutral-500">Produção Local em Recife • 5 Anos de Suporte Estrutural</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-mono">
-              <span className="font-semibold text-white">{filteredSofas.length}</span>
-              <span>/modelos</span>
-            </div>
-          </div>
-
+              );
+            })}
+          </AnimatePresence>
         </div>
+      </main>
 
-      </div>
+      {/* ================= SLIDE-OVER DRAWER (DETAILS VIEW) ================= */}
+      {/* Dynamic Slide-over layout from the right on Desktop, bottom-sheet on Mobile */}
+      <AnimatePresence>
+        {isDetailOpen && (
+          <>
+            {/* Backdrop Blur Overlay */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDetailOpen(false)}
+              className="fixed inset-0 bg-black/35 backdrop-blur-sm z-40"
+            />
+
+            {/* Slide-over details panel */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="fixed right-0 top-0 bottom-0 w-full sm:max-w-[480px] bg-white border-l border-neutral-200 z-50 shadow-2xl flex flex-col justify-between overflow-y-auto"
+            >
+              
+              {/* Drawer Top Header */}
+              <div className="p-5 border-b border-neutral-200 flex items-center justify-between bg-neutral-50/50">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] bg-red-50 border border-red-200 text-red-500 font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 font-mono">
+                    <span className="w-1 h-1 rounded-full bg-red-500 animate-pulse" />
+                    Sob Medida
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsDetailOpen(false)}
+                  className="p-1.5 rounded-full hover:bg-neutral-200/80 transition-colors border border-neutral-200 text-neutral-500 hover:text-black"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Drawer Body Scroll Content */}
+              <div className="flex-1 p-6 space-y-6">
+                
+                {/* Product Title and ID */}
+                <div>
+                  <span className="text-[9px] text-neutral-400 font-mono tracking-widest block uppercase mb-1">
+                    Coleção Valleri / ID: {selectedSofa.id.toUpperCase()}
+                  </span>
+                  <h3 className="text-2xl font-extrabold tracking-tight text-neutral-900">
+                    {selectedSofa.name}
+                  </h3>
+                </div>
+
+                {/* Big Image Render with ambient backlight */}
+                <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden bg-neutral-50 border border-neutral-200/80 relative shadow-inner p-1">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.03)_0%,transparent_60%)] blur-md pointer-events-none" />
+                  <img 
+                    src={selectedSofa.images[0]} 
+                    alt={selectedSofa.name} 
+                    className="w-full h-full object-cover rounded-xl"
+                  />
+                </div>
+
+                {/* Custom Tabs (Design vs specs) */}
+                <div className="flex border-b border-neutral-200 font-mono text-[10px]">
+                  <button 
+                    onClick={() => setActiveTab("design")}
+                    className={`pb-2 pr-4 uppercase tracking-widest transition-all duration-300 ${
+                      activeTab === "design" 
+                        ? "text-black border-b-2 border-red-500 font-bold" 
+                        : "text-neutral-400 hover:text-neutral-600"
+                    }`}
+                  >
+                    /design e conceito
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab("especificacoes")}
+                    className={`pb-2 px-4 uppercase tracking-widest transition-all duration-300 ${
+                      activeTab === "especificacoes" 
+                        ? "text-black border-b-2 border-red-500 font-bold" 
+                        : "text-neutral-400 hover:text-neutral-600"
+                    }`}
+                  >
+                    /ficha técnica
+                  </button>
+                </div>
+
+                {/* Tab content panel */}
+                <div className="min-h-[140px]">
+                  <AnimatePresence mode="wait">
+                    {activeTab === "design" ? (
+                      <motion.div
+                        key="design-tab"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="space-y-4"
+                      >
+                        <p className="text-xs text-neutral-600 leading-relaxed italic font-serif">
+                          "{DESIGNER_NOTES[selectedSofa.id] || selectedSofa.description}"
+                        </p>
+                        <div>
+                          <p className="text-[9px] uppercase tracking-wider text-neutral-400 font-mono font-bold">Estética Autoral</p>
+                          <p className="text-xs text-neutral-700 mt-1 leading-relaxed">
+                            Modelo desenhado para se adequar a salas contemporâneas, aliando a sofisticação da alta costura no estofado com a robustez e durabilidade estrutural.
+                          </p>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="specs-tab"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="space-y-4 text-xs"
+                      >
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-neutral-400 font-mono uppercase tracking-wider text-[9px]">Dimensões padrão</p>
+                            <p className="font-bold text-neutral-800 mt-1">{selectedSofa.dimensions}</p>
+                          </div>
+                          <div>
+                            <p className="text-neutral-400 font-mono uppercase tracking-wider text-[9px]">Estrutura</p>
+                            <p className="text-neutral-800 mt-1">Madeira de Eucalipto Imunizado</p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-neutral-400 font-mono uppercase tracking-wider text-[9px] mb-2">Especificações Técnicas</p>
+                          <ul className="space-y-1.5">
+                            {selectedSofa.details.map((detail, idx) => (
+                              <li key={idx} className="text-neutral-600 flex items-start gap-2">
+                                <Check size={11} className="text-red-500 mt-0.5 shrink-0" />
+                                <span>{detail}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Fabric Selector */}
+                <div className="pt-4 border-t border-neutral-100">
+                  <div className="flex justify-between items-center mb-3">
+                    <p className="text-[9px] uppercase tracking-wider text-neutral-400 font-mono font-bold">Selecione o Tecido</p>
+                    <span className="text-[10px] text-neutral-800 bg-neutral-100 px-2.5 py-0.5 rounded border border-neutral-200 font-mono">
+                      {selectedFabric}
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2.5">
+                    {selectedSofa.fabrics.map((fabric) => {
+                      const swatch = FABRIC_COLORS[fabric] || { hex: "#8E9094", desc: "" };
+                      const isSelected = selectedFabric === fabric;
+                      return (
+                        <button
+                          key={fabric}
+                          title={`${fabric} - ${swatch.desc}`}
+                          onClick={() => setSelectedFabric(fabric)}
+                          className={`w-7 h-7 rounded-full border transition-all duration-300 flex items-center justify-center relative ${
+                            isSelected 
+                              ? "border-red-500 ring-2 ring-red-100 ring-offset-2 ring-offset-white scale-110 shadow-md" 
+                              : "border-neutral-200 hover:border-neutral-400 hover:scale-105"
+                          }`}
+                          style={{ backgroundColor: swatch.hex }}
+                        >
+                          {isSelected && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 absolute -top-1 -right-1 border border-white" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Drawer Footer CTA */}
+              <div className="p-5 border-t border-neutral-200 bg-neutral-50">
+                <button 
+                  onClick={() => handleWhatsAppQuote(selectedSofa)}
+                  className="w-full bg-black text-white hover:bg-neutral-900 text-xs uppercase tracking-widest font-mono font-bold py-4 px-4 rounded-2xl flex items-center justify-between transition-all duration-300 group shadow-lg shadow-black/10"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <MessageCircle size={14} className="fill-white text-white" />
+                    //enviar_orcamento
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-red-400 font-bold">R$ {selectedSofa.price.toLocaleString("pt-BR")}</span>
+                    <ChevronRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </button>
+              </div>
+
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ================= FOOTER ================= */}
+      <footer className="w-full bg-white border-t border-neutral-200/80 py-10 text-center text-xs text-neutral-400 font-mono relative mt-auto">
+        <span className="absolute top-2 left-6 text-[8px] text-neutral-300 pointer-events-none">+</span>
+        <span className="absolute top-2 right-6 text-[8px] text-neutral-300 pointer-events-none">+</span>
+        <p className="text-neutral-500">VALLERI ATELIÊ ESTOFADOS • RECIFE-PE</p>
+        <p className="text-[10px] text-neutral-400 mt-2">© 2026 Todos os direitos reservados. Feito sob medida.</p>
+      </footer>
+
     </div>
   );
 }
