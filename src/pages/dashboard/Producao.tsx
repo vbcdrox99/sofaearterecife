@@ -214,34 +214,38 @@ const Producao = () => {
   );
 
   const renderStatusButtons = (itemId: string, status: StatusProducao) => (
-    <div className="flex items-center gap-1.5">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full mt-2">
       <Button
-        size="sm"
+        size="lg"
         variant={status === 'pendente' ? 'default' : 'outline'}
+        className={`h-14 font-bold text-sm uppercase ${status === 'pendente' ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-gray-500'}`}
         onClick={() => handleStatusChange(itemId, 'pendente')}
       >
-        <Clock className="w-4 h-4 mr-2" /> Pendente
+        <Clock className="w-5 h-5 mr-2" /> PENDENTE
       </Button>
       <Button
-        size="sm"
+        size="lg"
         variant={status === 'iniciado' ? 'default' : 'outline'}
+        className={`h-14 font-bold text-sm uppercase ${status === 'iniciado' ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-none' : 'text-gray-500'}`}
         onClick={() => handleStatusChange(itemId, 'iniciado')}
       >
-        <Loader2 className="w-4 h-4 mr-2" /> Iniciado
+        <Loader2 className="w-5 h-5 mr-2" /> INICIAR
       </Button>
       <Button
-        size="sm"
+        size="lg"
         variant={status === 'supervisao' ? 'default' : 'outline'}
+        className={`h-14 font-bold text-sm uppercase ${status === 'supervisao' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'text-gray-500'}`}
         onClick={() => handleStatusChange(itemId, 'supervisao')}
       >
-        <Eye className="w-4 h-4 mr-2" /> Supervisão
+        <Eye className="w-5 h-5 mr-2" /> REVISÃO
       </Button>
       <Button
-        size="sm"
+        size="lg"
         variant={status === 'finalizado' ? 'default' : 'outline'}
+        className={`h-14 font-bold text-sm uppercase ${status === 'finalizado' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-gray-500'}`}
         onClick={() => handleStatusChange(itemId, 'finalizado')}
       >
-        <CheckCircle className="w-4 h-4 mr-2" /> Finalizar
+        <CheckCircle className="w-5 h-5 mr-2" /> PRONTO
       </Button>
     </div>
   );
@@ -325,120 +329,92 @@ const Producao = () => {
                   const currentStatus = statusItems[item.id] || item.status || 'pendente';
                   const numeroPedido = item.pedidos?.numero_pedido ? String(item.pedidos.numero_pedido).padStart(3, '0') : 'N/A';
                   const sufixoSeq = pedidoItem?.sequencia && pedidoItem.sequencia > 1 ? `/${pedidoItem.sequencia}` : '';
+                  const diasRestantes = calcularDiasRestantes(item.pedidos?.data_previsao_entrega);
+                  const observacoes = pedidoItem?.observacoes || item.pedidos?.observacoes;
                   
                   return (
-                    <Card key={`${item.id}-${pedidoItem?.id || 'seq1'}`} className={`relative p-4 hover:shadow-md transition-shadow ${index % 2 === 0 ? 'bg-white dark:bg-card' : 'bg-blue-50/30 dark:bg-blue-900/10'}`}>
-                      {/* Barra de urgência na lateral esquerda */}
-                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(item.pedidos?.data_previsao_entrega)}`}></div>
-                      {/* Primeira linha - Informações Principais */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-8 flex-1">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pedido</span>
-                            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">#{numeroPedido}{sufixoSeq}</span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cliente</span>
-                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.pedidos?.cliente_nome || 'N/A'}</span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Produto</span>
-                            <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.tipo_sofa || item.pedidos?.tipo_sofa || 'N/A'}</span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Serviço</span>
-                            <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.tipo_servico || item.pedidos?.tipo_servico || 'N/A'}</span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Entrega</span>
-                            <span className="text-sm text-gray-900 dark:text-gray-100">
-                              {item.pedidos?.data_previsao_entrega ? 
-                                formatarDataEntrega(item.pedidos?.data_previsao_entrega) : 
-                                'Sem data'}
-                            </span>
-                          </div>
+                    <Card key={`${item.id}-${pedidoItem?.id || 'seq1'}`} className="relative p-0 overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-card border-2 border-gray-200">
+                      
+                      {/* Cabeçalho de Urgência (Visível e Claro) */}
+                      {diasRestantes !== null && diasRestantes <= 5 && (
+                        <div className={`w-full text-center text-white font-bold py-1.5 uppercase tracking-wider text-xs md:text-sm ${diasRestantes < 0 ? 'bg-red-600' : diasRestantes === 0 ? 'bg-orange-500' : 'bg-yellow-500'}`}>
+                          {diasRestantes < 0 ? `🚨 ATRASADO (${Math.abs(diasRestantes)} DIAS) 🚨` : diasRestantes === 0 ? `⚠️ ENTREGA HOJE ⚠️` : `⚠️ ENTREGA EM ${diasRestantes} DIAS`}
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={getStatusBadgeVariant(currentStatus)} className="uppercase tracking-wide text-[11px]">
-                            {getStatusLabel(currentStatus)}
-                          </Badge>
-                          {isAdmin && (
-                            <>
-                              <Button variant="outline" size="sm" onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: item.pedido_id, pedidoItemId: pedidoItem?.id || null })}>
-                                <Camera className="w-4 h-4 mr-2" /> Fotos
-                              </Button>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <Eye className="w-4 h-4 mr-2" /> Detalhes
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-md">
-                                  <DialogHeader>
-                                    <DialogTitle>Detalhes do Produto</DialogTitle>
-                                  </DialogHeader>
-                                  {(pedidoItem?.observacoes || item.pedidos?.observacoes) ? (
-                                    <div className="space-y-2">
-                                      <span className="font-medium">Observações</span>
-                                      <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-muted p-3 rounded-lg">
-                                        {pedidoItem?.observacoes || item.pedidos?.observacoes}
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Sem observações.</p>
-                                  )}
-                                  {/* Visita técnica */}
-                                  <div className="mt-3 space-y-1">
-                                    <span className="font-medium">Visita técnica</span>
-                                    <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-muted p-3 rounded-lg">
-                                      <p>
-                                        Status: {pedidoItem?.visita_tecnica ? 'Sim' : 'Não'}
-                                      </p>
-                                      {pedidoItem?.visita_tecnica && (
-                                        <p>
-                                          Data: {(() => {
-                                            const d = pedidoItem?.data_visita_tecnica as string | null | undefined;
-                                            if (!d) return '—';
-                                            const [ano, mes, dia] = d.split('-');
-                                            return `${dia}/${mes}/${ano}`;
-                                          })()}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            </>
-                          )}
-                        </div>
-                      </div>
+                      )}
 
-                      {/* Linha de detalhes do produto */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Espuma</span>
-                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.espuma || item.pedidos?.espuma || 'N/A'}</span>
+                      <div className="p-4 md:p-6">
+                        {/* Linha 1: Pedido e Botão de Fotos */}
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">#{numeroPedido}{sufixoSeq}</span>
+                              <Badge variant={getStatusBadgeVariant(currentStatus)} className="uppercase px-2 py-1">{getStatusLabel(currentStatus)}</Badge>
+                            </div>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase">
+                              Cliente: <span className="font-bold text-gray-900 dark:text-white">{item.pedidos?.cliente_nome || 'N/A'}</span>
+                            </p>
+                          </div>
+                          <Button 
+                            variant="secondary" 
+                            className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 shadow-sm font-bold"
+                            onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: item.pedido_id, pedidoItemId: pedidoItem?.id || null })}
+                          >
+                            <Camera className="w-5 h-5 mr-2" /> FOTOS
+                          </Button>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tecido</span>
-                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.tecido || item.pedidos?.tecido || 'N/A'}</span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Braço</span>
-                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.braco || item.pedidos?.braco || 'N/A'}</span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pé</span>
-                          <span className="text-sm text-gray-900 dark:text-gray-100">{pedidoItem?.tipo_pe || item.pedidos?.tipo_pe || 'N/A'}</span>
-                        </div>
-                      </div>
 
-                      {/* Rodapé: Controles rápidos */}
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center space-x-2">
-                          {renderEtapaBadge(abaAtiva)}
+                        {/* Linha 2: Produto e Serviço (Destaque) */}
+                        <div className="mb-4">
+                          <h3 className="text-xl md:text-2xl font-black text-gray-800 dark:text-gray-100 uppercase">
+                            {pedidoItem?.tipo_sofa || item.pedidos?.tipo_sofa || 'Produto N/A'}
+                          </h3>
+                          <p className="text-sm text-gray-500 font-bold uppercase mt-1">
+                            Serviço: <span className="text-gray-800 dark:text-gray-200">{pedidoItem?.tipo_servico || item.pedidos?.tipo_servico || 'N/A'}</span>
+                          </p>
                         </div>
-                        <div className="flex items-center space-x-2">
+
+                        {/* Bloco Cinza com a Ficha Técnica */}
+                        <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 border border-gray-200 dark:border-gray-700 shadow-inner">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Espuma</span>
+                            <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.espuma || item.pedidos?.espuma || '-'}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Tecido</span>
+                            <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.tecido || item.pedidos?.tecido || '-'}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Braço</span>
+                            <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.braco || item.pedidos?.braco || '-'}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Pé</span>
+                            <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.tipo_pe || item.pedidos?.tipo_pe || '-'}</span>
+                          </div>
+                        </div>
+
+                        {/* Alerta de Observações (Destacado e visível para todos) */}
+                        {observacoes && (
+                          <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-4 mb-4 rounded-r-lg shadow-sm">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0">
+                                <span className="text-2xl">⚠️</span>
+                              </div>
+                              <div className="ml-3">
+                                <h3 className="text-sm font-black text-yellow-800 dark:text-yellow-200 uppercase tracking-wider">Atenção Especial</h3>
+                                <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300 font-bold whitespace-pre-wrap">
+                                  {observacoes}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Rodapé: Botões de Status Gigantes */}
+                        <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-800">
+                          <div className="mb-3">
+                            {renderEtapaBadge(abaAtiva)}
+                          </div>
                           {renderStatusButtons(item.id, currentStatus)}
                         </div>
                       </div>

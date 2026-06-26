@@ -72,10 +72,10 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
 
   const navigationItems: NavItem[] = [
     {
-      name: 'Administração',
+      name: 'Início',
       href: '/dashboard',
       icon: BarChart3,
-      description: 'Visão geral do sistema',
+      description: 'Painel geral',
     },
     {
       name: 'Novo Pedido',
@@ -84,10 +84,10 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
       description: 'Cadastrar novo pedido',
     },
     {
-      name: 'Produção',
+      name: 'Linha de Produção',
       href: '/dashboard/producao',
       icon: Wrench,
-      description: 'Controle de produção',
+      description: 'Acompanhar fabricação',
     },
   ];
 
@@ -154,7 +154,7 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
                 {!isCollapsed && (
                   <div>
                     <h1 className="text-lg font-bold text-gradient">Válleri</h1>
-                    <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Sistema de Fábrica</p>
                   </div>
                 )}
               </div>

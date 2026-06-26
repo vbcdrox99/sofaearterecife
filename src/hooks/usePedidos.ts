@@ -161,6 +161,34 @@ export const usePedidos = () => {
     }
   };
 
+  const apagarPedido = async (pedidoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('pedidos')
+        .delete()
+        .eq('id', pedidoId);
+
+      if (error) throw error;
+
+      setPedidos(prev => prev.filter(pedido => pedido.id !== pedidoId));
+
+      toast({
+        title: 'Pedido excluído',
+        description: 'O pedido foi excluído com sucesso.',
+      });
+
+      return { error: null };
+    } catch (error) {
+      console.error('Erro ao apagar pedido:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível excluir o pedido.',
+        variant: 'destructive',
+      });
+      return { error };
+    }
+  };
+
   const getStatusLabel = (status: Pedido['status']) => {
     const labels = {
       aguardando_producao: 'Aguardando Produção',
@@ -199,6 +227,7 @@ export const usePedidos = () => {
     loading,
     criarPedido,
     atualizarStatusPedido,
+    apagarPedido,
     getStatusLabel,
     getStatusColor,
     contarPorStatus,

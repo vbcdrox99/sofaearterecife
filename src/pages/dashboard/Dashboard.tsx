@@ -17,13 +17,15 @@ import {
   CornerDownRight,
   Search,
   CheckSquare,
-  Square
+  Square,
+  Trash2
 } from 'lucide-react';
 import { User } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { usePedidos } from '@/hooks/usePedidos';
@@ -35,16 +37,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
-  const { pedidos } = usePedidos();
+  const { pedidos, apagarPedido } = usePedidos();
   const { selectedStore, isAdmin, isGerente, isFuncionario } = useAuth();
   const navigate = useNavigate();
   const { printRef, printCurrentView, isPrinting, generatePedidoPDF, generatePedidoClientePDF } = usePDFGenerator();
+  const [pedidoExcluir, setPedidoExcluir] = useState<string | null>(null);
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [loadingProducao, setLoadingProducao] = useState(true);
   const [pedidoItens, setPedidoItens] = useState<any[]>([]);
   const [datasVisiveis, setDatasVisiveis] = useState<{ [key: string]: boolean }>({});
   const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'novos' | 'iniciados' | 'finalizados'>('todos');
   const [filtroArea, setFiltroArea] = useState<'todos' | 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido'>('todos');
+  const [termoBusca, setTermoBusca] = useState('');
   const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null; pedidoItemId: string | null }>({
     isOpen: false,
     pedidoId: null,
@@ -54,8 +58,20 @@ const Dashboard = () => {
   // Estado do modal de seleção de pedidos para PDF
   const [pdfModalAberto, setPdfModalAberto] = useState(false);
   const [pdfSelecionados, setPdfSelecionados] = useState<Set<string>>(new Set());
+
+  // Restaura os elementos escondidos manualmente após a impressão terminar
+  useEffect(() => {
+    if (!isPrinting) {
+      document.querySelectorAll('.force-hide-print').forEach(el => {
+        el.classList.remove('force-hide-print');
+        (el as HTMLElement).style.display = '';
+      });
+    }
+  }, [isPrinting]);
+
   const [pdfFiltroBusca, setPdfFiltroBusca] = useState('');
   const [pdfFiltroData, setPdfFiltroData] = useState('');
+  const [pdfFiltroStatus, setPdfFiltroStatus] = useState('todos');
 
   useEffect(() => {
     carregarDadosProducao();
@@ -172,6 +188,7 @@ const Dashboard = () => {
     setPdfSelecionados(todosIds);
     setPdfFiltroBusca('');
     setPdfFiltroData('');
+    setPdfFiltroStatus('todos');
     setPdfModalAberto(true);
   };
 
@@ -189,7 +206,19 @@ const Dashboard = () => {
     const titulo = `${tituloBase} — Área: ${areaLabel}`;
 
     setPdfModalAberto(false);
-    // Usa react-to-print para imprimir a tabela como está na tela
+    
+    // Ocultação forçada e síncrona no DOM para evitar falhas do React to Print
+    if (pdfSelecionados.size > 0) {
+      document.querySelectorAll('[data-print-chave]').forEach(row => {
+        const chave = row.getAttribute('data-print-chave');
+        if (chave && !pdfSelecionados.has(chave)) {
+          row.classList.add('force-hide-print');
+          (row as HTMLElement).style.display = 'none';
+        }
+      });
+    }
+
+    // Usa react-to-print para imprimir a tabela
     printCurrentView(titulo);
   };
 
@@ -312,6 +341,21 @@ const Dashboard = () => {
     );
   }
 
+  // Busca Inteligente (Global Search)
+  if (termoBusca) {
+    const termo = termoBusca.toLowerCase();
+    pedidosFiltrados = pedidosFiltrados.filter(({ pedido, item }) => {
+      const matchPedido = String(pedido.numero_pedido).includes(termo);
+      const matchCliente = (pedido as any).cliente_nome?.toLowerCase().includes(termo) || false;
+      const matchSofa = (item?.tipo_sofa || pedido.tipo_sofa || '').toLowerCase().includes(termo);
+      const matchTecido = (item?.tecido || pedido.tecido || '').toLowerCase().includes(termo);
+      const matchEspuma = (item?.espuma || pedido.espuma || '').toLowerCase().includes(termo);
+      const matchBraco = (item?.braco || pedido.braco || '').toLowerCase().includes(termo);
+      const matchPagamento = (pedido.forma_pagamento || '').toLowerCase().includes(termo);
+      return matchPedido || matchCliente || matchSofa || matchTecido || matchEspuma || matchBraco || matchPagamento;
+    });
+  }
+
   return (
     <DashboardLayout
       title="Dashboard - Válleri"
@@ -406,11 +450,12 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Filtro por Área de Produção */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filtro por área de produção</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {[
+                {/* Filtro por Área de Produção e Busca */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                  <div className="space-y-2 flex-1">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filtro por área de produção</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {[
                       { key: 'todos', label: 'GERAL/TODOS' },
                       { key: 'marcenaria', label: 'Marcenaria' },
                       { key: 'corte_costura', label: 'Corte Costura' },
@@ -428,6 +473,18 @@ const Dashboard = () => {
                         {label}
                       </Button>
                     ))}
+                    </div>
+                  </div>
+
+                  {/* Barra de Busca Global */}
+                  <div className="relative w-full md:w-80 md:ml-auto">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar pedido, produto, cliente..."
+                      value={termoBusca}
+                      onChange={(e) => setTermoBusca(e.target.value)}
+                      className="pl-9 h-9 border-gray-300 dark:border-gray-600 rounded-lg shadow-sm w-full"
+                    />
                   </div>
                 </div>
                 {/* Tabela de Pedidos */}
@@ -445,9 +502,9 @@ const Dashboard = () => {
                     </div>
                   </div>
                   {/* Cabeçalho da Tabela */}
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto max-h-[75vh] overflow-y-auto relative print:overflow-visible print:max-h-none">
                     {/* Header */}
-                    <div className="bg-gray-50 dark:bg-muted/50 border-b border-gray-200 dark:border-border px-4 py-2 min-w-[1200px]">
+                    <div className="sticky top-0 z-10 bg-gray-50 dark:bg-muted/50 border-b border-gray-200 dark:border-border px-3 py-2 min-w-[1400px] shadow-sm print:static print:shadow-none">
                       <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
                         <div className="col-span-1">Nº Pedido</div>
                         <div className="col-span-1">Tipo</div>
@@ -464,7 +521,7 @@ const Dashboard = () => {
                     </div>
 
                     {/* Conteúdo da Tabela */}
-                    <div className="divide-y divide-gray-200 dark:divide-border min-w-[1200px]">
+                    <div className="divide-y divide-gray-200 dark:divide-border min-w-[1400px]">
                       {pedidosFiltrados.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                           {filtroAtivo === 'todos'
@@ -473,9 +530,9 @@ const Dashboard = () => {
                           }
                         </div>
                       ) : (
-                        pedidosFiltrados.map(({ pedido, itensProducao, seq, itemId, item }, index) => (
-                          <div key={itemId || `${pedido.id}-${seq}-${index}`} className={`relative px-4 py-2 hover:bg-gray-50 dark:hover:bg-muted/50 transition-colors ${(seq && seq > 1) ? 'bg-gray-100 dark:bg-muted' : 'bg-white dark:bg-card'} ${index !== pedidosFiltrados.length - 1 ? 'border-b border-gray-200 dark:border-border' : ''
-                            }`}>
+                        pedidosFiltrados.map(({ pedido, itensProducao, seq, itemId, item }, index, arr) => {
+                          return (
+                          <div data-print-chave={`${pedido.id}-${seq}`} key={itemId || `${pedido.id}-${seq}-${index}`} className={`relative px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-muted/50 transition-colors ${(seq && seq > 1) ? 'bg-gray-100 dark:bg-muted' : 'bg-white dark:bg-card'} ${index !== arr.length - 1 ? 'border-b border-gray-200 dark:border-border' : ''}`}>
                             {/* Barra de urgência na lateral esquerda */}
                             <div className={`absolute left-0 top-0 bottom-0 w-1 ${getCorUrgencia(pedido.data_previsao_entrega)} ${(seq && seq > 1) ? 'opacity-70' : ''}`}></div>
 
@@ -490,16 +547,16 @@ const Dashboard = () => {
                                       <Package className="w-4 h-4 text-primary" />
                                     )}
                                     <span className="font-semibold text-sm">#{String(pedido.numero_pedido).padStart(3, '0')}{seq && seq > 1 ? `/${seq}` : ''}</span>
+                                    {(!seq || seq === 1) && (
+                                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                                        (pedido as any).tipo_pedido === 'orcamento' 
+                                          ? 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900' 
+                                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900'
+                                      }`}>
+                                        {(pedido as any).tipo_pedido === 'orcamento' ? 'ORÇ' : 'PED'}
+                                      </span>
+                                    )}
                                   </div>
-                                  {(!seq || seq === 1) && (
-                                    <span className={`text-[9px] w-fit px-1 py-0.5 rounded font-bold uppercase mt-1 ${
-                                      (pedido as any).tipo_pedido === 'orcamento' 
-                                        ? 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900' 
-                                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900'
-                                    }`}>
-                                      {(pedido as any).tipo_pedido === 'orcamento' ? 'Orçamento' : 'Pedido'}
-                                    </span>
-                                  )}
                                 </div>
                               </div>
 
@@ -519,12 +576,15 @@ const Dashboard = () => {
                                       'N/A'
                                     }
                                   </span>
-                                  <span className={`text-xs font-medium ${calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 2
-                                    ? 'text-red-600 dark:text-red-400'
+                                  <span className={`text-[11px] font-medium flex items-center gap-1 mt-0.5 ${calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 2
+                                    ? 'text-red-600 dark:text-red-400 print:text-black print:font-bold'
                                     : calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 5
-                                      ? 'text-yellow-600 dark:text-yellow-400'
+                                      ? 'text-yellow-600 dark:text-yellow-400 print:text-black print:font-semibold'
                                       : 'text-gray-500 dark:text-gray-400'
                                     }`}>
+                                    {calcularDiasRestantes(pedido.data_previsao_entrega) !== null && calcularDiasRestantes(pedido.data_previsao_entrega)! <= 5 && (
+                                      <span className="hidden print:inline">⚠️</span>
+                                    )}
                                     {getTextoUrgencia(pedido.data_previsao_entrega)}
                                   </span>
                                 </div>
@@ -580,16 +640,15 @@ const Dashboard = () => {
                                       const currentStatus = item.status || 'pendente';
 
                                       return (
-                                        <div key={item.id} className="flex items-center space-x-1 bg-gray-50 dark:bg-muted rounded-lg px-2 py-1.5 border border-gray-200 dark:border-border">
-                                          <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                                        <div key={item.id} className="flex items-center space-x-0.5 px-1 py-1" title={`${getEtapaLabel(item.etapa)}: ${getStatusText(currentStatus)}`}>
+                                          <IconComponent className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                                           <div
-                                            className={`w-2 h-2 rounded-full ${currentStatus === 'pendente' ? 'bg-red-500' :
+                                            className={`w-2 h-2 rounded-full shadow-sm print:border print:border-black ${currentStatus === 'pendente' ? 'bg-red-500' :
                                               currentStatus === 'iniciado' ? 'bg-yellow-500' :
                                                 currentStatus === 'supervisao' ? 'bg-blue-500' :
                                                   currentStatus === 'finalizado' ? 'bg-green-500' :
-                                                    'bg-gray-400'
+                                                    'bg-gray-300 dark:bg-gray-600'
                                               }`}
-                                            title={`${getEtapaLabel(item.etapa)}: ${getStatusText(currentStatus)}`}
                                           ></div>
                                         </div>
                                       );
@@ -598,16 +657,14 @@ const Dashboard = () => {
                               </div>
 
                               {/* Cliente (oculto na impressão) */}
-                              <div className="col-span-1 print-hide">
+                              <div className="col-span-1 print-hide flex items-center">
                                 <Dialog>
                                     <DialogTrigger asChild>
                                       <button
-                                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                                        title={pedido.cliente_nome}
+                                        className="text-xs text-gray-700 dark:text-gray-300 hover:text-blue-600 transition-colors truncate max-w-[90px] font-medium text-left"
+                                        title={pedido.cliente_nome || 'Detalhes do Cliente'}
                                       >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
+                                        {pedido.cliente_nome ? pedido.cliente_nome.split(' ')[0] : 'Cliente'}
                                       </button>
                                     </DialogTrigger>
                                     <DialogContent className="max-w-md">
@@ -640,25 +697,25 @@ const Dashboard = () => {
                                 </div>
 
                               {/* Ações (oculto na impressão) */}
-                              <div className="col-span-1 print-hide">
-                                <div className="flex items-center space-x-2">
+                              <div className="col-span-1 print-hide min-w-[130px]">
+                                <div className="flex items-center space-x-1">
                                     {/* Ícone para fotos */}
                                     <button
-                                      className="text-gray-400 hover:text-blue-600 transition-colors"
+                                      className="p-2 -m-2 text-gray-400 hover:text-blue-600 transition-colors"
                                       title="Ver fotos do pedido"
                                       onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: pedido.id, pedidoItemId: item?.id ?? null })}
                                     >
-                                      <Camera className="w-4 h-4" />
+                                      <Camera className="w-5 h-5 md:w-4 md:h-4" />
                                     </button>
 
                                     {/* Menu para gerar PDF (duas opções) */}
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
                                         <button
-                                          className="text-gray-400 hover:text-red-600 transition-colors"
+                                          className="p-2 -m-2 text-gray-400 hover:text-red-600 transition-colors"
                                           title="Gerar PDF"
                                         >
-                                          <FileText className="w-4 h-4" />
+                                          <FileText className="w-5 h-5 md:w-4 md:h-4" />
                                         </button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
@@ -674,16 +731,14 @@ const Dashboard = () => {
                                       </DropdownMenuContent>
                                     </DropdownMenu>
 
-                                    {/* Removido: botão pdfmake, seguimos com gerador SVG */}
-
                                     {/* Ícone para editar pedido */}
                                     {(isAdmin || isGerente || isFuncionario) && (
                                       <button
-                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                        className="p-2 -m-2 text-gray-400 hover:text-gray-600 transition-colors"
                                         title="Editar pedido"
                                         onClick={() => navigate(`/dashboard/editar-pedido/${pedido.id}`)}
                                       >
-                                        <Edit className="w-4 h-4" />
+                                        <Edit className="w-5 h-5 md:w-4 md:h-4" />
                                       </button>
                                     )}
 
@@ -692,10 +747,10 @@ const Dashboard = () => {
                                       <Dialog>
                                         <DialogTrigger asChild>
                                           <button
-                                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                                            className="p-2 -m-2 text-gray-400 hover:text-gray-600 transition-colors"
                                             title={item?.observacoes || pedido.observacoes || ''}
                                           >
-                                            <Eye className="w-4 h-4" />
+                                            <Eye className="w-5 h-5 md:w-4 md:h-4" />
                                           </button>
                                         </DialogTrigger>
                                         <DialogContent>
@@ -713,14 +768,23 @@ const Dashboard = () => {
 
                                     {/* Ícone para horários */}
                                     <button
-                                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                                      className="p-2 -m-2 text-gray-400 hover:text-gray-600 transition-colors"
                                       title="Ver horários de início e término"
                                       onClick={() => setDatasVisiveis(prev => ({ ...prev, [pedido.id]: !prev[pedido.id] }))}
                                     >
-                                      <Calendar className="w-4 h-4" />
+                                      <Calendar className="w-5 h-5 md:w-4 md:h-4" />
                                     </button>
 
-                                    {/* Ícone sem função removido */}
+                                    {/* Botão de Excluir Pedido (Apenas Admin) */}
+                                    {isAdmin && (
+                                      <button
+                                        className="p-2 -m-2 text-gray-400 hover:text-red-600 transition-colors"
+                                        title="Apagar pedido"
+                                        onClick={() => setPedidoExcluir(pedido.id)}
+                                      >
+                                        <Trash2 className="w-5 h-5 md:w-4 md:h-4" />
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                             </div>
@@ -750,7 +814,8 @@ const Dashboard = () => {
                               </div>
                             )}
                           </div>
-                        ))
+                        );
+                      })
                       )}
                     </div>
                   </div>
@@ -796,21 +861,64 @@ const Dashboard = () => {
               value={pdfFiltroData}
               onChange={(e) => setPdfFiltroData(e.target.value)}
               className="px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              title="Filtrar por data de criação"
+              title="Filtrar por data de entrega"
             />
+          </div>
+
+          {/* Quick Chips de Filtro */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'todos', label: 'Todos' },
+              { id: 'atrasados', label: 'Atrasados', color: 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900' },
+              { id: 'hoje', label: 'Para Hoje', color: 'text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-900' },
+              { id: 'novos', label: 'Novos', color: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900' }
+            ].map(chip => (
+              <button
+                key={chip.id}
+                onClick={() => setPdfFiltroStatus(chip.id)}
+                className={`px-3 py-1 text-xs rounded-full border transition-colors ${pdfFiltroStatus === chip.id ? 'bg-primary text-primary-foreground border-primary' : (chip.color || 'bg-background hover:bg-muted border-border')}`}
+              >
+                {chip.label}
+              </button>
+            ))}
+            
+            {pdfSelecionados.size > 0 && (
+              <button
+                onClick={() => setPdfSelecionados(new Set())}
+                className="ml-auto px-3 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-full transition-colors flex items-center gap-1 font-medium"
+              >
+                <Trash2 className="w-3 h-3" /> Limpar Seleção
+              </button>
+            )}
           </div>
 
           {/* Controles de seleção */}
           {(() => {
-            const listaFiltrada = pedidosFiltrados.filter(({ pedido, seq }) => {
+            const listaFiltrada = pedidosFiltrados.filter(({ pedido, seq, itensProducao: ips }) => {
               const chave = `${pedido.id}-${seq}`;
               const numPedido = String(pedido.numero_pedido ? String(pedido.numero_pedido).padStart(3, '0') : '').toLowerCase();
               const buscaOk = pdfFiltroBusca === '' || numPedido.includes(pdfFiltroBusca.toLowerCase());
               if (!buscaOk) return false;
               if (pdfFiltroData) {
-                const dataCriacao = pedido.created_at ? pedido.created_at.split('T')[0] : '';
-                if (dataCriacao !== pdfFiltroData) return false;
+                const dataEntrega = pedido.data_previsao_entrega ? pedido.data_previsao_entrega.split('T')[0] : '';
+                if (dataEntrega !== pdfFiltroData) return false;
               }
+              
+              if (pdfFiltroStatus !== 'todos') {
+                const statusGlobal = ips.every(i => i.status === 'finalizado')
+                  ? 'Finalizado'
+                  : ips.some(i => i.status === 'iniciado' || i.status === 'supervisao')
+                    ? 'Em andamento'
+                    : 'Novo';
+                    
+                if (pdfFiltroStatus === 'novos' && statusGlobal !== 'Novo') return false;
+                if (pdfFiltroStatus === 'andamento' && statusGlobal !== 'Em andamento') return false;
+                
+                const diasRestantes = calcularDiasRestantes(pedido.data_previsao_entrega);
+                if (pdfFiltroStatus === 'atrasados' && (diasRestantes === null || diasRestantes >= 0)) return false;
+                if (pdfFiltroStatus === 'hoje' && diasRestantes !== 0) return false;
+              }
+              
               return true;
             });
             const todosIds = listaFiltrada.map(({ pedido, seq }) => `${pedido.id}-${seq}`);
@@ -848,13 +956,32 @@ const Dashboard = () => {
                 </div>
 
                 {/* Lista de pedidos */}
-                <div className="overflow-y-auto flex-1 border rounded-md divide-y">
+                <div className="overflow-y-auto flex-1 border rounded-md">
                   {listaFiltrada.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground text-sm">Nenhum pedido encontrado</div>
                   ) : (
-                    listaFiltrada.map(({ pedido, seq, itensProducao: ips }) => {
-                      const chave = `${pedido.id}-${seq}`;
-                      const selecionado = pdfSelecionados.has(chave);
+                    (() => {
+                      let lastDate = '';
+                      return [...listaFiltrada].sort((a, b) => {
+                        const da = a.pedido.data_previsao_entrega || 'zzzz';
+                        const db = b.pedido.data_previsao_entrega || 'zzzz';
+                        return da.localeCompare(db);
+                      }).map(({ pedido, seq, itensProducao: ips, item }) => {
+                        const elements = [];
+                        const currentDate = pedido.data_previsao_entrega ? pedido.data_previsao_entrega.split('T')[0] : 'sem-data';
+                        
+                        if (currentDate !== lastDate) {
+                          lastDate = currentDate;
+                          const dateLabel = currentDate === 'sem-data' ? 'Pedidos sem data de entrega' : `Entrega: ${formatDataCriacao(pedido.data_previsao_entrega)}`;
+                          elements.push(
+                            <div key={`header-${currentDate}`} className="bg-muted/60 px-4 py-2 text-xs font-bold text-muted-foreground uppercase sticky top-0 z-10 border-b border-t first:border-t-0 backdrop-blur-sm">
+                              {dateLabel}
+                            </div>
+                          );
+                        }
+
+                        const chave = `${pedido.id}-${seq}`;
+                        const selecionado = pdfSelecionados.has(chave);
                       const statusGlobal = ips.every(i => i.status === 'finalizado')
                         ? 'Finalizado'
                         : ips.some(i => i.status === 'iniciado' || i.status === 'supervisao')
@@ -866,7 +993,7 @@ const Dashboard = () => {
                           ? 'text-yellow-600'
                           : 'text-blue-600';
 
-                      return (
+                      const labelNode = (
                         <label
                           key={chave}
                           className={`flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors ${selecionado ? 'bg-primary/5' : ''
@@ -892,19 +1019,24 @@ const Dashboard = () => {
                               <span className={`text-xs font-medium ${statusColor}`}>{statusGlobal}</span>
                             </div>
                             {isAdmin && (
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                {pedido.cliente_nome || 'Cliente não informado'}
+                              <div className="text-xs text-muted-foreground mt-0.5 font-medium">
+                                {pedido.cliente_nome || 'Cliente não informado'} <span className="text-gray-900 dark:text-gray-100 font-bold ml-1">• {pedido.tipo_sofa || 'Produto'}</span>
                               </div>
                             )}
-                            {pedido.created_at && (
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                Criado em: {formatDataCriacao(pedido.created_at)}
-                              </div>
-                            )}
+                            <div className="text-xs mt-0.5 font-medium">
+                              {pedido.data_previsao_entrega ? (
+                                <span className="text-red-600 dark:text-red-400 font-bold">Entrega: {formatDataCriacao(pedido.data_previsao_entrega)}</span>
+                              ) : (
+                                <span className="text-muted-foreground">Sem data de entrega</span>
+                              )}
+                            </div>
                           </div>
                         </label>
                       );
+                      elements.push(labelNode);
+                      return elements;
                     })
+                  })()
                   )}
                 </div>
               </>
@@ -921,6 +1053,40 @@ const Dashboard = () => {
             >
               <Printer className="w-4 h-4" />
               {isPrinting ? 'Gerando...' : `Gerar PDF (${pdfSelecionados.size})`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Exclusão de Pedido */}
+      <Dialog open={pedidoExcluir !== null} onOpenChange={(open) => !open && setPedidoExcluir(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Excluir Pedido
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-gray-700">
+              Tem certeza que deseja excluir permanentemente este pedido?
+            </p>
+            <p className="text-sm font-semibold text-red-600">
+              Atenção: Esta ação não pode ser desfeita e todas as fotos e itens vinculados também serão apagados!
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setPedidoExcluir(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (pedidoExcluir) {
+                  await apagarPedido(pedidoExcluir);
+                  setPedidoExcluir(null);
+                }
+              }}
+            >
+              Sim, excluir pedido
             </Button>
           </div>
         </DialogContent>

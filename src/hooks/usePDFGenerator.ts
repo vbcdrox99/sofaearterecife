@@ -1531,7 +1531,14 @@ export const usePDFGenerator = () => {
     contentRef: printRef,
     documentTitle: titleRef.current,
     pageStyle,
-    onBeforeGetContent: () => setIsPrinting(true),
+    onBeforeGetContent: () => {
+      return new Promise((resolve) => {
+        setIsPrinting(true);
+        // Pequeno delay para garantir que o React aplique as classes 'print:hidden' 
+        // aos itens não selecionados antes da biblioteca clonar o DOM
+        setTimeout(resolve, 100);
+      });
+    },
     onAfterPrint: () => setIsPrinting(false),
   });
 

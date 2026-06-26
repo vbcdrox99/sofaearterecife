@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Save, User, Phone, MapPin, Package, Calendar, DollarSign, Mail, AlertCircle, Plus, X, Trash2, Camera, Store } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Save, User, Package, Calendar, DollarSign, AlertCircle, Camera, Store, ChevronRight, ChevronLeft, Layers, Trash2 } from 'lucide-react';
 import ImageUpload, { UploadedImage } from '@/components/ImageUpload';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import ProdutoCampos from '@/components/dashboard/ProdutoCampos';
+import { StepperWizard } from '@/components/dashboard/StepperWizard';
+import { SearchableSelect } from '@/components/dashboard/SearchableSelect';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +14,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -21,6 +25,14 @@ import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector
 import { VendedorSelector, Vendedor } from '@/components/dashboard/VendedorSelector';
 import DiscountInput from '@/components/dashboard/DiscountInput';
 import { formatOrderNumber, formatCurrencyInput } from '@/lib/utils';
+
+// Helper: label com asterisco para campos obrigatórios
+const RequiredLabel = ({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) => (
+  <Label htmlFor={htmlFor} className="flex items-center gap-1">
+    {children}
+    <span className="text-destructive text-sm leading-none">*</span>
+  </Label>
+);
 
 interface FormData {
   clienteId: string;
@@ -175,7 +187,7 @@ const NovoPedido = () => {
   // Estados para etapas necessárias
   const etapasDisponiveis = ['marcenaria', 'corte_costura', 'espuma', 'bancada', 'tecido'];
   const [etapasSelecionadas, setEtapasSelecionadas] = useState<string[]>([]);
-  // Estado do wizard de etapas (1: Cliente, 2: Produto, 3: Detalhes)
+  // Estado do wizard de etapas (1: Cliente, 2: Entrega, 3: Produto, 4: Detalhes)
   const [wizardStep, setWizardStep] = useState(1);
 
   const toggleEtapa = (etapa: string) => {
@@ -191,6 +203,7 @@ const NovoPedido = () => {
   // Avançar no wizard com validações locais
   const handleAvancarWizard = () => {
     if (wizardStep === 1) {
+      // Step 1: Cliente + Vendedor
       if (!clienteSelecionado) {
         toast({
           title: 'Atenção',
@@ -207,6 +220,8 @@ const NovoPedido = () => {
         });
         return;
       }
+    } else if (wizardStep === 2) {
+      // Step 2: Data de entrega
       if (!formData.dataEntrega) {
         toast({
           title: 'Atenção',
@@ -215,8 +230,8 @@ const NovoPedido = () => {
         });
         return;
       }
-    } else if (wizardStep === 2) {
-      // Validações do Produto
+    } else if (wizardStep === 3) {
+      // Step 3: Validações do Produto
       const missingFields: string[] = [];
       if (!formData.descricao) missingFields.push('Descrição');
       if (!formData.tipoSofa) missingFields.push('Tipo de Sofá');
@@ -228,8 +243,8 @@ const NovoPedido = () => {
 
       if (missingFields.length > 0) {
         toast({
-          title: 'Campos Obrigatórios (Produto 1)',
-          description: `Os seguintes campos são obrigatórios: ${missingFields.join(', ')}.`,
+          title: `Campos obrigatórios faltando`,
+          description: `Preencha: ${missingFields.join(', ')}.`,
           variant: 'destructive',
         });
         return;
@@ -244,7 +259,7 @@ const NovoPedido = () => {
         return;
       }
     }
-    setWizardStep((prev) => Math.min(3, prev + 1));
+    setWizardStep((prev) => Math.min(4, prev + 1));
   };
   const [formData, setFormData] = useState<FormData>({
     clienteId: '',
@@ -393,8 +408,8 @@ Nome:_______________________________________________CPF_________________________
 
 O serviço de FRETE E MONTAGEM é realizado por empresa terceirizada, indicada pela loja, caso o cliente opte por retirar por meios próprios, fica a empresa isenta de responsabilidade sobre possíveis danos ao produto.
 
-O cliente deve informar durante o atendimento às condições do local de entrega do produto.
-Ex: Quantos andares de escada, tamanho de elevador, porta e corredores…
+O cliente deve informar durante o atendimento à s condições do local de entrega do produto.
+Ex: Quantos andares de escada, tamanho de elevador, porta e corredores...
 
 Caso o produto precise ser entregue por escadas, será cobrado além da taxa de montagem (caso haja necessidade), 10,00 por andar.
 
@@ -478,7 +493,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
           setEtapasSelecionadas(pedido.etapas_necessarias);
         }
 
-        // Parse robusto de dimensões salvas, aceitando 'x', 'X', '×', espaços e ponto/vírgula
+        // Parse robusto de dimensões salvas, aceitando 'x', 'X', 'ÃÃ¢â‚¬â€', espaços e ponto/vírgula
         const dimensoesStr: string = pedido.dimensoes || '';
         const matches = dimensoesStr.match(/\d+[.,]?\d*/g) || [];
         const largura = matches[0] ? matches[0].replace('.', ',') : '';
@@ -551,7 +566,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
             .order('created_at', { ascending: true });
 
           if (!itensErr && Array.isArray(itensDb)) {
-            // Preencher campos do Produto 1 relacionados à visita técnica, se existirem
+            // Preencher campos do Produto 1 relacionados à  visita técnica, se existirem
             if (itensDb.length >= 1) {
               const primeiro = itensDb[0];
               setFormData(prev => ({
@@ -566,12 +581,12 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                 tipoSofa: it.tipo_sofa || '',
                 dimensoes: it.dimensoes || '',
                 dimensaoLargura: (() => {
-                  const d = (it.dimensoes || '').replace('×', 'x');
+                  const d = (it.dimensoes || '').replace('ÃÃ¢â‚¬â€', 'x');
                   const parts = d.split('x').map((p: string) => p.trim());
                   return parts[0] || '';
                 })(),
                 dimensaoComprimento: (() => {
-                  const d = (it.dimensoes || '').replace('×', 'x');
+                  const d = (it.dimensoes || '').replace('ÃÃ¢â‚¬â€', 'x');
                   const parts = d.split('x').map((p: string) => p.trim());
                   return parts[1] || '';
                 })(),
@@ -1380,7 +1395,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Evitar salvar antes da etapa final do wizard
-    if (wizardStep < 3) {
+    if (wizardStep < 4) {
       handleAvancarWizard();
       return;
     }
@@ -1871,25 +1886,32 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
     }
   };
 
-  // Bloquear Enter nas etapas 1 e 2 para evitar submit prematuro, porem garantir que Dialogs e outros modais não acionem essa troca
+  // Bloquear Enter nas etapas 1-3 para evitar submit prematuro
   const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
-    if (e.key === 'Enter' && wizardStep < 3) {
+    if (e.key === 'Enter' && wizardStep < 4) {
       const target = e.target as HTMLElement;
-
-      // Ignorar se o Enter for dado em um textarea (para permitir quebras de linha)
       if (target.tagName.toLowerCase() === 'textarea') return;
-
-      // Ignorar se o Enter for dado num botão (eles já cuidam do próprio form action / onClick)
       if (target.tagName.toLowerCase() === 'button') return;
-
-      // Se o alvo for de um Dialog, Popover (e.g., cmdk combobox) ou qualquer sobreposição Radix, ignora o auto-avanço geral
       if (target.closest('[role="dialog"]') || target.closest('[role="combobox"]') || target.closest('[role="listbox"]') || target.hasAttribute('cmdk-input')) {
         return;
       }
-
       e.preventDefault();
       handleAvancarWizard();
     }
+  };
+
+  // Helper: converter date ISO (YYYY-MM-DD) para BR (DD/MM/AAAA)
+  const isoToBR = (iso: string) => {
+    if (!iso || iso.length !== 10) return '';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
+  // Helper: converter BR (DD/MM/AAAA) para ISO (YYYY-MM-DD) para o input type=date
+  const brToISO = (br: string) => {
+    if (!br || br.length !== 10) return '';
+    const [d, m, y] = br.split('/');
+    return `${y}-${m}-${d}`;
   };
 
   return (
@@ -1900,28 +1922,24 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl mx-auto"
+        className="max-w-4xl mx-auto pb-28"
       >
         <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
-          {/* Navegação do Wizard */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex gap-2 text-sm">
-              <span className="font-medium">Passo {wizardStep} de 3</span>
-              <span className="text-muted-foreground">{wizardStep === 1 ? 'Entrega e Dados do Cliente' : wizardStep === 2 ? 'Dados do Produto' : 'Detalhes'}</span>
-            </div>
-            <div className="flex gap-2">
-              {wizardStep > 1 && (
-                <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); setWizardStep(prev => Math.max(1, prev - 1)); }}>
-                  Voltar
-                </Button>
-              )}
-            </div>
-          </div>
-          {/* Dados do Cliente */}
+          {/* Stepper Visual */}
+          <StepperWizard currentStep={wizardStep} />
+          {/* âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ STEP 1: Cliente & Vendedor âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ */}
+          <AnimatePresence mode="wait">
           {wizardStep === 1 && (
-            <>
+            <motion.div
+              key="step1"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-4"
+            >
               {selectedStore === 'todas' && (
-                <Card className="mb-6 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
+                <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base text-blue-700 dark:text-blue-300">
                       <Store className="w-5 h-5" />
@@ -1945,184 +1963,252 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                   </CardContent>
                 </Card>
               )}
-              <div className="grid gap-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-xl font-bold flex items-center gap-2">
-                      <User className="h-5 w-5" />
-                      Dados do Cliente & Vendedor
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Cliente</Label>
-                        <ClienteSelector
-                          onClienteSelect={(cliente) => {
-                            setClienteSelecionado(cliente);
-                            if (cliente) {
-                              setFormData(prev => ({
-                                ...prev,
-                                clienteId: cliente.id,
-                                clienteNome: cliente.nome,
-                                clienteEmail: cliente.email || '',
-                                clienteTelefone: cliente.telefone,
-                                clienteEndereco: cliente.endereco_completo || '',
-                                clienteCep: cliente.cep || '',
-                                clienteBairro: cliente.bairro || '',
-                                clienteCidade: cliente.cidade || '',
-                                clienteEstado: cliente.estado || '',
-                              }));
-                            } else {
-                              setFormData(prev => ({
-                                ...prev,
-                                clienteId: '',
-                                clienteNome: '',
-                                clienteEmail: '',
-                                clienteTelefone: '',
-                                clienteEndereco: '',
-                                clienteCep: '',
-                                clienteBairro: '',
-                                clienteCidade: '',
-                                clienteEstado: '',
-                              }));
-                            }
-                          }}
-                          selectedCliente={clienteSelecionado}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Vendedor</Label>
-                        <VendedorSelector
-                          onVendedorSelect={(vendedor) => {
-                            setVendedorSelecionado(vendedor);
-                            setFormData(prev => ({ ...prev, vendedorId: vendedor?.id || '' }));
-                          }}
-                          selectedVendedor={vendedorSelecionado}
-                        />
-                      </div>
-                    </div>
 
-                    {clienteSelecionado && (
-                      <div className="grid md:grid-cols-2 gap-4 pt-2 border-t mt-2">
-                        <div className="space-y-2">
-                          <Label>Telefone</Label>
-                          <Input value={clienteSelecionado.telefone} disabled />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Email</Label>
-                          <Input value={clienteSelecionado.email || '-'} disabled />
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          )}
-          {/* Número do Pedido e Data de Entrega (bloco separado entre Cliente e Pedido) */}
-          {
-            wizardStep === 1 && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
-                    Número e Entrega
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <User className="h-5 w-5 text-primary" />
+                    Cliente & Vendedor
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground">Selecione o cliente e o vendedor responsável por este pedido.</p>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label>Tipo de Registro</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        type="button"
-                        variant={formData.tipoPedido === 'pedido' ? 'default' : 'outline'}
-                        className="h-10 font-semibold"
-                        onClick={() => handleInputChange('tipoPedido', 'pedido')}
-                      >
-                        Pedido
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={formData.tipoPedido === 'orcamento' ? 'default' : 'outline'}
-                        className="h-10 font-semibold"
-                        onClick={() => handleInputChange('tipoPedido', 'orcamento')}
-                      >
-                        Orçamento
-                      </Button>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <RequiredLabel>Cliente</RequiredLabel>
+                      <ClienteSelector
+                        onClienteSelect={(cliente) => {
+                          setClienteSelecionado(cliente);
+                          if (cliente) {
+                            setFormData(prev => ({
+                              ...prev,
+                              clienteId: cliente.id,
+                              clienteNome: cliente.nome,
+                              clienteEmail: cliente.email || '',
+                              clienteTelefone: cliente.telefone,
+                              clienteEndereco: cliente.endereco_completo || '',
+                              clienteCep: cliente.cep || '',
+                              clienteBairro: cliente.bairro || '',
+                              clienteCidade: cliente.cidade || '',
+                              clienteEstado: cliente.estado || '',
+                            }));
+                          } else {
+                            setFormData(prev => ({
+                              ...prev,
+                              clienteId: '', clienteNome: '', clienteEmail: '',
+                              clienteTelefone: '', clienteEndereco: '', clienteCep: '',
+                              clienteBairro: '', clienteCidade: '', clienteEstado: '',
+                            }));
+                          }
+                        }}
+                        selectedCliente={clienteSelecionado}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <RequiredLabel>Vendedor</RequiredLabel>
+                      <VendedorSelector
+                        onVendedorSelect={(vendedor) => {
+                          setVendedorSelecionado(vendedor);
+                          setFormData(prev => ({ ...prev, vendedorId: vendedor?.id || '' }));
+                        }}
+                        selectedVendedor={vendedorSelecionado}
+                      />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="numeroPedido">Número do Pedido</Label>
-                    <Input
-                      id="numeroPedido"
-                      value={formData.numeroPedido}
-                      onChange={(e) => handleInputChange('numeroPedido', e.target.value)}
-                      className="font-medium"
-                    />
+
+                  {clienteSelecionado && (
+                    <div className="grid md:grid-cols-2 gap-4 pt-3 border-t">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Telefone</Label>
+                        <p className="text-sm font-medium">{clienteSelecionado.telefone || '—'}</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Email</Label>
+                        <p className="text-sm font-medium">{clienteSelecionado.email || '—'}</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+          </AnimatePresence>
+          {/* âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ STEP 2: Entrega & Pedido âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ */}
+          <AnimatePresence mode="wait">
+          {wizardStep === 2 && (
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.25 }}
+            >
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    Entrega & Pedido
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">Configure o tipo de registro, número e prazo de entrega.</p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Tipo de Registro */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold">Tipo de Registro</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleInputChange('tipoPedido', 'pedido')}
+                        className={`h-16 rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all font-medium text-sm ${
+                          formData.tipoPedido === 'pedido'
+                            ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                            : 'border-border hover:border-primary/40 text-muted-foreground'
+                        }`}
+                      >
+                        <Package className="w-4 h-4" />
+                        Pedido
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleInputChange('tipoPedido', 'orcamento')}
+                        className={`h-16 rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all font-medium text-sm ${
+                          formData.tipoPedido === 'orcamento'
+                            ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                            : 'border-border hover:border-primary/40 text-muted-foreground'
+                        }`}
+                      >
+                        <DollarSign className="w-4 h-4" />
+                        Orçamento
+                      </button>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="dataEntrega">Data de Entrega</Label>
-                    <Input
-                      id="dataEntrega"
-                      type="text"
-                      placeholder="DD/MM/AAAA"
-                      value={formData.dataEntrega}
-                      onChange={(e) => handleDataChange(e.target.value)}
-                      maxLength={10}
-                      required
-                    />
+
+                  <Separator />
+
+                  {/* Número e Data */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="numeroPedido">Número do Pedido</Label>
+                      <Input
+                        id="numeroPedido"
+                        value={formData.numeroPedido}
+                        onChange={(e) => handleInputChange('numeroPedido', e.target.value)}
+                        className="font-medium"
+                      />
+                      <p className="text-xs text-muted-foreground">Preenchido automaticamente. Pode ser editado.</p>
+                    </div>
+                    <div className="space-y-2">
+                      <RequiredLabel htmlFor="dataEntrega">Data de Entrega</RequiredLabel>
+                      <Input
+                        id="dataEntrega"
+                        type="date"
+                        value={brToISO(formData.dataEntrega)}
+                        onChange={(e) => handleInputChange('dataEntrega', isoToBR(e.target.value))}
+                        className="cursor-pointer"
+                      />
+                    </div>
                   </div>
+
+                  <Separator />
+
+                  {/* Prioridade */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold">Prioridade</Label>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { value: 'baixa', label: 'Baixa', color: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' },
+                        { value: 'media', label: 'Média', color: 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700' },
+                        { value: 'alta', label: 'Alta', color: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700' },
+                        { value: 'urgente', label: '🚨 Urgente', color: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700' },
+                      ].map(p => (
+                        <button
+                          key={p.value}
+                          type="button"
+                          onClick={() => handleInputChange('prioridade', p.value)}
+                          className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                            formData.prioridade === p.value
+                              ? `${p.color} border-2 shadow-sm scale-105`
+                              : 'border-border text-muted-foreground hover:border-primary/40'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Frete */}
                   <div className="space-y-2">
                     <Label htmlFor="frete">Frete</Label>
-                    <Input
-                      id="frete"
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="Valor do frete (se houver)"
-                      value={formData.frete}
-                      onChange={(e) => handleInputChange('frete', formatCurrencyInput(e.target.value))}
-                      disabled={isEditMode && isFuncionario}
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                      <Input
+                        id="frete"
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={formData.frete}
+                        onChange={(e) => handleInputChange('frete', formatCurrencyInput(e.target.value))}
+                        disabled={isEditMode && isFuncionario}
+                        className="pl-9"
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            )
-          }
+            </motion.div>
+          )}
+          </AnimatePresence>
 
-          {/* Dados do Pedido */}
+          {/* âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ STEP 3: Produto âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ */}
+          <AnimatePresence mode="wait">
           {
-            wizardStep === 2 && (
+            wizardStep === 3 && (
+            <motion.div
+              key="step3"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.25 }}
+            >
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="w-5 h-5" />
-                    Dados do Produto
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Package className="w-5 h-5 text-primary" />
+                    Produto 1
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground">Especifique o produto principal do pedido.</p>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Cabeçalho para o Produto 1 */}
-                  <div className="md:col-span-2">
-                    <Label className="text-base font-medium">Produto 1</Label>
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="descricao">Descrição</Label>
-                    <Textarea
-                      id="descricao"
-                      value={formData.descricao}
-                      onChange={(e) => handleInputChange('descricao', e.target.value)}
-                      placeholder="Descrição detalhada do pedido"
-                      rows={3}
-                      required
-                    />
+                <CardContent className="space-y-6">
+                  {/* Seção A: Identificação */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-1 rounded-full bg-primary" />
+                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Identificação</h3>
+                    </div>
+                    <div className="space-y-2">
+                      <RequiredLabel htmlFor="descricao">Descrição do Pedido</RequiredLabel>
+                      <Textarea
+                        id="descricao"
+                        value={formData.descricao}
+                        onChange={(e) => handleInputChange('descricao', e.target.value)}
+                        placeholder="Ex: Sofá de canto em couro, 3 módulos, reclinável..."
+                        rows={3}
+                      />
+                    </div>
                   </div>
 
-                  {/* Visita técnica (Produto 1) */}
-                  <div className="space-y-2 md:col-span-2">
+                  {/* Visita técnica */}
+                  <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-base font-medium">Visita técnica</Label>
+                      <div>
+                        <p className="text-sm font-medium">Visita Técnica</p>
+                        <p className="text-xs text-muted-foreground">Necessário antes da fabricação?</p>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">{formData.visitaTecnicaAtiva ? 'Sim' : 'Não'}</span>
+                        <span className="text-xs text-muted-foreground">{formData.visitaTecnicaAtiva ? 'Sim' : 'Não'}</span>
                         <Switch
                           checked={formData.visitaTecnicaAtiva}
                           onCheckedChange={(checked) => setFormData(prev => ({ ...prev, visitaTecnicaAtiva: checked }))}
@@ -2130,28 +2216,250 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       </div>
                     </div>
                     {formData.visitaTecnicaAtiva && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2 md:col-span-1">
-                          <Label htmlFor="dataVisitaTecnica">Data da visita técnica</Label>
-                          <Input
-                            id="dataVisitaTecnica"
-                            type="text"
-                            placeholder="DD/MM/AAAA"
-                            maxLength={10}
-                            value={formData.visitaTecnicaData}
-                            onChange={(e) => setFormData(prev => ({ ...prev, visitaTecnicaData: formatarData(e.target.value) }))}
-                          />
-                        </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="dataVisitaTecnica">Data da Visita</Label>
+                        <Input
+                          id="dataVisitaTecnica"
+                          type="date"
+                          value={brToISO(formData.visitaTecnicaData)}
+                          onChange={(e) => setFormData(prev => ({ ...prev, visitaTecnicaData: isoToBR(e.target.value) }))}
+                          className="max-w-[200px] cursor-pointer"
+                        />
                       </div>
                     )}
                   </div>
 
-                  {/* Foto do Produto (principal) */}
-                  <div className="space-y-2 md:col-span-2">
-                    <Label className="flex items-center gap-2">
-                      <Camera className="h-4 w-4" />
-                      Foto do Produto
-                    </Label>
+                  {/* Seção B: Especificações do Sofá */}
+                  <Separator />
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-1 rounded-full bg-primary" />
+                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Especificações</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <RequiredLabel htmlFor="tipoSofa">Tipo de Sofá</RequiredLabel>
+                      <SearchableSelect
+                        value={formData.tipoSofa}
+                        onValueChange={(value) => handleInputChange('tipoSofa', value)}
+                        options={tiposSofaDisponiveis}
+                        placeholder="Selecionar tipo de sofá"
+                        addLabel="Adicionar Novo Tipo de Sofá"
+                        addPlaceholder="Ex: Sofá Reclinável 3L"
+                        onAddOption={adicionarNovoTipoSofa}
+                        onDeleteOption={excluirTipoSofa}
+                      />
+                    </div>
+                      <div className="space-y-2">
+                        <RequiredLabel htmlFor="tipoServico">Tipo de Serviço</RequiredLabel>
+                        <SearchableSelect
+                          value={formData.tipoServico}
+                          onValueChange={(value) => handleInputChange('tipoServico', value)}
+                          options={tiposServicoDisponiveis}
+                          placeholder="Selecionar tipo de serviço"
+                          addLabel="Adicionar Novo Tipo de Serviço"
+                          addPlaceholder="Ex: MANUTENÇÃO"
+                          onAddOption={adicionarNovoTipoServico}
+                          onDeleteOption={excluirTipoServico}
+                        />
+                      </div>
+
+                      {/* Dimensões inline */}
+                      <div className="space-y-2">
+                        <Label>Dimensões (metros)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="dimensaoLargura"
+                            value={formData.dimensaoLargura}
+                            onChange={(e) => handleDimensaoChange('dimensaoLargura', e.target.value)}
+                            placeholder="2,20"
+                            maxLength={4}
+                            className="text-center"
+                          />
+                          <span className="text-lg font-bold text-muted-foreground">×</span>
+                          <Input
+                            id="dimensaoComprimento"
+                            value={formData.dimensaoComprimento}
+                            onChange={(e) => handleDimensaoChange('dimensaoComprimento', e.target.value)}
+                            placeholder="1,10"
+                            maxLength={4}
+                            className="text-center"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <RequiredLabel htmlFor="espuma">Espuma</RequiredLabel>
+                        <SearchableSelect
+                          value={formData.espuma}
+                          onValueChange={(value) => handleInputChange('espuma', value)}
+                          options={espumasDisponiveis}
+                          placeholder="Selecionar espuma"
+                          addLabel="Adicionar Nova Espuma"
+                          addPlaceholder="Ex: D45"
+                          onAddOption={adicionarNovaEspuma}
+                          onDeleteOption={excluirEspuma}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <RequiredLabel htmlFor="tecido">Tecido</RequiredLabel>
+                        <SearchableSelect
+                          value={formData.tecido}
+                          onValueChange={(value) => handleInputChange('tecido', value)}
+                          options={tecidosDisponiveis}
+                          placeholder="Selecionar tecido"
+                          addLabel="Adicionar Novo Tecido"
+                          addPlaceholder="Ex: Bouclê Bege"
+                          onAddOption={adicionarNovoTecido}
+                          onDeleteOption={excluirTecido}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <RequiredLabel htmlFor="braco">Braço</RequiredLabel>
+                        <SearchableSelect
+                          value={formData.braco}
+                          onValueChange={(value) => handleInputChange('braco', value)}
+                          options={bracosDisponiveis}
+                          placeholder="Selecionar braço"
+                          addLabel="Adicionar Novo Braço"
+                          addPlaceholder="Ex: Ultra Slim"
+                          onAddOption={adicionarNovoBraco}
+                          onDeleteOption={excluirBraco}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <RequiredLabel htmlFor="tipoPe">Tipo de Pé</RequiredLabel>
+                        <SearchableSelect
+                          value={formData.tipoPe}
+                          onValueChange={(value) => handleInputChange('tipoPe', value)}
+                          options={tiposPeDisponiveis}
+                          placeholder="Selecionar tipo de pé"
+                          addLabel="Adicionar Novo Tipo de Pé"
+                          addPlaceholder="Ex: Redondo Cromado"
+                          onAddOption={adicionarNovoTipoPe}
+                          onDeleteOption={excluirTipoPe}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Seção C: Comercial */}
+                  <Separator />
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-1 rounded-full bg-primary" />
+                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Comercial</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="precoUnitario">Preço Unitário</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                          <Input
+                            id="precoUnitario"
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={formData.precoUnitario}
+                            onChange={(e) => handleInputChange('precoUnitario', formatCurrencyInput(e.target.value))}
+                            disabled={isEditMode && isFuncionario}
+                            className="pl-9"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quantidade">Quantidade</Label>
+                        <Input
+                          id="quantidade"
+                          type="number"
+                          min={1}
+                          value={formData.quantidade || 1}
+                          onChange={(e) => handleInputChange('quantidade', parseInt(e.target.value) || 1)}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Desconto por Item</Label>
+                      <DiscountInput
+                        price={parseValor(formData.precoUnitario) * (formData.quantidade || 1)}
+                        discountType={formData.descontoTipo}
+                        discountValue={formData.descontoValor}
+                        onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, descontoTipo: type }))}
+                        onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, descontoValor: value.toString() }))}
+                        label=""
+                        disabled={isEditMode && isFuncionario}
+                      />
+                    </div>
+                  </div>
+
+
+                  {/* Seção D: Produção */}
+                  <Separator />
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-1 rounded-full bg-primary" />
+                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Produção</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <RequiredLabel>Etapas Necessárias</RequiredLabel>
+                      <p className="text-xs text-muted-foreground">
+                        Selecione onde este pedido deve aparecer na produção.
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                        {etapasDisponiveis.map((etapa) => {
+                          const isSelected = etapasSelecionadas.includes(etapa);
+                          const etapaLabel = {
+                            'marcenaria': '🪵 Marcenaria',
+                            'corte_costura': '✂️ Corte/Costura',
+                            'espuma': '🛋️ Espuma',
+                            'bancada': '🔧 Bancada',
+                            'tecido': '🧵 Tecido'
+                          }[etapa] || etapa;
+                          return (
+                            <button
+                              key={etapa}
+                              type="button"
+                              onClick={() => toggleEtapa(etapa)}
+                              className={`h-14 rounded-lg border-2 text-xs font-medium transition-all ${
+                                isSelected
+                                  ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                                  : 'border-border hover:border-primary/40 text-muted-foreground'
+                              }`}
+                            >
+                              {etapaLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {etapasSelecionadas.length === 0 && (
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700">
+                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <p className="text-xs text-amber-700 dark:text-amber-400">Nenhuma etapa selecionada — o pedido não entrará na produção.</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="observacoes">Observações</Label>
+                      <Textarea
+                        id="observacoes"
+                        value={formData.observacoes}
+                        onChange={(e) => handleInputChange('observacoes', e.target.value)}
+                        placeholder="Observações adicionais sobre o produto..."
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Foto do Produto */}
+                  <Separator />
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-1 rounded-full bg-primary" />
+                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Fotos do Produto</h3>
+                    </div>
                     <ImageUpload
                       images={formData.fotosPedido}
                       onImagesChange={handleFotosPedidoChange}
@@ -2160,803 +2468,22 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       folder="fotos-pedido"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tipoSofa">Tipo de Sofá</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.tipoSofa} onValueChange={(value) => handleInputChange('tipoSofa', value)}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione o tipo de sofá" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {tiposSofaDisponiveis.map((tipo) => (
-                            <SelectItem key={tipo} value={tipo} className="group pr-8 cursor-pointer">
-                              <div className="flex w-full items-center justify-between">
-                                <span>{tipo}</span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onPointerDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setTipoSofaParaExcluir(tipo);
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3 text-red-500" />
-                                </Button>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={modalNovoTipoSofaAberto} onOpenChange={setModalNovoTipoSofaAberto}>
-                        <DialogTrigger asChild>
-                          <Button type="button" variant="outline" size="icon" className="shrink-0">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Adicionar Novo Tipo de Sofá</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="novo-tipo-sofa">Nome do Tipo</Label>
-                              <Input
-                                id="novo-tipo-sofa"
-                                value={novoTipoSofa}
-                                onChange={(e) => setNovoTipoSofa(e.target.value)}
-                                placeholder="Digite o nome do novo tipo"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    adicionarNovoTipoSofa();
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  setModalNovoTipoSofaAberto(false);
-                                  setNovoTipoSofa('');
-                                }}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                onClick={adicionarNovoTipoSofa}
-                                disabled={!novoTipoSofa.trim()}
-                              >
-                                Adicionar
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-
-                      {/* Modal de Confirmação para Excluir Tipo de Sofá */}
-                      <Dialog open={!!tipoSofaParaExcluir} onOpenChange={() => setTipoSofaParaExcluir(null)}>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Excluir Tipo de Sofá</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                              Tem certeza que deseja excluir o tipo <strong>"{tipoSofaParaExcluir}"</strong>?
-                            </p>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setTipoSofaParaExcluir(null)}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                onClick={() => tipoSofaParaExcluir && excluirTipoSofa(tipoSofaParaExcluir)}
-                              >
-                                Excluir
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
+                  {/* Produtos Adicionais */}
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={addItem}
+                      className="flex items-center gap-2 text-sm text-primary border border-primary/30 rounded-lg px-4 py-2 hover:bg-primary/5 transition-colors"
+                    >
+                      <span className="text-base leading-none">+</span>
+                      Adicionar Produto Adicional
+                    </button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="dimensoes">Dimensões (metros)</Label>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <Input
-                          id="dimensaoLargura"
-                          value={formData.dimensaoLargura}
-                          onChange={(e) => handleDimensaoChange('dimensaoLargura', e.target.value)}
-                          placeholder="2,20"
-                          maxLength={4}
-                          className="text-center"
-                        />
-                      </div>
-                      <span className="text-lg font-bold text-muted-foreground px-2">×</span>
-                      <div className="flex-1">
-                        <Input
-                          id="dimensaoComprimento"
-                          value={formData.dimensaoComprimento}
-                          onChange={(e) => handleDimensaoChange('dimensaoComprimento', e.target.value)}
-                          placeholder="1,10"
-                          maxLength={4}
-                          className="text-center"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tipoServico">Tipo de Serviço</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.tipoServico} onValueChange={(value) => handleInputChange('tipoServico', value)}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione o tipo de serviço" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {tiposServicoDisponiveis.map((tipoServico) => (
-                            <SelectItem key={tipoServico} value={tipoServico} className="group pr-8 cursor-pointer">
-                              <div className="flex w-full items-center justify-between">
-                                <span>{tipoServico}</span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onPointerDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setTipoServicoParaExcluir(tipoServico);
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3 text-red-500" />
-                                </Button>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={modalNovoTipoServicoAberto} onOpenChange={setModalNovoTipoServicoAberto}>
-                        <DialogTrigger asChild>
-                          <Button type="button" variant="outline" size="icon" className="shrink-0">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Adicionar Novo Tipo de Serviço</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="novoTipoServico">Nome do Tipo de Serviço</Label>
-                              <Input
-                                id="novoTipoServico"
-                                value={novoTipoServico}
-                                onChange={(e) => setNovoTipoServico(e.target.value)}
-                                placeholder="Ex: MANUTENÇÃO"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  setModalNovoTipoServicoAberto(false);
-                                  setNovoTipoServico('');
-                                }}
-                                className="flex-1"
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                onClick={adicionarNovoTipoServico}
-                                className="flex-1"
-                              >
-                                Adicionar
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="precoUnitario" className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      Preço Unitário
-                    </Label>
-                    <Input
-                      id="precoUnitario"
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="Ex: 199.90"
-                      value={formData.precoUnitario}
-                      onChange={(e) => handleInputChange('precoUnitario', formatCurrencyInput(e.target.value))}
-                      className="w-full"
-                      disabled={isEditMode && isFuncionario}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="quantidade">Unidade(s)</Label>
-                    <Input
-                      id="quantidade"
-                      type="number"
-                      min={1}
-                      value={formData.quantidade || 1}
-                      onChange={(e) => handleInputChange('quantidade', parseInt(e.target.value) || 1)}
-                      placeholder="Ex: 1"
-                      className="w-full"
-                    />
-                  </div>
-
-                  {/* Etapas Necessárias (Produto 1) */}
-                  <div className="space-y-2 md:col-span-2">
-                    <Label>Etapas Necessárias</Label>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Selecione as etapas de produção onde este pedido deve aparecer. Clique para selecionar/deselecionar.
-                    </p>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      {etapasDisponiveis.map((etapa) => {
-                        const isSelected = etapasSelecionadas.includes(etapa);
-                        const etapaLabel = {
-                          'marcenaria': 'Marcenaria',
-                          'corte_costura': 'Corte Costura',
-                          'espuma': 'Espuma',
-                          'bancada': 'Bancada',
-                          'tecido': 'Tecido'
-                        }[etapa] || etapa;
-
-                        return (
-                          <Button
-                            key={etapa}
-                            type="button"
-                            variant={isSelected ? "default" : "outline"}
-                            className={`h-12 text-sm font-medium transition-all ${isSelected
-                              ? 'bg-primary text-primary-foreground shadow-md'
-                              : 'hover:bg-muted'
-                              }`}
-                            onClick={() => toggleEtapa(etapa)}
-                          >
-                            {etapaLabel}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                    {etapasSelecionadas.length === 0 && (
-                      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-yellow-800">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="text-sm font-medium">Atenção:</span>
-                        </div>
-                        <p className="text-sm text-yellow-700 mt-1">
-                          Nenhuma etapa selecionada. O pedido não aparecerá em nenhuma etapa de produção.
-                        </p>
-                      </div>
-                    )}
-                    {etapasSelecionadas.length > 0 && (
-                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-green-800">
-                          <Package className="h-4 w-4" />
-                          <span className="text-sm font-medium">Etapas selecionadas:</span>
-                        </div>
-                        <p className="text-sm text-green-700 mt-1">
-                          {etapasSelecionadas.map(etapa => {
-                            const etapaLabel = {
-                              'marcenaria': 'Marcenaria',
-                              'corte_costura': 'Corte Costura',
-                              'espuma': 'Espuma',
-                              'bancada': 'Bancada',
-                              'tecido': 'Tecido'
-                            }[etapa] || etapa;
-                            return etapaLabel;
-                          }).join(', ')}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Observações (Produto 1) */}
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="observacoes">Observações</Label>
-                    <Textarea
-                      id="observacoes"
-                      value={formData.observacoes}
-                      onChange={(e) => handleInputChange('observacoes', e.target.value)}
-                      placeholder="Observações adicionais sobre o pedido"
-                      rows={2}
-                    />
-                  </div>
-
-                  {/* Espuma (Produto 1) */}
-                  <div className="space-y-2">
-                    <Label htmlFor="espuma">Espuma</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.espuma} onValueChange={(value) => handleInputChange('espuma', value)}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione o tipo de espuma" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {espumasDisponiveis.map((espuma) => (
-                            <SelectItem key={espuma} value={espuma} className="group pr-8 cursor-pointer">
-                              <div className="flex w-full items-center justify-between">
-                                <span>{espuma}</span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onPointerDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setEspumaParaExcluir(espuma);
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3 text-red-500" />
-                                </Button>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={modalNovaEspumaAberto} onOpenChange={setModalNovaEspumaAberto}>
-                        <DialogTrigger asChild>
-                          <Button type="button" variant="outline" size="icon" className="shrink-0">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Adicionar Nova Espuma</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="nova-espuma">Nome da Espuma</Label>
-                              <Input
-                                id="nova-espuma"
-                                value={novaEspuma}
-                                onChange={(e) => setNovaEspuma(e.target.value)}
-                                placeholder="Digite o nome da nova espuma"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    adicionarNovaEspuma();
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  setModalNovaEspumaAberto(false);
-                                  setNovaEspuma('');
-                                }}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                onClick={adicionarNovaEspuma}
-                                disabled={!novaEspuma.trim()}
-                              >
-                                Adicionar
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      {/* Modal de Confirmação para Excluir Espuma */}
-                      <Dialog open={!!espumaParaExcluir} onOpenChange={() => setEspumaParaExcluir(null)}>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Excluir Espuma</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                              Tem certeza que deseja excluir a espuma <strong>"{espumaParaExcluir}"</strong>?
-                            </p>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setEspumaParaExcluir(null)}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                onClick={() => espumaParaExcluir && excluirEspuma(espumaParaExcluir)}
-                              >
-                                Excluir
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-
-                  {/* Tecido (Produto 1) */}
-                  <div className="space-y-2">
-                    <Label htmlFor="tecido">Tecido</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.tecido} onValueChange={(value) => handleInputChange('tecido', value)}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione o tecido" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {tecidosDisponiveis.map((tecido) => (
-                            <SelectItem key={tecido} value={tecido} className="group pr-8 cursor-pointer">
-                              <div className="flex w-full items-center justify-between">
-                                <span>{tecido}</span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onPointerDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setTecidoParaExcluir(tecido);
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3 text-red-500" />
-                                </Button>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={modalNovoTecidoAberto} onOpenChange={setModalNovoTecidoAberto}>
-                        <DialogTrigger asChild>
-                          <Button type="button" variant="outline" size="icon" className="shrink-0">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Adicionar Novo Tecido</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="novo-tecido">Nome do Tecido</Label>
-                              <Input
-                                id="novo-tecido"
-                                value={novoTecido}
-                                onChange={(e) => setNovoTecido(e.target.value)}
-                                placeholder="Digite a especificação do novo tecido"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    adicionarNovoTecido();
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  setModalNovoTecidoAberto(false);
-                                  setNovoTecido('');
-                                }}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                onClick={adicionarNovoTecido}
-                                disabled={!novoTecido.trim()}
-                              >
-                                Adicionar
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      {/* Modal de Confirmação para Excluir Tecido */}
-                      <Dialog open={!!tecidoParaExcluir} onOpenChange={() => setTecidoParaExcluir(null)}>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Excluir Tecido</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                              Tem certeza que deseja excluir o tecido <strong>"{tecidoParaExcluir}"</strong>?
-                            </p>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setTecidoParaExcluir(null)}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                onClick={() => tecidoParaExcluir && excluirTecido(tecidoParaExcluir)}
-                              >
-                                Excluir
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-
-                  {/* Braço (Produto 1) */}
-                  <div className="space-y-2">
-                    <Label htmlFor="braco">Braço</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.braco} onValueChange={(value) => handleInputChange('braco', value)}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione o tipo de braço" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {bracosDisponiveis.map((braco) => (
-                            <SelectItem key={braco} value={braco} className="group pr-8 cursor-pointer">
-                              <div className="flex w-full items-center justify-between">
-                                <span>{braco}</span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onPointerDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setBracoParaExcluir(braco);
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3 text-red-500" />
-                                </Button>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={modalNovoBracoAberto} onOpenChange={setModalNovoBracoAberto}>
-                        <DialogTrigger asChild>
-                          <Button type="button" variant="outline" size="icon" className="shrink-0">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Adicionar Novo Braço</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="novo-braco">Nome do Braço</Label>
-                              <Input
-                                id="novo-braco"
-                                value={novoBraco}
-                                onChange={(e) => setNovoBraco(e.target.value)}
-                                placeholder="Digite o nome do novo braço"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    adicionarNovoBraco();
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  setModalNovoBracoAberto(false);
-                                  setNovoBraco('');
-                                }}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                onClick={adicionarNovoBraco}
-                                disabled={!novoBraco.trim()}
-                              >
-                                Adicionar
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      {/* Modal de Confirmação para Excluir Braço */}
-                      <Dialog open={!!bracoParaExcluir} onOpenChange={() => setBracoParaExcluir(null)}>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Excluir Braço</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                              Tem certeza que deseja excluir o braço <strong>"{bracoParaExcluir}"</strong>?
-                            </p>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setBracoParaExcluir(null)}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                onClick={() => bracoParaExcluir && excluirBraco(bracoParaExcluir)}
-                              >
-                                Excluir
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-
-                  {/* Tipo de Pé (Produto 1) */}
-                  <div className="space-y-2">
-                    <Label htmlFor="tipoPe">Tipo de Pé</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.tipoPe} onValueChange={(value) => handleInputChange('tipoPe', value)}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione o tipo de pé" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {tiposPeDisponiveis.map((tipoPe) => (
-                            <SelectItem key={tipoPe} value={tipoPe} className="group pr-8 cursor-pointer">
-                              <div className="flex w-full items-center justify-between">
-                                <span>{tipoPe}</span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="absolute right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onPointerDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setTipoPeParaExcluir(tipoPe);
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3 text-red-500" />
-                                </Button>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={modalNovoTipoPeAberto} onOpenChange={setModalNovoTipoPeAberto}>
-                        <DialogTrigger asChild>
-                          <Button type="button" variant="outline" size="icon" className="shrink-0">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Adicionar Novo Tipo de Pé</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="novo-tipo-pe">Nome do Tipo de Pé</Label>
-                              <Input
-                                id="novo-tipo-pe"
-                                value={novoTipoPe}
-                                onChange={(e) => setNovoTipoPe(e.target.value)}
-                                placeholder="Digite o nome do novo tipo de pé"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    adicionarNovoTipoPe();
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  setModalNovoTipoPeAberto(false);
-                                  setNovoTipoPe('');
-                                }}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                onClick={adicionarNovoTipoPe}
-                                disabled={!novoTipoPe.trim()}
-                              >
-                                Adicionar
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      {/* Modal de Confirmação para Excluir Tipo de Pé */}
-                      <Dialog open={!!tipoPeParaExcluir} onOpenChange={() => setTipoPeParaExcluir(null)}>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Excluir Tipo de Pé</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                              Tem certeza que deseja excluir o tipo de pé <strong>"{tipoPeParaExcluir}"</strong>?
-                            </p>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setTipoPeParaExcluir(null)}
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                onClick={() => tipoPeParaExcluir && excluirTipoPe(tipoPeParaExcluir)}
-                              >
-                                Excluir
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-
-                  {/* Botão para adicionar novo produto (movido para baixo) */}
-                  <div className="md:col-span-2 flex justify-end mt-4">
-                    <Button type="button" variant="outline" onClick={addItem}>
-                      Adicionar novo produto
-                    </Button>
-                  </div>
-
+                  
                   {/* Produtos adicionais */}
                   {itensAdicionais.length > 0 && (
-                    <div className="md:col-span-2 space-y-4">
+                    <div className="md:col-span-2 space-y-4 mt-6">
                       <Label>Produtos adicionais</Label>
                       {itensAdicionais.map((item, index) => (
                         <div key={index} className="border rounded-md p-4 space-y-4 bg-muted/30">
@@ -2966,11 +2493,6 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>
-
-                          {/* Campo de descrição removido aqui; ProdutoCampos renderiza a descrição do produto */}
-
-                          {/* Upload de foto removido aqui para evitar duplicação; o ProdutoCampos gerencia a foto do produto */}
-
                           <ProdutoCampos
                             values={{
                               descricao: item.descricao,
@@ -2989,7 +2511,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                               descontoTipo: item.descontoTipo,
                               descontoValor: item.descontoValor,
                             }}
-                            onChange={(field, value) => handleItemChange(index, field as any, value)}
+                            onChange={(field, value) => handleItemChange(index, field, value)}
                             isFuncionario={isEditMode && isFuncionario}
                             onFotosChange={(imgs) => handleItemFotosChange(index, imgs)}
                             onDimensaoChange={(field, value) => handleItemDimensaoChange(index, field, value)}
@@ -3020,50 +2542,31 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       ))}
                     </div>
                   )}
-                  <Dialog open={tipoServicoParaExcluir !== null} onOpenChange={() => setTipoServicoParaExcluir(null)}>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Confirmar Exclusão</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <p>Tem certeza que deseja excluir o tipo de serviço "{tipoServicoParaExcluir}"?</p>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setTipoServicoParaExcluir(null)}
-                            className="flex-1"
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            className="flex-1"
-                            onClick={() => tipoServicoParaExcluir && excluirTipoServico(tipoServicoParaExcluir)}
-                          >
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  </CardContent>
+                </Card>
+            </motion.div>
+            )}
+          </AnimatePresence>
 
-                  {/* Blocos do Produto 1 movidos para cima para separação por produto */}
-                </CardContent>
-              </Card>
-            )
-          }
+          {/* Ã¢â€â‚¬Ã¢â€â‚¬ STEP 4: Detalhes Ã¢â€â‚¬Ã¢â€â‚¬ */}
 
-          {/* Detalhes */}
+          <AnimatePresence mode="wait">
           {
-            wizardStep === 3 && (
-              <Card className="mt-6">
+            wizardStep === 4 && (
+            <motion.div
+              key="step4"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.25 }}
+            >
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Detalhes
+                    <DollarSign className="h-5 w-5 text-primary" />
+                    Financeiro & Detalhes
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground">Revise valores, garantia, termo de entrega e fotos de controle.</p>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Resumo: Total e Total+frete */}
@@ -3139,7 +2642,7 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                       </TabsContent>
                     </Tabs>
                     <div className="space-y-3">
-                      <Button type="button" variant="secondary" onClick={() => setFormData(prev => ({ ...prev, garantiaTexto: `Este produto está efetivamente garantido contra eventuais defeitos de fabricação conforme prazos indicados abaixo, a partir da data de compra, sem prorrogação.\nReforma: Prazo TOTAL de 3 (três) meses.\nFabricação: Revestimentos: prazo total de 3 (três) meses, desde que o revestimento seja do mostruário Válleri. Não será concedida qualquer garantia ao revestimento quando o tecido for fornecido pelo próprio cliente ou tenha sido adquirido de empresa terceira por solicitação do mesmo.\nEstrutura (madeiras, espumas, percintas, mecanismos, pés, fibras naturais): prazo total de 12 (doze) meses.\n\nA garantia perderá a sua validade:\n• Em caso de mau uso, considerando a finalidade a que se destina o móvel e as orientações constantes neste termo:\n• Em caso de limpeza incorreta, falta de manutenção básica ao uso, aplicação de produtos químicos, tratamentos de proteção aplicados pelo comprador, detergentes, condicionadores, fluidos corporais ou danos devidos à exposição direta ou indireta à luz solar, umidade excessiva, calor excessivo, luminosidade intensa, ou condições semelhantes, bem como avaria de transporte, quando o mesmo for realizado pelo próprio consumidor;\n• Em caso de danos causados pela ação de cupins, insetos, broca ou outras pragas;\n• Se forem realizados, sem prévia autorização da fábrica, alterações, reparos ou substituições de partes do móvel, ou por qualquer meio danificar o produto por ato que praticar.\n\nSolicitação de Assistência Técnica:\n• O consumidor deverá entrar em contato através do canal de atendimento (81) 98771-4814 munido do pedido de compra, a fim de formalizar a solicitação de assistência técnica;\n• A Válleri se reserva o direito de efetuar avaliação técnica da solicitação;\n• Caso seja constatado uso inadequado ou a presença de quaisquer condições que excluem ou não compreendam a garantia do produto, as despesas decorrentes do transporte e da reforma serão por conta do cliente ou consumidor final.` }))}>
+                      <Button type="button" variant="secondary" onClick={() => setFormData(prev => ({ ...prev, garantiaTexto: `Este produto está efetivamente garantido contra eventuais defeitos de fabricação conforme prazos indicados abaixo, a partir da data de compra, sem prorrogação.\nReforma: Prazo TOTAL de 3 (três) meses.\nFabricação: Revestimentos: prazo total de 3 (três) meses, desde que o revestimento seja do mostruário Válleri. Não será concedida qualquer garantia ao revestimento quando o tecido for fornecido pelo próprio cliente ou tenha sido adquirido de empresa terceira por solicitação do mesmo.\nEstrutura (madeiras, espumas, percintas, mecanismos, pés, fibras naturais): prazo total de 12 (doze) meses.\n\nA garantia perderá a sua validade:\n• Em caso de mau uso, considerando a finalidade a que se destina o móvel e as orientações constantes neste termo:\n• Em caso de limpeza incorreta, falta de manutenção básica ao uso, aplicação de produtos químicos, tratamentos de proteção aplicados pelo comprador, detergentes, condicionadores, fluidos corporais ou danos devidos à  exposição direta ou indireta à  luz solar, umidade excessiva, calor excessivo, luminosidade intensa, ou condições semelhantes, bem como avaria de transporte, quando o mesmo for realizado pelo próprio consumidor;\n• Em caso de danos causados pela ação de cupins, insetos, broca ou outras pragas;\n• Se forem realizados, sem prévia autorização da fábrica, alterações, reparos ou substituições de partes do móvel, ou por qualquer meio danificar o produto por ato que praticar.\n\nSolicitação de Assistência Técnica:\n• O consumidor deverá entrar em contato através do canal de atendimento (81) 98771-4814 munido do pedido de compra, a fim de formalizar a solicitação de assistência técnica;\n• A Válleri se reserva o direito de efetuar avaliação técnica da solicitação;\n• Caso seja constatado uso inadequado ou a presença de quaisquer condições que excluem ou não compreendam a garantia do produto, as despesas decorrentes do transporte e da reforma serão por conta do cliente ou consumidor final.` }))}>
                         Gerar automaticamente
                       </Button>
                       <Textarea
@@ -3218,59 +2721,54 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                   </div>
                 </CardContent>
               </Card>
+            </motion.div>
             )
           }
+          </AnimatePresence>
 
-          {/* Botões de Ação por etapa */}
-          {
-            wizardStep < 3 ? (
-              <div className="flex justify-end gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/dashboard')}
-                  disabled={isLoading}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); handleAvancarWizard(); }}
-                  disabled={isLoading}
-                >
-                  Avançar
-                </Button>
+          {/* Ã¢â€â‚¬ Barra de Ação Sticky Ã¢â€â‚¬ */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm shadow-lg">
+            <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+              <div className="text-sm text-muted-foreground hidden sm:block">
+                Etapa <span className="font-semibold text-foreground">{wizardStep}</span> de{' '}
+                <span className="font-semibold text-foreground">4</span>
               </div>
-            ) : (
-              <div className="flex justify-end gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/dashboard')}
-                  disabled={isLoading}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex items-center gap-2"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      {isEditMode ? 'Atualizando...' : 'Salvando...'}
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      {isEditMode ? 'Atualizar Pedido' : 'Salvar Pedido'}
-                    </>
-                  )}
-                </Button>
+              <div className="flex items-center gap-3 ml-auto">
+                {wizardStep === 1 && (
+                  <Button type="button" variant="ghost" onClick={() => navigate('/dashboard')} disabled={isLoading}>
+                    Cancelar
+                  </Button>
+                )}
+                {wizardStep > 1 && (
+                  <Button type="button" variant="outline" onClick={() => setWizardStep(prev => Math.max(1, prev - 1))} disabled={isLoading} className="gap-2">
+                    <ChevronLeft className="h-4 w-4" />
+                    Voltar
+                  </Button>
+                )}
+                {wizardStep < 4 && (
+                  <Button key="btn-avancar" type="button" onClick={() => handleAvancarWizard()} disabled={isLoading} className="gap-2 min-w-[120px]">
+                    Avançar
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                )}
+                {wizardStep === 4 && (
+                  <Button key="btn-salvar" type="submit" className="gap-2 min-w-[140px]" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        {isEditMode ? 'Atualizando...' : 'Salvando...'}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        {isEditMode ? 'Atualizar Pedido' : 'Salvar Pedido'}
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
-            )
-          }
+            </div>
+          </div>
         </form >
       </motion.div >
     </DashboardLayout >
