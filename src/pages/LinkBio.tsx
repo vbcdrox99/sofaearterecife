@@ -20,6 +20,7 @@ const DEFAULT_VIDEO_URL = "/Sofá_desmontando_mostrando_partes_20260711084224.mp
 
 export default function LinkBio() {
   const [isCopied, setIsCopied] = useState(false);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Definir cor da barra de navegação do celular para preto
@@ -166,15 +167,15 @@ export default function LinkBio() {
 
           {/* BOTÃO EM DESTAQUE: Tutorial */}
           <button 
-            onClick={() => toast.info("Tutorial: Em breve!")}
+            onClick={() => setIsVideoModalOpen(true)}
             className="w-full flex items-center p-3 md:p-3.5 rounded-2xl bg-[#E51C24] text-white hover:bg-[#E51C24]/90 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] group"
           >
             <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/20 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0">
               <Play size={18} fill="currentColor" />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-xs md:text-sm font-bold tracking-wide">Tutorial abrindo o sofá</h3>
-              <p className="text-[10px] md:text-[11px] text-white/70 font-light mt-0.5">Veja a demonstração de como abrir o modelo</p>
+              <h3 className="text-xs md:text-sm font-bold tracking-wide">Vídeo: Abrindo o Sofá Cama</h3>
+              <p className="text-[10px] md:text-[11px] text-white/70 font-light mt-0.5">Veja a demonstração de abertura passo a passo</p>
             </div>
             <ChevronRight size={16} className="text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </button>
@@ -190,30 +191,13 @@ export default function LinkBio() {
               <MessageCircle size={20} />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Sofia (Consultoria)</h3>
-              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Falar com a consultora Sofia no WhatsApp</p>
+              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Quero saber mais informações.</h3>
+              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Falar com a nossa consultora no WhatsApp</p>
             </div>
             <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </a>
 
-          {/* LINK 2: WhatsApp Liliane */}
-          <a 
-            href="https://wa.me/message/CGFFXHBWP72CK1"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group"
-          >
-            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
-              <MessageCircle size={20} />
-            </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Liliane (Vendas)</h3>
-              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Falar com a consultora Liliane no WhatsApp</p>
-            </div>
-            <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
-          </a>
-
-          {/* LINK 3: Instagram */}
+          {/* LINK 2: Instagram */}
           <a 
             href="https://www.instagram.com/sofaearterecife/"
             target="_blank"
@@ -230,55 +214,6 @@ export default function LinkBio() {
             <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </a>
 
-          {/* LINK 3: Catálogo de Estofados */}
-          <Link 
-            to="/catalogo2"
-            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group"
-          >
-            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
-              <Compass size={20} />
-            </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Catálogo Exclusivo 2026</h3>
-              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Explore nossos modelos, dimensões e acabamentos</p>
-            </div>
-            <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
-          </Link>
-
-          {/* LINK 4: Solicitar Orçamento */}
-          <a 
-            href={`https://wa.me/5581982226725?text=Ol%C3%A1%2C+vi+o+seu+link-in-bio+e+gostaria+de+solicitar+um+or%C3%A7amento+personalizado+de+estofado.`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group border-l-[3px] border-l-[#E51C24]"
-          >
-            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-[#E51C24] group-hover:text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
-              <Wrench size={18} />
-            </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Solicitar Orçamento</h3>
-              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Envie fotos e medidas para fabricação ou reforma</p>
-            </div>
-            <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
-          </a>
-
-          {/* LINK 5: Localização Fábrica */}
-          <a 
-            href="https://maps.google.com/?q=Sof%C3%A1+e+Arte+Recife"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group"
-          >
-            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
-              <MapPin size={18} />
-            </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Nossos Showrooms & Fábrica</h3>
-              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Planeje sua rota e visite-nos em Recife</p>
-            </div>
-            <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
-          </a>
-
         </div>
 
         {/* RODAPÉ E REDES SOCIAIS ADICIONAIS */}
@@ -289,6 +224,35 @@ export default function LinkBio() {
         </div>
 
       </div>
+
+      {/* MODAL DE VÍDEO DEMONSTRATIVO */}
+      {isVideoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md transition-opacity duration-300">
+          <div className="relative w-full max-w-lg bg-neutral-950 border border-white/10 rounded-3xl overflow-hidden shadow-2xl p-2 flex flex-col">
+            <div className="flex justify-between items-center px-4 py-3">
+              <h3 className="text-sm font-bold text-white tracking-wide">Como abrir o Sofá Cama</h3>
+              <button 
+                onClick={() => setIsVideoModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black">
+              <video 
+                src={DEFAULT_VIDEO_URL} 
+                controls 
+                autoPlay 
+                playsInline
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 font-light text-center py-3">
+              Toque no player acima para assistir ou pausar.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
