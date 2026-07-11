@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   MessageCircle, 
   Instagram, 
@@ -9,16 +9,36 @@ import {
   ChevronRight,
   Wrench,
   Check,
-  CheckCircle2
+  CheckCircle2,
+  Play
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
 // URL de vídeo stock padrão de uma sala de estar com sofá moderno (Mixkit)
-const DEFAULT_VIDEO_URL = "/Sofá_elegantemente_desmontando_p…_2026071108383.mp4";
+const DEFAULT_VIDEO_URL = "/Sofá_desmontando_mostrando_partes_20260711084224.mp4";
 
 export default function LinkBio() {
   const [isCopied, setIsCopied] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Definir cor da barra de navegação do celular para preto
+  useEffect(() => {
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    meta.content = '#000000';
+    document.head.appendChild(meta);
+    return () => {
+      document.head.removeChild(meta);
+    };
+  }, []);
+
+  // Configurar velocidade de reprodução do vídeo para 0.75x (mais lento)
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = 0.75;
+    }
+  }, []);
 
   // Copiar link da página
   const handleShare = async () => {
@@ -74,7 +94,6 @@ export default function LinkBio() {
         .glass-btn:hover {
           background: rgba(229, 28, 36, 0.08);
           border-color: rgba(229, 28, 36, 0.4);
-          box-shadow: 0 0 20px rgba(229, 28, 36, 0.25);
           transform: translateY(-2px);
         }
       `}</style>
@@ -82,6 +101,7 @@ export default function LinkBio() {
       {/* ================= BACKGROUND VIDEO ================= */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         <video 
+          ref={videoRef}
           autoPlay 
           loop 
           muted 
@@ -95,14 +115,10 @@ export default function LinkBio() {
       </div>
 
       {/* ================= CARTÃO DE LINKS GLASSMÓRFICO (CENTRALIZADO) ================= */}
-      <div className="relative z-10 w-full max-w-md glass-card rounded-[2.5rem] px-6 py-8 flex flex-col items-center shadow-2xl my-6">
+      <div className="relative z-10 w-full max-w-md glass-card rounded-[2.5rem] px-4 py-4 md:px-6 md:py-8 flex flex-col items-center shadow-2xl my-2 md:my-6">
         
         {/* CABEÇALHO DO CARTÃO (SHARE E INFO) */}
-        <div className="w-full flex justify-between items-center mb-6">
-          <Link to="/catalogo2" className="text-xs uppercase tracking-widest text-gray-400 hover:text-white flex items-center gap-1.5 transition-colors">
-            <Compass size={14} />
-            Catálogo
-          </Link>
+        <div className="w-full flex justify-end items-center mb-6">
           <button 
             onClick={handleShare}
             className="w-9 h-9 rounded-full bg-neutral-900 border border-white/10 flex items-center justify-center text-gray-300 hover:text-white hover:border-white/20 transition-all active:scale-95"
@@ -113,13 +129,10 @@ export default function LinkBio() {
         </div>
 
         {/* PERFIL / LOGO / APRESENTAÇÃO */}
-        <div className="flex flex-col items-center text-center w-full mb-8">
-          <div className="relative mb-4 group">
-            {/* Efeito Glow Vermelho atrás do Avatar */}
-            <div className="absolute inset-0 rounded-full bg-[#E51C24]/30 blur-md group-hover:bg-[#E51C24]/50 transition-all duration-500" />
-            
+        <div className="flex flex-col items-center text-center w-full mb-5 md:mb-8">
+          <div className="relative mb-3 md:mb-4">
             {/* Container do Avatar com borda vermelha e preenchimento escuro */}
-            <div className="relative w-24 h-24 rounded-full border-[3px] border-[#E51C24] p-[3px] bg-black overflow-hidden flex items-center justify-center">
+            <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full border-[3px] border-[#E51C24] p-[3px] bg-black overflow-hidden flex items-center justify-center">
               <img 
                 src="/vallerilogo.png" 
                 alt="Válleri Logo" 
@@ -128,36 +141,50 @@ export default function LinkBio() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 mb-1">
+          <div className="flex items-center gap-1.5 mb-2 md:mb-3">
             <h1 className="text-xl font-bold font-brand tracking-widest text-white">Válleri</h1>
             {/* Selo verificado */}
             <span className="text-blue-500" title="Verificado Oficial">
               <CheckCircle2 size={16} fill="currentColor" className="text-blue-500 stroke-black stroke-2" />
             </span>
           </div>
-          <span className="text-xs font-semibold text-[#E51C24] tracking-widest uppercase mb-3">@sofaearterecife</span>
           
-          <p className="text-sm font-light text-gray-300 max-w-sm leading-relaxed">
+          <p className="text-xs md:text-sm font-light text-gray-300 max-w-sm leading-relaxed px-2">
             Fabricação e reforma de estofados sob medida e móveis planejados. Alta alfaiataria para o seu lar.
           </p>
         </div>
 
         {/* CONTAINER DE LINKS (BOTÕES E AÇÕES) */}
-        <div className="w-full flex flex-col gap-4 mb-8">
+        <div className="w-full flex flex-col gap-2.5 md:gap-4 mb-6 md:mb-8">
+
+          {/* BOTÃO EM DESTAQUE: Tutorial */}
+          <button 
+            onClick={() => toast.info("Tutorial: Em breve!")}
+            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl bg-[#E51C24] text-white hover:bg-[#E51C24]/90 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] group"
+          >
+            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/20 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0">
+              <Play size={18} fill="currentColor" />
+            </div>
+            <div className="flex-1 text-left">
+              <h3 className="text-xs md:text-sm font-bold tracking-wide">Tutorial abrindo o sofá</h3>
+              <p className="text-[10px] md:text-[11px] text-white/70 font-light mt-0.5">Veja a demonstração de como abrir o modelo</p>
+            </div>
+            <ChevronRight size={16} className="text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" />
+          </button>
           
           {/* LINK 1: WhatsApp Sofia */}
           <a 
             href="https://wa.me/5581982226725"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full flex items-center p-3.5 rounded-2xl glass-btn group"
+            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group"
           >
-            <div className="w-11 h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
+            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
               <MessageCircle size={20} />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Sofia (Consultoria)</h3>
-              <p className="text-[11px] text-gray-400 font-light mt-0.5">Falar com a consultora Sofia no WhatsApp</p>
+              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Sofia (Consultoria)</h3>
+              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Falar com a consultora Sofia no WhatsApp</p>
             </div>
             <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </a>
@@ -167,14 +194,14 @@ export default function LinkBio() {
             href="https://wa.me/message/CGFFXHBWP72CK1"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full flex items-center p-3.5 rounded-2xl glass-btn group"
+            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group"
           >
-            <div className="w-11 h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
+            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
               <MessageCircle size={20} />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Liliane (Vendas)</h3>
-              <p className="text-[11px] text-gray-400 font-light mt-0.5">Falar com a consultora Liliane no WhatsApp</p>
+              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Liliane (Vendas)</h3>
+              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Falar com a consultora Liliane no WhatsApp</p>
             </div>
             <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </a>
@@ -184,14 +211,14 @@ export default function LinkBio() {
             href="https://www.instagram.com/sofaearterecife/"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full flex items-center p-3.5 rounded-2xl glass-btn group"
+            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group"
           >
-            <div className="w-11 h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
+            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
               <Instagram size={18} />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Siga-nos no Instagram</h3>
-              <p className="text-[11px] text-gray-400 font-light mt-0.5">Confira nossas novidades e inspirações diárias</p>
+              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Siga-nos no Instagram</h3>
+              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Confira nossas novidades e inspirações diárias</p>
             </div>
             <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </a>
@@ -199,14 +226,14 @@ export default function LinkBio() {
           {/* LINK 3: Catálogo de Estofados */}
           <Link 
             to="/catalogo2"
-            className="w-full flex items-center p-3.5 rounded-2xl glass-btn group"
+            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group"
           >
-            <div className="w-11 h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
+            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
               <Compass size={20} />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Catálogo Exclusivo 2026</h3>
-              <p className="text-[11px] text-gray-400 font-light mt-0.5">Explore nossos modelos, dimensões e acabamentos</p>
+              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Catálogo Exclusivo 2026</h3>
+              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Explore nossos modelos, dimensões e acabamentos</p>
             </div>
             <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </Link>
@@ -216,14 +243,14 @@ export default function LinkBio() {
             href={`https://wa.me/5581982226725?text=Ol%C3%A1%2C+vi+o+seu+link-in-bio+e+gostaria+de+solicitar+um+or%C3%A7amento+personalizado+de+estofado.`}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full flex items-center p-3.5 rounded-2xl glass-btn group border-l-[3px] border-l-[#E51C24]"
+            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group border-l-[3px] border-l-[#E51C24]"
           >
-            <div className="w-11 h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-[#E51C24] group-hover:text-white mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
+            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-[#E51C24] group-hover:text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
               <Wrench size={18} />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Solicitar Orçamento</h3>
-              <p className="text-[11px] text-gray-400 font-light mt-0.5">Envie fotos e medidas para fabricação ou reforma</p>
+              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Solicitar Orçamento</h3>
+              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Envie fotos e medidas para fabricação ou reforma</p>
             </div>
             <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </a>
@@ -233,14 +260,14 @@ export default function LinkBio() {
             href="https://maps.google.com/?q=Sof%C3%A1+e+Arte+Recife"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full flex items-center p-3.5 rounded-2xl glass-btn group"
+            className="w-full flex items-center p-3 md:p-3.5 rounded-2xl glass-btn group"
           >
-            <div className="w-11 h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
+            <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-white mr-3 md:mr-4 shrink-0 transition-all group-hover:bg-[#E51C24]">
               <MapPin size={18} />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Nossos Showrooms & Fábrica</h3>
-              <p className="text-[11px] text-gray-400 font-light mt-0.5">Planeje sua rota e visite-nos em Recife</p>
+              <h3 className="text-xs md:text-sm font-bold tracking-wide text-white group-hover:text-white transition-colors">Nossos Showrooms & Fábrica</h3>
+              <p className="text-[10px] md:text-[11px] text-gray-400 font-light mt-0.5">Planeje sua rota e visite-nos em Recife</p>
             </div>
             <ChevronRight size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </a>
