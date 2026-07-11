@@ -14,6 +14,7 @@ import Producao from "./pages/dashboard/Producao";
 import CadastroFuncionarios from "./pages/dashboard/CadastroFuncionarios";
 import NotFound from "./pages/NotFound";
 import Catalogo2 from "./pages/Catalogo2";
+import LinkBio from "./pages/LinkBio";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/catalogo2" element={<Catalogo2 />} />
+                <Route path="/link" element={<LinkBio />} />
                 <Route path="/dashboard" element={
                   <ProtectedRoute>
                     <Dashboard />
