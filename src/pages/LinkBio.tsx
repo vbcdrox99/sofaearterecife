@@ -79,22 +79,25 @@ export default function LinkBio() {
         .font-outfit { font-family: 'Outfit', sans-serif; }
         .glass-card {
           background: rgba(10, 10, 10, 0.65);
-          backdrop-filter: blur(25px);
-          -webkit-backdrop-filter: blur(25px);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.08);
           box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          transform: translate3d(0, 0, 0); /* Aceleração de hardware */
+          will-change: transform;
         }
         .glass-btn {
           background: rgba(20, 20, 20, 0.6);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
+          /* Removido o backdrop-filter para evitar double-blur que sobrecarrega a GPU no mobile */
           border: 1px solid rgba(255, 255, 255, 0.06);
           transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          transform: translate3d(0, 0, 0); /* Aceleração de hardware */
+          will-change: transform, border-color, background-color;
         }
         .glass-btn:hover {
           background: rgba(229, 28, 36, 0.08);
           border-color: rgba(229, 28, 36, 0.4);
-          transform: translateY(-2px);
+          transform: translate3d(0, -2px, 0);
         }
       `}</style>
 
@@ -106,7 +109,11 @@ export default function LinkBio() {
           loop 
           muted 
           playsInline 
-          className="w-full h-full object-cover opacity-75 scale-105"
+          preload="auto"
+          onLoadedMetadata={(e) => {
+            e.currentTarget.playbackRate = 0.75;
+          }}
+          className="w-full h-full object-cover opacity-75 scale-105 transform translate-z-0 will-change-transform"
         >
           <source src={DEFAULT_VIDEO_URL} type="video/mp4" />
         </video>
