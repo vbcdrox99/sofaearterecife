@@ -15,6 +15,7 @@ import CadastroFuncionarios from "./pages/dashboard/CadastroFuncionarios";
 import NotFound from "./pages/NotFound";
 import Catalogo2 from "./pages/Catalogo2";
 import LinkBio from "./pages/LinkBio";
+import TesteScroll from "./pages/TesteScroll";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
                 <Route path="/login" element={<Login />} />
                 <Route path="/catalogo2" element={<Catalogo2 />} />
                 <Route path="/link" element={<LinkBio />} />
+                <Route path="/testescroll" element={<TesteScroll />} />
                 <Route path="/dashboard" element={
                   <ProtectedRoute>
                     <Dashboard />
