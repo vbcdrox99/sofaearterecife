@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
 // URL de vídeo stock padrão de uma sala de estar com sofá moderno (Mixkit)
-const DEFAULT_VIDEO_URL = "/Sofá_desmontando_mostrando_partes_20260711084224.mp4";
+const DEFAULT_VIDEO_URL = "/0712(1).mp4";
 
 export default function LinkBio() {
   const [isCopied, setIsCopied] = useState(false);
@@ -165,7 +165,7 @@ export default function LinkBio() {
         {/* CONTAINER DE LINKS (BOTÕES E AÇÕES) */}
         <div className="w-full flex flex-col gap-2.5 md:gap-4 mb-6 md:mb-8">
 
-          {/* BOTÃO EM DESTAQUE: Tutorial */}
+          {/* BOTÃO EM DESTAQUE: Demonstração */}
           <button 
             onClick={() => setIsVideoModalOpen(true)}
             className="w-full flex items-center p-3 md:p-3.5 rounded-2xl bg-[#E51C24] text-white hover:bg-[#E51C24]/90 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] group"
@@ -174,8 +174,8 @@ export default function LinkBio() {
               <Play size={18} fill="currentColor" />
             </div>
             <div className="flex-1 text-left">
-              <h3 className="text-xs md:text-sm font-bold tracking-wide">Vídeo: Abrindo o Sofá Cama</h3>
-              <p className="text-[10px] md:text-[11px] text-white/70 font-light mt-0.5">Veja a demonstração de abertura passo a passo</p>
+              <h3 className="text-xs md:text-sm font-bold tracking-wide">Vídeo de Demonstração</h3>
+              <p className="text-[10px] md:text-[11px] text-white/70 font-light mt-0.5">Assista e confira o design, abertura e conforto do sofá cama</p>
             </div>
             <ChevronRight size={16} className="text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" />
           </button>
@@ -227,29 +227,38 @@ export default function LinkBio() {
 
       {/* MODAL DE VÍDEO DEMONSTRATIVO */}
       {isVideoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md transition-opacity duration-300">
-          <div className="relative w-full max-w-lg bg-neutral-950 border border-white/10 rounded-3xl overflow-hidden shadow-2xl p-2 flex flex-col">
-            <div className="flex justify-between items-center px-4 py-3">
-              <h3 className="text-sm font-bold text-white tracking-wide">Como abrir o Sofá Cama</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 md:p-4 md:backdrop-blur-md transition-opacity duration-300">
+          <div className="relative w-full h-full md:h-auto md:max-w-md bg-black md:bg-neutral-950 md:border md:border-white/10 md:rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
+            
+            {/* Cabeçalho */}
+            <div className="flex justify-between items-center px-5 py-4 border-b border-white/5 md:border-none shrink-0">
+              <h3 className="text-sm font-bold text-white tracking-wide font-outfit">Vídeo de Demonstração</h3>
               <button 
                 onClick={() => setIsVideoModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all"
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all active:scale-95 text-lg"
               >
                 ✕
               </button>
             </div>
-            <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black">
+            
+            {/* Container do Vídeo Vertical */}
+            <div className="flex-1 md:flex-none relative flex items-center justify-center bg-black overflow-hidden">
               <video 
                 src={DEFAULT_VIDEO_URL} 
                 controls 
                 autoPlay 
                 playsInline
-                className="w-full h-full object-contain"
+                className="w-full h-full max-h-[75vh] md:max-h-[60vh] object-contain"
               />
             </div>
-            <p className="text-[11px] text-gray-400 font-light text-center py-3">
-              Toque no player acima para assistir ou pausar.
-            </p>
+            
+            {/* Rodapé / Instrução */}
+            <div className="px-5 py-4 border-t border-white/5 md:border-none text-center shrink-0">
+              <p className="text-[11px] text-gray-400 font-light font-outfit">
+                Toque no player para assistir ou controlar o volume.
+              </p>
+            </div>
+
           </div>
         </div>
       )}
