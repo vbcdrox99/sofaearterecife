@@ -1,12 +1,37 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, User, Package, Calendar, DollarSign, AlertCircle, Camera, Store, ChevronRight, ChevronLeft, Layers, Trash2 } from 'lucide-react';
+import {
+  Save,
+  User,
+  Package,
+  Calendar as CalendarIcon,
+  DollarSign,
+  AlertCircle,
+  Camera,
+  Store,
+  Plus,
+  Minus,
+  Trash2,
+  Edit2,
+  CheckCircle2,
+  FileText,
+  ShieldCheck,
+  Truck,
+  Layers,
+  Sparkles,
+  Info,
+  Clock
+} from 'lucide-react';
+import { format, parse, isValid, addDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
 import ImageUpload, { UploadedImage } from '@/components/ImageUpload';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import ProdutoCampos from '@/components/dashboard/ProdutoCampos';
-import { StepperWizard } from '@/components/dashboard/StepperWizard';
-import { SearchableSelect } from '@/components/dashboard/SearchableSelect';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector';
+import { VendedorSelector, Vendedor } from '@/components/dashboard/VendedorSelector';
+import DiscountInput from '@/components/dashboard/DiscountInput';
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,73 +39,114 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector';
-import { VendedorSelector, Vendedor } from '@/components/dashboard/VendedorSelector';
-import DiscountInput from '@/components/dashboard/DiscountInput';
-import { formatOrderNumber, formatCurrencyInput } from '@/lib/utils';
+import { formatOrderNumber, formatCurrencyInput, cn } from '@/lib/utils';
 
 // Helper: label com asterisco para campos obrigatórios
-const RequiredLabel = ({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) => (
-  <Label htmlFor={htmlFor} className="flex items-center gap-1">
+const RequiredLabel = ({ children, htmlFor, className }: { children: React.ReactNode; htmlFor?: string; className?: string }) => (
+  <Label htmlFor={htmlFor} className={cn("flex items-center gap-1", className)}>
     {children}
     <span className="text-destructive text-sm leading-none">*</span>
   </Label>
 );
 
-interface FormData {
-  clienteId: string;
-  clienteNome: string;
-  clienteEmail: string;
-  clienteTelefone: string;
-  clienteEndereco: string;
-  clienteCep: string;
-  clienteBairro: string;
-  clienteCidade: string;
-  clienteEstado: string;
-  numeroPedido: string;
-  dataEntrega: string;
-  descricao: string;
-  tipoSofa: string;
-  dimensoes: string;
-  dimensaoLargura: string;
-  dimensaoComprimento: string;
-  tipoServico: string;
-  observacoes: string;
-  espuma: string;
-  tecido: string;
-  braco: string;
-  tipoPe: string;
-  frete: string;
-  precoUnitario: string;
+// Interface para cada Produto individual do Pedido
+export interface ProdutoItem {
+  id?: string;
+  descricao: string; // "Qual é o produto?"
+  detalhes: string; // "Detalhes"
+  precoUnitario: string; // "Valor unitário"
+  quantidade: number; // "Quantidade"
   descontoTipo: 'percentage' | 'fixed';
-  descontoValor: string;
-  valorTotal: string;
-  valorPago: string;
-  formaPagamento: string;
-  prioridade: string;
-  garantiaTipo: string;
-  garantiaValor: string;
-  garantiaTexto: string;
-  termoEntregaAtivo: boolean;
-  termoEntregaTexto: string;
-  quantidade: number;
-  etapasNecessarias: string[];
-  fotosPedido: UploadedImage[];
-  fotosControle: UploadedImage[];
-  visitaTecnicaAtiva: boolean;
-  visitaTecnicaData: string;
-  pedidoDescontoTipo: 'percentage' | 'fixed';
-  pedidoDescontoValor: string;
-  vendedorId?: string;
-  tipoPedido: 'pedido' | 'orcamento';
+  descontoValor: string; // "Desconto por item"
+  visitaTecnicaAtiva: boolean; // "Visita técnica (sim/não)"
+  visitaTecnicaData: string; // Data da visita no formato DD/MM/AAAA
+  fotosPedido: UploadedImage[]; // "Foto do PRODUTO"
 }
+
+const defaultProdutoItem: ProdutoItem = {
+  descricao: '',
+  detalhes: '',
+  precoUnitario: '',
+  quantidade: 1,
+  descontoTipo: 'percentage',
+  descontoValor: '0',
+  visitaTecnicaAtiva: false,
+  visitaTecnicaData: '',
+  fotosPedido: [],
+};
+
+const TERMO_ENTREGA_PADRAO = `Recebi o produto em perfeito estado, sem defeito ou avaria.
+
+Nome:_______________________________________________CPF_________________________ DATA: _____._____._______
+
+O serviço de FRETE E MONTAGEM é realizado por empresa terceirizada, indicada pela loja, caso o cliente opte por retirar por meios próprios, fica a empresa isenta de responsabilidade sobre possíveis danos ao produto.
+
+O cliente deve informar durante o atendimento as condições do local de entrega do produto.
+Ex: Quantos andares de escada, tamanho de elevador, porta e corredores...
+
+Caso o produto precise ser entregue por escadas, será cobrado além da taxa de montagem (caso haja necessidade), 10,00 por andar.
+
+Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguintes casos:
+* produto quebrado, amassado, riscado ou danificado;
+* produto completamente diferente do que você comprou;
+* faltam peças ou acessórios.
+
+Após assinatura de recebimento de mercadoria em perfeito estado, não serão aceitas quaisquer devoluções ou reposições posteriores.`;
+
+const TERMO_GARANTIA_PADRAO = `Este produto está efetivamente garantido contra eventuais defeitos de fabricação conforme prazos indicados abaixo, a partir da data de compra, sem prorrogação.
+Reforma: Prazo TOTAL de 3 (três) meses.
+Fabricação: Revestimentos: prazo total de 3 (três) meses, desde que o revestimento seja do mostruário Válleri. Não será concedida qualquer garantia ao revestimento quando o tecido for fornecido pelo próprio cliente ou tenha sido adquirido de empresa terceira por solicitação do mesmo.
+Estrutura (madeiras, espumas, percintas, mecanismos, pés, fibras naturais): prazo total de 12 (doze) meses.
+
+A garantia perderá a sua validade:
+• Em caso de mau uso, considerando a finalidade a que se destina o móvel e as orientações constantes neste termo;
+• Em caso de limpeza incorreta, falta de manutenção básica ao uso, aplicação de produtos químicos, tratamentos de proteção aplicados pelo comprador, detergentes, condicionadores, fluidos corporais ou danos devidos à exposição direta ou indireta à luz solar, umidade excessiva, calor excessivo, luminosidade intensa, ou condições semelhantes, bem como avaria de transporte, quando o mesmo for realizado pelo próprio consumidor;
+• Em caso de danos causados pela ação de cupins, insetos, broca ou outras pragas;
+• Se forem realizados, sem prévia autorização da fábrica, alterações, reparos ou substituições de partes do móvel, ou por qualquer meio danificar o produto por ato que praticar.
+
+Solicitação de Assistência Técnica:
+• O consumidor deverá entrar em contato através do canal de atendimento (81) 98771-4814 munido do pedido de compra, a fim de formalizar a solicitação de assistência técnica;
+• A Válleri se reserva o direito de efetuar avaliação técnica da solicitação;
+• Caso seja constatado uso inadequado ou a presença de quaisquer condições que excluem ou não compreendam a garantia do produto, as despesas decorrentes do transporte e da reforma serão por conta do cliente ou consumidor final.`;
+
+const parseValor = (v: string | number | undefined | null): number => {
+  if (!v) return 0;
+  if (typeof v === 'number') return v;
+  const n = parseFloat(v.replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+};
+
+const calculateFinalPrice = (price: number, type: 'percentage' | 'fixed', value: number): number => {
+  if (!price) return 0;
+  if (type === 'percentage') {
+    return price * (1 - value / 100);
+  } else {
+    return Math.max(0, price - value);
+  }
+};
+
+const converterDataISOParaBR = (dataISO?: string | null): string => {
+  if (!dataISO) return '';
+  const [ano, mes, dia] = dataISO.split('T')[0].split('-');
+  if (!ano || !mes || !dia) return '';
+  return `${dia.padStart(2, '0')}/${mes.padStart(2, '0')}/${ano}`;
+};
+
+const converterDataParaISO = (dataBR?: string): string => {
+  if (!dataBR || dataBR.length !== 10) return '';
+  const [dia, mes, ano] = dataBR.split('/');
+  if (!dia || !mes || !ano || ano.length !== 4) return '';
+  return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+};
 
 const NovoPedido = () => {
   const { id: pedidoIdParam } = useParams();
@@ -88,8 +154,50 @@ const NovoPedido = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, selectedStore, isFuncionario } = useAuth();
-  const [lojaSelecionadaForm, setLojaSelecionadaForm] = useState<string>('');
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [lojaSelecionadaForm, setLojaSelecionadaForm] = useState<string>('loja_1');
+
+  // Estados do Header do Pedido
+  const [numeroPedido, setNumeroPedido] = useState<string>('');
+  const [tipoPedido, setTipoPedido] = useState<'pedido' | 'orcamento'>('pedido');
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
+  const [vendedorSelecionado, setVendedorSelecionado] = useState<Vendedor | null>(null);
+  const [dataEntrega, setDataEntrega] = useState<string>('');
+  const [observacaoGeral, setObservacaoGeral] = useState<string>('');
+  const [frete, setFrete] = useState<string>('');
+
+  // Estados da Lista de Produtos
+  const [produtos, setProdutos] = useState<ProdutoItem[]>([]);
+  const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
+  const [editingProdutoIndex, setEditingProdutoIndex] = useState<number | null>(null);
+  const [tempProduto, setTempProduto] = useState<ProdutoItem>({ ...defaultProdutoItem });
+
+  // Estados do Pedido Geral (Financeiro, Garantia, Termos, Pagamento, Fotos)
+  const [pedidoDescontoTipo, setPedidoDescontoTipo] = useState<'percentage' | 'fixed'>('percentage');
+  const [pedidoDescontoValor, setPedidoDescontoValor] = useState<string>('');
+  const [formaPagamento, setFormaPagamento] = useState<string>('');
+  const [prioridade, setPrioridade] = useState<string>('media');
+
+  const [garantiaTipo, setGarantiaTipo] = useState<string>('meses');
+  const [garantiaValor, setGarantiaValor] = useState<string>('3');
+  const [garantiaTexto, setGarantiaTexto] = useState<string>(TERMO_GARANTIA_PADRAO);
+  const [garantiaExpandida, setGarantiaExpandida] = useState<boolean>(false);
+
+  const [termoEntregaAtivo, setTermoEntregaAtivo] = useState<boolean>(true);
+  const [termoEntregaTexto, setTermoEntregaTexto] = useState<string>(TERMO_ENTREGA_PADRAO);
+  const [termoEntregaExpandido, setTermoEntregaExpandido] = useState<boolean>(false);
+
+  const [infoPedidoExpandido, setInfoPedidoExpandido] = useState<boolean>(false);
+  const [formaPagamentoExpandido, setFormaPagamentoExpandido] = useState<boolean>(false);
+  const [fotosControleExpandido, setFotosControleExpandido] = useState<boolean>(false);
+
+  const [fotosControle, setFotosControle] = useState<UploadedImage[]>([]);
+
+  // Anexos originais em modo edição
+  const [anexosOriginais, setAnexosOriginais] = useState<UploadedImage[]>([]);
+
+  // Sincronizar Loja
   useEffect(() => {
     if (selectedStore && selectedStore !== 'todas') {
       setLojaSelecionadaForm(selectedStore);
@@ -98,10 +206,10 @@ const NovoPedido = () => {
     }
   }, [selectedStore]);
 
+  // Buscar próximo número do pedido em criação
   useEffect(() => {
     const fetchNextNumber = async () => {
       try {
-        // Encontrar o maior numero_pedido no banco de dados para criar um número real automático e editável
         const { data, error } = await supabase
           .from('pedidos')
           .select('numero_pedido')
@@ -116,10 +224,7 @@ const NovoPedido = () => {
         const nextNumber = maxNumber + 1;
         const formattedNextNumber = formatOrderNumber(nextNumber, new Date().toISOString());
 
-        setFormData((prev) => ({
-          ...prev,
-          numeroPedido: prev.numeroPedido || formattedNextNumber
-        }));
+        setNumeroPedido(prev => prev || formattedNextNumber);
       } catch (err) {
         console.error('Erro ao buscar próximo número do pedido:', err);
       }
@@ -130,1825 +235,602 @@ const NovoPedido = () => {
     }
   }, [isEditMode]);
 
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Estados para Tipo de Sofá
-  const [tiposSofaDisponiveis, setTiposSofaDisponiveis] = useState<string[]>([
-    '2 Lugares', '3 Lugares', 'Chaise', 'Canto', 'Reclinável'
-  ]);
-  const [novoTipoSofa, setNovoTipoSofa] = useState('');
-  const [modalNovoTipoSofaAberto, setModalNovoTipoSofaAberto] = useState(false);
-  const [tipoSofaParaExcluir, setTipoSofaParaExcluir] = useState<string | null>(null);
-
-  // Estados para Espuma
-  const [espumasDisponiveis, setEspumasDisponiveis] = useState<string[]>([
-    'D33', 'D30', 'Reforço', 'Troca'
-  ]);
-  const [novaEspuma, setNovaEspuma] = useState('');
-  const [modalNovaEspumaAberto, setModalNovaEspumaAberto] = useState(false);
-  const [espumaParaExcluir, setEspumaParaExcluir] = useState<string | null>(null);
-
-  // Estados para Braço
-  const [bracosDisponiveis, setBracosDisponiveis] = useState<string[]>([
-    'Padrão', 'BR Slim'
-  ]);
-  const [novoBraco, setNovoBraco] = useState('');
-  const [modalNovoBracoAberto, setModalNovoBracoAberto] = useState(false);
-  const [bracoParaExcluir, setBracoParaExcluir] = useState<string | null>(null);
-
-  // Estados para Tipo de Pé
-  const [tiposPeDisponiveis, setTiposPeDisponiveis] = useState<string[]>([
-    'Padrão', 'Metalon', 'Pé Gaspar'
-  ]);
-  const [novoTipoPe, setNovoTipoPe] = useState('');
-  const [modalNovoTipoPeAberto, setModalNovoTipoPeAberto] = useState(false);
-  const [tipoPeParaExcluir, setTipoPeParaExcluir] = useState<string | null>(null);
-
-  // Estados para Tipo de Serviço
-  const [tiposServicoDisponiveis, setTiposServicoDisponiveis] = useState<string[]>([
-    'REFORMA', 'FABRICAÇÃO', 'MÓVEIS PLANEJADOS'
-  ]);
-  const [novoTipoServico, setNovoTipoServico] = useState('');
-  const [modalNovoTipoServicoAberto, setModalNovoTipoServicoAberto] = useState(false);
-  const [tipoServicoParaExcluir, setTipoServicoParaExcluir] = useState<string | null>(null);
-
-  // Estados para Tecido
-  const [tecidosDisponiveis, setTecidosDisponiveis] = useState<string[]>([]);
-  const [novoTecido, setNovoTecido] = useState('');
-  const [modalNovoTecidoAberto, setModalNovoTecidoAberto] = useState(false);
-  const [tecidoParaExcluir, setTecidoParaExcluir] = useState<string | null>(null);
-
-  // Estado para cliente selecionado
-  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
-
-  // Estado para vendedor selecionado
-  const [vendedorSelecionado, setVendedorSelecionado] = useState<Vendedor | null>(null);
-
-  // Estados para etapas necessárias
-  const etapasDisponiveis = ['marcenaria', 'corte_costura', 'espuma', 'bancada', 'tecido'];
-  const [etapasSelecionadas, setEtapasSelecionadas] = useState<string[]>([]);
-  // Estado do wizard de etapas (1: Cliente, 2: Entrega, 3: Produto, 4: Detalhes)
-  const [wizardStep, setWizardStep] = useState(1);
-
-  const toggleEtapa = (etapa: string) => {
-    setEtapasSelecionadas(prev => {
-      if (prev.includes(etapa)) {
-        return prev.filter(e => e !== etapa);
-      } else {
-        return [...prev, etapa];
-      }
-    });
-  };
-
-  // Avançar no wizard com validações locais
-  const handleAvancarWizard = () => {
-    if (wizardStep === 1) {
-      // Step 1: Cliente + Vendedor
-      if (!clienteSelecionado) {
-        toast({
-          title: 'Atenção',
-          description: 'Por favor, selecione ou cadastre um Cliente para avançar.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      if (!vendedorSelecionado) {
-        toast({
-          title: 'Atenção',
-          description: 'Por favor, selecione ou cadastre um Vendedor para avançar.',
-          variant: 'destructive',
-        });
-        return;
-      }
-    } else if (wizardStep === 2) {
-      // Step 2: Data de entrega
-      if (!formData.dataEntrega) {
-        toast({
-          title: 'Atenção',
-          description: 'O campo Data de Entrega é obrigatório.',
-          variant: 'destructive',
-        });
-        return;
-      }
-    } else if (wizardStep === 3) {
-      // Step 3: Validações do Produto
-      const missingFields: string[] = [];
-      if (!formData.descricao) missingFields.push('Descrição');
-      if (!formData.tipoSofa) missingFields.push('Tipo de Sofá');
-      if (!formData.tipoServico) missingFields.push('Tipo de Serviço');
-      if (!formData.espuma) missingFields.push('Espuma');
-      if (!formData.tecido) missingFields.push('Tecido');
-      if (!formData.braco) missingFields.push('Braço');
-      if (!formData.tipoPe) missingFields.push('Tipo de Pé');
-
-      if (missingFields.length > 0) {
-        toast({
-          title: `Campos obrigatórios faltando`,
-          description: `Preencha: ${missingFields.join(', ')}.`,
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      if (etapasSelecionadas.length === 0) {
-        toast({
-          title: 'Atenção',
-          description: 'Selecione pelo menos uma etapa necessária para o pedido.',
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-    setWizardStep((prev) => Math.min(4, prev + 1));
-  };
-  const [formData, setFormData] = useState<FormData>({
-    clienteId: '',
-    clienteNome: '',
-    clienteEmail: '',
-    clienteTelefone: '',
-    clienteEndereco: '',
-    clienteCep: '',
-    clienteBairro: '',
-    clienteCidade: '',
-    clienteEstado: '',
-    numeroPedido: '',
-    dataEntrega: '',
-    descricao: '',
-    tipoSofa: '',
-    dimensoes: '',
-    dimensaoLargura: '',
-    dimensaoComprimento: '',
-    tipoServico: '',
-    observacoes: '',
-    espuma: '',
-    tecido: '',
-    braco: '',
-    tipoPe: '',
-    frete: '',
-    precoUnitario: '',
-    descontoTipo: 'percentage',
-    descontoValor: '',
-    valorTotal: '',
-    valorPago: '',
-    formaPagamento: '',
-    prioridade: 'media',
-    garantiaTipo: 'dias',
-    garantiaValor: '',
-    garantiaTexto: '',
-    termoEntregaAtivo: false,
-    termoEntregaTexto: '',
-    quantidade: 1,
-    etapasNecessarias: [],
-    fotosPedido: [],
-    fotosControle: [],
-    visitaTecnicaAtiva: false,
-    visitaTecnicaData: '',
-    pedidoDescontoTipo: 'percentage',
-    pedidoDescontoValor: '',
-    vendedorId: '',
-    tipoPedido: 'pedido'
-  });
-
-  // Guardar anexos originais para comparação em edição
-  const [anexosOriginaisPedido, setAnexosOriginaisPedido] = useState<UploadedImage[]>([]);
-  const [anexosOriginaisControle, setAnexosOriginaisControle] = useState<UploadedImage[]>([]);
-
-  // Itens adicionais do pedido (suporte a múltiplos produtos)
-  type PedidoItemForm = {
-    descricao: string;
-    fotosPedido: UploadedImage[];
-    tipoSofa: string;
-    dimensoes: string;
-    dimensaoLargura?: string;
-    dimensaoComprimento?: string;
-    quantidade: number;
-    tipoServico: string;
-    precoUnitario: string;
-    descontoTipo: 'percentage' | 'fixed';
-    descontoValor: number;
-    observacoes: string;
-    espuma: string;
-    tecido: string;
-    braco: string;
-    tipoPe: string;
-    etapasNecessarias: string[];
-    visitaTecnicaAtiva?: boolean;
-    visitaTecnicaData?: string;
-  };
-
-  const defaultItem: PedidoItemForm = {
-    descricao: '',
-    fotosPedido: [],
-    tipoSofa: '',
-    dimensoes: '',
-    dimensaoLargura: '',
-    dimensaoComprimento: '',
-    quantidade: 1,
-    tipoServico: '',
-    precoUnitario: '',
-    descontoTipo: 'percentage',
-    descontoValor: 0,
-    observacoes: '',
-    espuma: '',
-    tecido: '',
-    braco: '',
-    tipoPe: '',
-    etapasNecessarias: [],
-    visitaTecnicaAtiva: false,
-    visitaTecnicaData: ''
-  };
-
-  const [itensAdicionais, setItensAdicionais] = useState<PedidoItemForm[]>([]);
-
-  const addItem = () => {
-    setItensAdicionais((prev) => [...prev, { ...defaultItem }]);
-  };
-
-  const removeItem = (index: number) => {
-    setItensAdicionais((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleItemChange = <K extends keyof PedidoItemForm>(index: number, key: K, value: PedidoItemForm[K]) => {
-    setItensAdicionais((prev) => prev.map((item, i) => (i === index ? { ...item, [key]: value } : item)));
-  };
-
-  const handleItemDimensaoChange = (index: number, field: 'dimensaoLargura' | 'dimensaoComprimento', value: string) => {
-    const valorFormatado = formatarDimensao(value);
-    setItensAdicionais(prev => prev.map((item, i) => {
-      if (i !== index) return item;
-      const largura = field === 'dimensaoLargura' ? valorFormatado : (item.dimensaoLargura || '');
-      const comprimento = field === 'dimensaoComprimento' ? valorFormatado : (item.dimensaoComprimento || '');
-      return {
-        ...item,
-        [field]: valorFormatado,
-        dimensoes: `${largura} x ${comprimento}`.trim()
-      };
-    }));
-  };
-
-  const handleItemFotosChange = (index: number, images: UploadedImage[]) => {
-    setItensAdicionais((prev) => prev.map((item, i) => (i === index ? { ...item, fotosPedido: images } : item)));
-  };
-
-  const toggleEtapaItem = (index: number, etapa: string) => {
-    setItensAdicionais(prev => prev.map((item, i) => {
-      if (i !== index) return item;
-      const selecionadas = item.etapasNecessarias || [];
-      const novas = selecionadas.includes(etapa)
-        ? selecionadas.filter(e => e !== etapa)
-        : [...selecionadas, etapa];
-      return { ...item, etapasNecessarias: novas };
-    }));
-  };
-
-  // Texto padrão do Termo de entrega e recebimento
-  const TERMO_ENTREGA_PADRAO = `Recebi o produto em perfeito estado, sem defeito ou avaria.
-
-Nome:_______________________________________________CPF_________________________ DATA: _____._____._______
-
-O serviço de FRETE E MONTAGEM é realizado por empresa terceirizada, indicada pela loja, caso o cliente opte por retirar por meios próprios, fica a empresa isenta de responsabilidade sobre possíveis danos ao produto.
-
-O cliente deve informar durante o atendimento à s condições do local de entrega do produto.
-Ex: Quantos andares de escada, tamanho de elevador, porta e corredores...
-
-Caso o produto precise ser entregue por escadas, será cobrado além da taxa de montagem (caso haja necessidade), 10,00 por andar.
-
-Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguintes casos:
-
-* produto quebrado, amassado, riscado ou danificado;
-* produto completamente diferente do que você comprou;
-  * faltam peças ou acessórios.
-
-  Após assinatura de recebimento de mercadoria em perfeito estado, não serão aceitas quaisquer devoluções ou reposições posteriores.`;
-
-  // Cálculo do valor total do pedido somando os preços dos produtos (etapa 2/3)
-  const parseValor = (v: string) => {
-    if (!v) return 0;
-    const n = parseFloat(v.replace(/\./g, '').replace(',', '.'));
-    return isNaN(n) ? 0 : n;
-  };
-
-  const calculateFinalPrice = (price: number, type: 'percentage' | 'fixed', value: number) => {
-    if (!price) return 0;
-    if (type === 'percentage') {
-      return price * (1 - value / 100);
-    } else {
-      return Math.max(0, price - value);
-    }
-  };
-
-  const totalProdutos = useMemo(() => {
-    const principalPrecoObj = parseValor(formData.precoUnitario);
-    const principalPreco = principalPrecoObj * (formData.quantidade || 1);
-    const principalDescontoValor = parseFloat(formData.descontoValor) || 0;
-    const principalFinal = calculateFinalPrice(principalPreco, formData.descontoTipo, principalDescontoValor);
-
-    const adicionais = itensAdicionais.reduce((acc, it) => {
-      const precoObj = parseValor(it.precoUnitario || '');
-      const preco = precoObj * (it.quantidade || 1);
-      const descontoValor = it.descontoValor || 0;
-      const final = calculateFinalPrice(preco, it.descontoTipo, descontoValor);
-      return acc + final;
-    }, 0);
-
-    return principalFinal + adicionais;
-  }, [formData.precoUnitario, formData.quantidade, formData.descontoTipo, formData.descontoValor, itensAdicionais]);
-
-  const totalComFrete = useMemo(() => {
-    const frete = parseValor(formData.frete || '');
-    return totalProdutos + frete;
-  }, [totalProdutos, formData.frete]);
-
-  const totalFinalPedido = useMemo(() => {
-    const descontoPedidoValor = parseValor(formData.pedidoDescontoValor) || 0;
-    return calculateFinalPrice(totalComFrete, formData.pedidoDescontoTipo, descontoPedidoValor);
-  }, [totalComFrete, formData.pedidoDescontoTipo, formData.pedidoDescontoValor]);
-
-  const converterDataISOParaBR = (dataISO?: string) => {
-    if (!dataISO) return '';
-    const [ano, mes, dia] = dataISO.split('-');
-    if (!ano || !mes || !dia) return '';
-    return `${dia.padStart(2, '0')}/${mes.padStart(2, '0')}/${ano}`;
-  };
-
+  // Carregar dados se for modo edição
   useEffect(() => {
     const carregarPedido = async () => {
       if (!isEditMode || !pedidoIdParam) return;
       try {
+        setIsLoading(true);
         const { data: pedido, error } = await supabase
           .from('pedidos')
           .select('*')
           .eq('id', pedidoIdParam)
           .single();
+
         if (error) throw error;
 
-        setClienteSelecionado({
-          id: pedido.cliente_id || '',
-          nome: pedido.cliente_nome || '',
-          email: pedido.cliente_email || '',
-          telefone: pedido.cliente_telefone || ''
-        });
+        // Header
+        setNumeroPedido(pedido.numero_pedido ? String(pedido.numero_pedido) : '');
+        setTipoPedido((pedido as any).tipo_pedido || 'pedido');
+        setDataEntrega(converterDataISOParaBR(pedido.data_previsao_entrega));
+        setObservacaoGeral(pedido.observacoes || '');
+        setFrete(pedido.frete != null ? String(pedido.frete) : '');
+        setPrioridade(pedido.prioridade || 'media');
 
-        if (pedido.etapas_necessarias && Array.isArray(pedido.etapas_necessarias)) {
-          setEtapasSelecionadas(pedido.etapas_necessarias);
+        // Financeiro Geral
+        setPedidoDescontoTipo((pedido.desconto_tipo as any) || 'percentage');
+        setPedidoDescontoValor(pedido.desconto_valor != null ? String(pedido.desconto_valor) : '');
+        setFormaPagamento(pedido.forma_pagamento || '');
+
+        // Garantia & Termos
+        setGarantiaTipo(pedido.garantia_tipo || 'meses');
+        setGarantiaValor(pedido.garantia_valor != null ? String(pedido.garantia_valor) : '3');
+        setGarantiaTexto(pedido.garantia_texto || TERMO_GARANTIA_PADRAO);
+        setTermoEntregaAtivo(pedido.termo_entrega_ativo != null ? pedido.termo_entrega_ativo : true);
+        setTermoEntregaTexto(pedido.termo_entrega_texto || TERMO_ENTREGA_PADRAO);
+
+        if (pedido.loja) {
+          setLojaSelecionadaForm(pedido.loja);
         }
 
-        // Parse robusto de dimensões salvas, aceitando 'x', 'X', 'ÃÃ¢â‚¬â€', espaços e ponto/vírgula
-        const dimensoesStr: string = pedido.dimensoes || '';
-        const matches = dimensoesStr.match(/\d+[.,]?\d*/g) || [];
-        const largura = matches[0] ? matches[0].replace('.', ',') : '';
-        const comprimento = matches[1] ? matches[1].replace('.', ',') : '';
-        const dimensoesNormalizadas = largura && comprimento
-          ? `${largura} x ${comprimento}`
-          : pedido.dimensoes || '';
-
-        setFormData(prev => ({
-          ...prev,
-          clienteId: pedido.cliente_id || '',
-          clienteNome: pedido.cliente_nome || '',
-          clienteEmail: pedido.cliente_email || '',
-          clienteTelefone: pedido.cliente_telefone || '',
-          clienteEndereco: pedido.cliente_endereco || '',
-          numeroPedido: pedido.numero_pedido ? String(pedido.numero_pedido) : '',
-          dataEntrega: converterDataISOParaBR(pedido.data_previsao_entrega),
-          descricao: pedido.descricao_sofa || '',
-          tipoSofa: pedido.tipo_sofa || '',
-          dimensoes: dimensoesNormalizadas,
-          dimensaoLargura: largura,
-          dimensaoComprimento: comprimento,
-          tipoServico: pedido.tipo_servico || '',
-          observacoes: pedido.observacoes || '',
-          espuma: pedido.espuma || '',
-          tecido: pedido.tecido || '',
-          braco: pedido.braco || '',
-          tipoPe: pedido.tipo_pe || '',
-          frete: pedido.frete ? String(pedido.frete) : '',
-          precoUnitario: pedido.preco_unitario ? String(pedido.preco_unitario) : '',
-          valorTotal: pedido.valor_total ? String(pedido.valor_total) : '',
-          valorPago: pedido.valor_pago ? String(pedido.valor_pago) : '',
-          condicaoPagamento: pedido.condicao_pagamento || '',
-          meioPagamento: Array.isArray(pedido.meios_pagamento) ? (pedido.meios_pagamento[0] || '') : '',
-          prioridade: pedido.prioridade || 'media',
-          garantiaTipo: pedido.garantia_tipo || 'dias',
-          garantiaValor: pedido.garantia_valor != null ? String(pedido.garantia_valor) : '',
-          garantiaTexto: pedido.garantia_texto || '',
-          termoEntregaAtivo: !!pedido.termo_entrega_ativo,
-          termoEntregaTexto: pedido.termo_entrega_texto || '',
-          etapasNecessarias: pedido.etapas_necessarias || [],
-          fotosPedido: [],
-          fotosControle: [],
-          tipoPedido: (pedido as any).tipo_pedido || 'pedido'
-        }));
-
-        // Garantir que os selects exibam o valor salvo mesmo que não esteja nas listas
-        if (pedido.tipo_sofa) {
-          setTiposSofaDisponiveis(prev => prev.includes(pedido.tipo_sofa) ? prev : [...prev, pedido.tipo_sofa]);
-        }
-        if (pedido.espuma) {
-          setEspumasDisponiveis(prev => prev.includes(pedido.espuma) ? prev : [...prev, pedido.espuma]);
-        }
-        if (pedido.braco) {
-          setBracosDisponiveis(prev => prev.includes(pedido.braco) ? prev : [...prev, pedido.braco]);
-        }
-        if (pedido.tipo_pe) {
-          setTiposPeDisponiveis(prev => prev.includes(pedido.tipo_pe) ? prev : [...prev, pedido.tipo_pe]);
-        }
-        if (pedido.tipo_servico) {
-          setTiposServicoDisponiveis(prev => prev.includes(pedido.tipo_servico) ? prev : [...prev, pedido.tipo_servico]);
-        }
-
-        // Carregar itens do pedido (produtos) e popular itens adicionais (exclui o primeiro)
-        try {
-          const { data: itensDb, error: itensErr } = await supabase
-            .from('pedido_itens')
-            .select('*')
-            .eq('pedido_id', pedidoIdParam)
-            .order('created_at', { ascending: true });
-
-          if (!itensErr && Array.isArray(itensDb)) {
-            // Preencher campos do Produto 1 relacionados à  visita técnica, se existirem
-            if (itensDb.length >= 1) {
-              const primeiro = itensDb[0];
-              setFormData(prev => ({
-                ...prev,
-                visitaTecnicaAtiva: !!primeiro.visita_tecnica,
-                visitaTecnicaData: converterDataISOParaBR(primeiro.data_visita_tecnica)
-              }));
-            }
-            if (itensDb.length > 1) {
-              const adicionais = itensDb.slice(1).map((it: any) => ({
-                descricao: it.descricao || '',
-                tipoSofa: it.tipo_sofa || '',
-                dimensoes: it.dimensoes || '',
-                dimensaoLargura: (() => {
-                  const d = (it.dimensoes || '').replace('ÃÃ¢â‚¬â€', 'x');
-                  const parts = d.split('x').map((p: string) => p.trim());
-                  return parts[0] || '';
-                })(),
-                dimensaoComprimento: (() => {
-                  const d = (it.dimensoes || '').replace('ÃÃ¢â‚¬â€', 'x');
-                  const parts = d.split('x').map((p: string) => p.trim());
-                  return parts[1] || '';
-                })(),
-                tipoServico: it.tipo_servico || '',
-                observacoes: it.observacoes || '',
-                espuma: it.espuma || '',
-                tecido: it.tecido || '',
-                braco: it.braco || '',
-                tipoPe: it.tipo_pe || '',
-                precoUnitario: it.preco_unitario != null ? String(it.preco_unitario) : '',
-                quantidade: it.quantidade || 1,
-                descontoTipo: 'percentage' as 'percentage' | 'fixed',
-                descontoValor: 0,
-                fotosPedido: [],
-                etapasNecessarias: []
-              }));
-              setItensAdicionais(adicionais);
-            } else {
-              setItensAdicionais([]);
-            }
-          }
-        } catch (e) {
-          console.error('Erro ao carregar itens do pedido:', e);
-        }
-
-        // Carregar dados completos do cliente (endereço detalhado) se existir cliente_id
+        // Cliente
         if (pedido.cliente_id) {
-          const { data: clienteData, error: clienteError } = await supabase
+          const { data: cData } = await supabase
             .from('clientes')
             .select('*')
             .eq('id', pedido.cliente_id)
             .single();
 
-          if (!clienteError && clienteData) {
-            // Atualizar seleção de cliente com dados completos
+          if (cData) {
             setClienteSelecionado({
-              id: clienteData.id,
-              nome: clienteData.nome,
-              email: clienteData.email || '',
-              telefone: clienteData.telefone || '',
-              endereco_completo: clienteData.endereco_completo || '',
-              cep: clienteData.cep || '',
-              bairro: clienteData.bairro || '',
-              cidade: clienteData.cidade || '',
-              estado: clienteData.estado || '',
+              id: cData.id,
+              nome: cData.nome,
+              email: cData.email || '',
+              telefone: cData.telefone || '',
+              endereco_completo: cData.endereco_completo || '',
+              cep: cData.cep || '',
+              bairro: cData.bairro || '',
+              cidade: cData.cidade || '',
+              estado: cData.estado || '',
             });
-
-            // Preencher campos de endereço detalhado no formulário
-            setFormData(prev => ({
-              ...prev,
-              clienteEndereco: clienteData.endereco_completo || prev.clienteEndereco || '',
-              clienteCep: clienteData.cep || prev.clienteCep || '',
-              clienteBairro: clienteData.bairro || prev.clienteBairro || '',
-              clienteCidade: clienteData.cidade || prev.clienteCidade || '',
-              clienteEstado: clienteData.estado || prev.clienteEstado || '',
-            }));
           }
+        } else if (pedido.cliente_nome) {
+          setClienteSelecionado({
+            id: '',
+            nome: pedido.cliente_nome,
+            email: pedido.cliente_email || '',
+            telefone: pedido.cliente_telefone || '',
+          });
         }
 
-        // Carregar dados do vendedor se existir
+        // Vendedor
         if (pedido.vendedor_id) {
-          const { data: vendedorData, error: vendedorError } = await supabase
+          const { data: vData } = await supabase
             .from('vendedores')
             .select('*')
             .eq('id', pedido.vendedor_id)
             .single();
 
-          if (!vendedorError && vendedorData) {
+          if (vData) {
             setVendedorSelecionado({
-              id: vendedorData.id,
-              nome: vendedorData.nome
+              id: vData.id,
+              nome: vData.nome,
             });
-            setFormData(prev => ({ ...prev, vendedorId: vendedorData.id }));
           }
         }
 
-        // Buscar anexos existentes para pré-carregar no formulário
-        const { data: anexosData, error: anexosError } = await supabase
+        // Carregar Anexos
+        const { data: anexosData } = await supabase
           .from('pedido_anexos')
           .select('*')
           .eq('pedido_id', pedidoIdParam)
           .order('created_at', { ascending: true });
 
-        if (anexosError) {
-          console.error('Erro ao carregar anexos do pedido:', anexosError);
-        } else {
-          const fotosPedidoExistentes: UploadedImage[] = (anexosData || [])
-            .filter(a => a.descricao === 'foto_pedido')
-            .map(a => ({
-              id: a.id,
-              file: new File([new Blob()], a.nome_arquivo, { type: a.tipo_arquivo || 'image/jpeg' }),
-              preview: a.url_arquivo,
-              uploaded: true,
-              url: a.url_arquivo,
-              name: a.nome_arquivo,
-              size: 0,
-              type: a.tipo_arquivo || 'image/jpeg',
-              existing: true,
-            }));
+        const todosAnexos: UploadedImage[] = (anexosData || []).map(a => ({
+          id: a.id,
+          file: new File([new Blob()], a.nome_arquivo, { type: a.tipo_arquivo || 'image/jpeg' }),
+          preview: a.url_arquivo,
+          uploaded: true,
+          url: a.url_arquivo,
+          name: a.nome_arquivo,
+          size: a.tamanho_arquivo || 0,
+          type: a.tipo_arquivo || 'image/jpeg',
+          existing: true,
+          pedidoItemId: a.pedido_item_id,
+          tipoDescricao: a.descricao
+        } as any));
 
-          const fotosControleExistentes: UploadedImage[] = (anexosData || [])
-            .filter(a => a.descricao === 'foto_controle')
-            .map(a => ({
-              id: a.id,
-              file: new File([new Blob()], a.nome_arquivo, { type: a.tipo_arquivo || 'image/jpeg' }),
-              preview: a.url_arquivo,
-              uploaded: true,
-              url: a.url_arquivo,
-              name: a.nome_arquivo,
-              size: 0,
-              type: a.tipo_arquivo || 'image/jpeg',
-              existing: true,
-            }));
+        setAnexosOriginais(todosAnexos);
 
-          setFormData(prev => ({
-            ...prev,
-            fotosPedido: fotosPedidoExistentes,
-            fotosControle: fotosControleExistentes,
-          }));
-          setAnexosOriginaisPedido(fotosPedidoExistentes);
-          setAnexosOriginaisControle(fotosControleExistentes);
+        const fotosControleCarregadas = todosAnexos.filter((a: any) => a.tipoDescricao === 'foto_controle');
+        setFotosControle(fotosControleCarregadas);
+
+        // Carregar Itens de Produtos
+        const { data: itensDb, error: itensErr } = await supabase
+          .from('pedido_itens')
+          .select('*')
+          .eq('pedido_id', pedidoIdParam)
+          .order('sequencia', { ascending: true });
+
+        if (!itensErr && Array.isArray(itensDb) && itensDb.length > 0) {
+          const produtosMapeados: ProdutoItem[] = itensDb.map(it => {
+            const fotosDoItem = todosAnexos.filter((a: any) => a.pedidoItemId === it.id);
+            return {
+              id: it.id,
+              descricao: it.descricao || '',
+              detalhes: it.observacoes || (it.dimensoes ? `Dimensões: ${it.dimensoes}` : ''),
+              precoUnitario: it.preco_unitario != null ? String(it.preco_unitario) : '',
+              quantidade: it.quantidade || 1,
+              descontoTipo: (it.desconto_tipo as any) || 'percentage',
+              descontoValor: it.desconto_valor != null ? String(it.desconto_valor) : '0',
+              visitaTecnicaAtiva: !!it.visita_tecnica,
+              visitaTecnicaData: converterDataISOParaBR(it.data_visita_tecnica),
+              fotosPedido: fotosDoItem,
+            };
+          });
+          setProdutos(produtosMapeados);
+        } else if (pedido.descricao_sofa) {
+          // Fallback caso seja um pedido legado sem pedido_itens
+          const fotosPedidoLegado = todosAnexos.filter((a: any) => a.tipoDescricao === 'foto_pedido');
+          setProdutos([
+            {
+              descricao: pedido.descricao_sofa || '',
+              detalhes: pedido.dimensoes ? `Dimensões: ${pedido.dimensoes}` : '',
+              precoUnitario: pedido.preco_unitario ? String(pedido.preco_unitario) : '',
+              quantidade: pedido.quantidade || 1,
+              descontoTipo: (pedido.desconto_tipo as any) || 'percentage',
+              descontoValor: pedido.desconto_valor ? String(pedido.desconto_valor) : '0',
+              visitaTecnicaAtiva: false,
+              visitaTecnicaData: '',
+              fotosPedido: fotosPedidoLegado,
+            }
+          ]);
         }
       } catch (err) {
-        console.error('Erro ao carregar pedido para edição:', err);
+        console.error('Erro ao carregar dados do pedido:', err);
+        toast({
+          title: 'Erro ao carregar pedido',
+          description: 'Não foi possível carregar os dados completos deste pedido.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
+
     carregarPedido();
   }, [isEditMode, pedidoIdParam]);
 
-  const handleInputChange = (field: keyof FormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  // Cálculos Financeiros
+  const totalProdutos = useMemo(() => {
+    return produtos.reduce((acc, p) => {
+      const precoUnit = parseValor(p.precoUnitario);
+      const qtd = p.quantidade || 1;
+      const precoTotalItem = precoUnit * qtd;
+      const descVal = parseFloat(p.descontoValor) || 0;
+      const finalItem = calculateFinalPrice(precoTotalItem, p.descontoTipo, descVal);
+      return acc + finalItem;
+    }, 0);
+  }, [produtos]);
+
+  const totalComFrete = useMemo(() => {
+    const valorFrete = parseValor(frete);
+    return totalProdutos + valorFrete;
+  }, [totalProdutos, frete]);
+
+  const totalFinalPedido = useMemo(() => {
+    const descPedido = parseValor(pedidoDescontoValor);
+    return calculateFinalPrice(totalComFrete, pedidoDescontoTipo, descPedido);
+  }, [totalComFrete, pedidoDescontoTipo, pedidoDescontoValor]);
+
+  // Manipulação de Produtos
+  const handleOpenAddProduto = () => {
+    setTempProduto({ ...defaultProdutoItem });
+    setEditingProdutoIndex(null);
+    setModalProdutoAberto(true);
   };
 
-  // Função para formatar data no formato DD/MM/AAAA
-  const formatarData = (value: string) => {
-    // Remove tudo que não é número
-    const apenasNumeros = value.replace(/\D/g, '');
-
-    // Aplica a máscara DD/MM/AAAA
-    if (apenasNumeros.length <= 2) {
-      return apenasNumeros;
-    } else if (apenasNumeros.length <= 4) {
-      return `${apenasNumeros.slice(0, 2)}/${apenasNumeros.slice(2)}`;
-    } else {
-      return `${apenasNumeros.slice(0, 2)}/${apenasNumeros.slice(2, 4)}/${apenasNumeros.slice(4, 8)}`;
-    }
+  const handleOpenEditProduto = (index: number) => {
+    setTempProduto({ ...produtos[index] });
+    setEditingProdutoIndex(index);
+    setModalProdutoAberto(true);
   };
 
-  const handleDataChange = (value: string) => {
-    const dataFormatada = formatarData(value);
-    setFormData(prev => ({ ...prev, dataEntrega: dataFormatada }));
+  const handleRemoveProduto = (index: number) => {
+    setProdutos(prev => prev.filter((_, i) => i !== index));
+    toast({
+      title: 'Produto Removido',
+      description: 'O produto foi retirado da lista do pedido.',
+    });
   };
 
-  // Função para converter data DD/MM/AAAA para formato ISO AAAA-MM-DD
-  const converterDataParaISO = (dataBR: string) => {
-    if (!dataBR || dataBR.length !== 10) return '';
-
-    const [dia, mes, ano] = dataBR.split('/');
-    if (!dia || !mes || !ano || ano.length !== 4) return '';
-
-    // Validar se é uma data válida
-    const data = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
-    if (data.getDate() !== parseInt(dia) ||
-      data.getMonth() !== parseInt(mes) - 1 ||
-      data.getFullYear() !== parseInt(ano)) {
-      return '';
-    }
-
-    return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
-  };
-
-  // Função para formatar dimensões com vírgula automática
-  const formatarDimensao = (value: string) => {
-    // Remove tudo que não é número
-    const apenasNumeros = value.replace(/\D/g, '');
-
-    // Se não há números, retorna vazio
-    if (!apenasNumeros) return '';
-
-    // Se tem apenas 1 dígito, retorna como está
-    if (apenasNumeros.length === 1) return apenasNumeros;
-
-    // Se tem 2 ou mais dígitos, adiciona vírgula após o primeiro
-    return `${apenasNumeros.slice(0, 1)},${apenasNumeros.slice(1, 3)}`;
-  };
-
-  const handleDimensaoChange = (field: 'dimensaoLargura' | 'dimensaoComprimento', value: string) => {
-    const valorFormatado = formatarDimensao(value);
-    setFormData(prev => ({
-      ...prev,
-      [field]: valorFormatado,
-      // Atualizar o campo dimensoes combinado para compatibilidade
-      dimensoes: field === 'dimensaoLargura'
-        ? `${valorFormatado} x ${prev.dimensaoComprimento}`
-        : `${prev.dimensaoLargura} x ${valorFormatado}`
-    }));
-  };
-
-  // Funções para manipular imagens
-  const handleFotosPedidoChange = (images: UploadedImage[]) => {
-    setFormData(prev => ({ ...prev, fotosPedido: images }));
-  };
-
-  const handleFotosControleChange = (images: UploadedImage[]) => {
-    setFormData(prev => ({ ...prev, fotosControle: images }));
-  };
-
-  // Seleção única de meio de pagamento controlada por Select
-
-  // Função para lidar com a seleção de cliente
-  const handleClienteSelect = (cliente: Cliente | null) => {
-    setClienteSelecionado(cliente);
-
-    if (cliente) {
-      setFormData(prev => ({
-        ...prev,
-        clienteId: cliente.id,
-        clienteNome: cliente.nome,
-        clienteEmail: cliente.email || '',
-        clienteTelefone: cliente.telefone,
-        clienteEndereco: cliente.endereco_completo || '',
-        clienteCep: cliente.cep || '',
-        clienteBairro: cliente.bairro || '',
-        clienteCidade: cliente.cidade || '',
-        clienteEstado: cliente.estado || '',
-      }));
-    } else {
-      // Limpar dados do cliente se nenhum cliente for selecionado
-      setFormData(prev => ({
-        ...prev,
-        clienteId: '',
-        clienteNome: '',
-        clienteEmail: '',
-        clienteTelefone: '',
-        clienteEndereco: '',
-        clienteCep: '',
-        clienteBairro: '',
-        clienteCidade: '',
-        clienteEstado: '',
-      }));
-    }
-  };
-
-  // Função para buscar endereço pelo CEP
-  const buscarEnderecoPorCep = async (cep: string) => {
-    // Remove caracteres não numéricos
-    const cepLimpo = cep.replace(/\D/g, '');
-
-    // Verifica se o CEP tem 8 dígitos
-    if (cepLimpo.length !== 8) {
+  const handleSaveProdutoModal = () => {
+    if (!tempProduto.descricao.trim()) {
+      toast({
+        title: 'Nome do Produto Obrigatório',
+        description: 'Por favor, informe qual é o produto antes de salvar.',
+        variant: 'destructive',
+      });
       return;
     }
 
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-      const data = await response.json();
-
-      if (data.erro) {
-        toast({
-          title: "CEP não encontrado",
-          description: "Verifique se o CEP está correto.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Atualiza os campos de endereço
-      setFormData(prev => ({
-        ...prev,
-        clienteBairro: data.bairro || '',
-        clienteCidade: data.localidade || '',
-        clienteEstado: data.uf || '',
-        clienteEndereco: `${data.logradouro || ''}, ${data.bairro || ''}, ${data.localidade || ''} - ${data.uf || ''}`
-      }));
-
+    if (editingProdutoIndex !== null) {
+      // Editando existente
+      setProdutos(prev => prev.map((p, idx) => (idx === editingProdutoIndex ? tempProduto : p)));
       toast({
-        title: "Endereço encontrado!",
-        description: "Os dados do endereço foram preenchidos automaticamente."
+        title: 'Produto Atualizado',
+        description: `"${tempProduto.descricao}" foi atualizado com sucesso.`,
       });
-
-    } catch (error) {
-      console.error('Erro ao buscar CEP:', error);
+    } else {
+      // Adicionando novo
+      setProdutos(prev => [...prev, tempProduto]);
       toast({
-        title: "Erro ao buscar CEP",
-        description: "Não foi possível buscar o endereço. Tente novamente.",
-        variant: "destructive"
+        title: 'Produto Adicionado',
+        description: `"${tempProduto.descricao}" foi incluído no pedido.`,
       });
     }
+
+    setModalProdutoAberto(false);
+    setEditingProdutoIndex(null);
+    setTempProduto({ ...defaultProdutoItem });
   };
 
-  // Função para lidar com mudança no CEP
-  const handleCepChange = (value: string) => {
-    setFormData(prev => ({ ...prev, clienteCep: value }));
-
-    // Busca automaticamente quando o CEP tiver 8 dígitos
-    const cepLimpo = value.replace(/\D/g, '');
-    if (cepLimpo.length === 8) {
-      buscarEnderecoPorCep(value);
-    }
-  };
-
-
-
-  // Carregar categorias do banco de dados
-  useEffect(() => {
-    const carregarCategorias = async () => {
-      try {
-        const { data: categorias, error } = await supabase
-          .from('categorias')
-          .select('tipo, nome');
-
-        if (error) {
-          console.error('Erro ao carregar categorias:', error);
-          return;
-        }
-
-        if (categorias) {
-          // Separar categorias por tipo
-          const tiposSofa = categorias.filter(cat => cat.tipo === 'tipo_sofa').map(cat => cat.nome);
-          const espumas = categorias.filter(cat => cat.tipo === 'espuma').map(cat => cat.nome);
-          const bracos = categorias.filter(cat => cat.tipo === 'braco').map(cat => cat.nome);
-          const tiposPe = categorias.filter(cat => cat.tipo === 'tipo_pe').map(cat => cat.nome);
-          const tecidos = categorias.filter(cat => cat.tipo === 'tecido').map(cat => cat.nome);
-
-          // Atualizar estados apenas se houver dados no banco
-          if (tiposSofa.length > 0) setTiposSofaDisponiveis(tiposSofa);
-          if (espumas.length > 0) setEspumasDisponiveis(espumas);
-          if (bracos.length > 0) setBracosDisponiveis(bracos);
-          if (tiposPe.length > 0) setTiposPeDisponiveis(tiposPe);
-          if (tecidos.length > 0) setTecidosDisponiveis(tecidos);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar categorias:', error);
-      }
-    };
-
-    carregarCategorias();
-  }, []);
-
-  // Garantir que os selects sempre incluam o valor atual do formulário
-  useEffect(() => {
-    const { tipoSofa, espuma, braco, tipoPe, tipoServico, tecido } = formData;
-    if (tipoSofa) setTiposSofaDisponiveis(prev => prev.includes(tipoSofa) ? prev : [...prev, tipoSofa]);
-    if (espuma) setEspumasDisponiveis(prev => prev.includes(espuma) ? prev : [...prev, espuma]);
-    if (braco) setBracosDisponiveis(prev => prev.includes(braco) ? prev : [...prev, braco]);
-    if (tipoPe) setTiposPeDisponiveis(prev => prev.includes(tipoPe) ? prev : [...prev, tipoPe]);
-    if (tipoServico) setTiposServicoDisponiveis(prev => prev.includes(tipoServico) ? prev : [...prev, tipoServico]);
-    if (tecido) setTecidosDisponiveis(prev => prev.includes(tecido) ? prev : [...prev, tecido]);
-  }, [formData.tipoSofa, formData.espuma, formData.braco, formData.tipoPe, formData.tipoServico, formData.tecido]);
-
-  // Reforçar que os valores atuais permaneçam visíveis quando listas são recarregadas
-  useEffect(() => {
-    const { tipoSofa, espuma, braco, tipoPe, tipoServico, tecido } = formData;
-    if (tipoSofa && !tiposSofaDisponiveis.includes(tipoSofa)) {
-      setTiposSofaDisponiveis(prev => [...prev, tipoSofa]);
-    }
-    if (espuma && !espumasDisponiveis.includes(espuma)) {
-      setEspumasDisponiveis(prev => [...prev, espuma]);
-    }
-    if (braco && !bracosDisponiveis.includes(braco)) {
-      setBracosDisponiveis(prev => [...prev, braco]);
-    }
-    if (tipoPe && !tiposPeDisponiveis.includes(tipoPe)) {
-      setTiposPeDisponiveis(prev => [...prev, tipoPe]);
-    }
-    if (tipoServico && !tiposServicoDisponiveis.includes(tipoServico)) {
-      setTiposServicoDisponiveis(prev => [...prev, tipoServico]);
-    }
-    if (tecido && !tecidosDisponiveis.includes(tecido)) {
-      setTecidosDisponiveis(prev => [...prev, tecido]);
-    }
-  }, [tiposSofaDisponiveis, espumasDisponiveis, bracosDisponiveis, tiposPeDisponiveis, tiposServicoDisponiveis, tecidosDisponiveis]);
-
-
-
-
-  // Funções para Tipo de Sofá
-  const adicionarNovoTipoSofa = async () => {
-    if (novoTipoSofa.trim() && !tiposSofaDisponiveis.includes(novoTipoSofa.trim())) {
-      try {
-        const novoTipoFormatado = novoTipoSofa.trim();
-
-        // Salvar no banco de dados
-        const { error } = await supabase
-          .from('categorias')
-          .insert({
-            tipo: 'tipo_sofa',
-            nome: novoTipoFormatado
-          });
-
-        if (error) throw error;
-
-        setTiposSofaDisponiveis(prev => [...prev, novoTipoFormatado]);
-        setTimeout(() => {
-          setFormData(prev => ({ ...prev, tipoSofa: novoTipoFormatado }));
-        }, 50);
-        setNovoTipoSofa('');
-        setModalNovoTipoSofaAberto(false);
-        toast({
-          title: "Tipo de sofá adicionado!",
-          description: `O tipo "${novoTipoFormatado}" foi adicionado com sucesso.`,
-        });
-      } catch (error) {
-        console.error('Erro ao adicionar tipo de sofá:', error);
-        toast({
-          title: "Erro ao adicionar tipo",
-          description: "Não foi possível adicionar o tipo de sofá. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    } else if (tiposSofaDisponiveis.includes(novoTipoSofa.trim())) {
-      toast({
-        title: "Tipo já existe",
-        description: "Este tipo de sofá já está na lista.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const excluirTipoSofa = async (tipoParaRemover: string) => {
-    try {
-      const { error } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('tipo', 'tipo_sofa')
-        .eq('nome', tipoParaRemover);
-
-      if (error) throw error;
-
-      setTiposSofaDisponiveis(prev => prev.filter(tipo => tipo !== tipoParaRemover));
-      if (formData.tipoSofa === tipoParaRemover) {
-        setFormData(prev => ({ ...prev, tipoSofa: '' }));
-      }
-      setTipoSofaParaExcluir(null);
-      toast({
-        title: "Tipo removido!",
-        description: `O tipo "${tipoParaRemover}" foi removido da lista.`,
-      });
-    } catch (error) {
-      console.error('Erro ao excluir tipo de sofá:', error);
-      toast({
-        title: "Erro ao excluir tipo",
-        description: "Não foi possível excluir o tipo de sofá. Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Funções para Espuma
-  const adicionarNovaEspuma = async () => {
-    if (novaEspuma.trim() && !espumasDisponiveis.includes(novaEspuma.trim())) {
-      try {
-        const novaEspumaFormatada = novaEspuma.trim();
-
-        const { error } = await supabase
-          .from('categorias')
-          .insert({
-            tipo: 'espuma',
-            nome: novaEspumaFormatada
-          });
-
-        if (error) throw error;
-
-        setEspumasDisponiveis(prev => [...prev, novaEspumaFormatada]);
-        setTimeout(() => {
-          setFormData(prev => ({ ...prev, espuma: novaEspumaFormatada }));
-        }, 50);
-        setNovaEspuma('');
-        setModalNovaEspumaAberto(false);
-        toast({
-          title: "Espuma adicionada!",
-          description: `A espuma "${novaEspumaFormatada}" foi adicionada com sucesso.`,
-        });
-      } catch (error) {
-        console.error('Erro ao adicionar espuma:', error);
-        toast({
-          title: "Erro ao adicionar espuma",
-          description: "Não foi possível adicionar a espuma. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    } else if (espumasDisponiveis.includes(novaEspuma.trim())) {
-      toast({
-        title: "Espuma já existe",
-        description: "Esta espuma já está na lista.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const excluirEspuma = async (espumaParaRemover: string) => {
-    try {
-      const { error } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('tipo', 'espuma')
-        .eq('nome', espumaParaRemover);
-
-      if (error) throw error;
-
-      setEspumasDisponiveis(prev => prev.filter(espuma => espuma !== espumaParaRemover));
-      if (formData.espuma === espumaParaRemover) {
-        setFormData(prev => ({ ...prev, espuma: '' }));
-      }
-      setEspumaParaExcluir(null);
-      toast({
-        title: "Espuma removida!",
-        description: `A espuma "${espumaParaRemover}" foi removida da lista.`,
-      });
-    } catch (error) {
-      console.error('Erro ao excluir espuma:', error);
-      toast({
-        title: "Erro ao excluir espuma",
-        description: "Não foi possível excluir a espuma. Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Funções para Braço
-  const adicionarNovoBraco = async () => {
-    if (novoBraco.trim() && !bracosDisponiveis.includes(novoBraco.trim())) {
-      try {
-        const novoBracoFormatado = novoBraco.trim();
-
-        const { error } = await supabase
-          .from('categorias')
-          .insert({
-            tipo: 'braco',
-            nome: novoBracoFormatado
-          });
-
-        if (error) throw error;
-
-        setBracosDisponiveis(prev => [...prev, novoBracoFormatado]);
-        setTimeout(() => {
-          setFormData(prev => ({ ...prev, braco: novoBracoFormatado }));
-        }, 50);
-        setNovoBraco('');
-        setModalNovoBracoAberto(false);
-        toast({
-          title: "Braço adicionado!",
-          description: `O braço "${novoBracoFormatado}" foi adicionado com sucesso.`,
-        });
-      } catch (error) {
-        console.error('Erro ao adicionar braço:', error);
-        toast({
-          title: "Erro ao adicionar braço",
-          description: "Não foi possível adicionar o braço. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    } else if (bracosDisponiveis.includes(novoBraco.trim())) {
-      toast({
-        title: "Braço já existe",
-        description: "Este braço já está na lista.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const excluirBraco = async (bracoParaRemover: string) => {
-    try {
-      const { error } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('tipo', 'braco')
-        .eq('nome', bracoParaRemover);
-
-      if (error) throw error;
-
-      setBracosDisponiveis(prev => prev.filter(braco => braco !== bracoParaRemover));
-      if (formData.braco === bracoParaRemover) {
-        setFormData(prev => ({ ...prev, braco: '' }));
-      }
-      setBracoParaExcluir(null);
-      toast({
-        title: "Braço removido!",
-        description: `O braço "${bracoParaRemover}" foi removido da lista.`,
-      });
-    } catch (error) {
-      console.error('Erro ao excluir braço:', error);
-      toast({
-        title: "Erro ao excluir braço",
-        description: "Não foi possível excluir o braço. Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Funções para Tipo de Pé
-  const adicionarNovoTipoPe = async () => {
-    if (novoTipoPe.trim() && !tiposPeDisponiveis.includes(novoTipoPe.trim())) {
-      try {
-        const novoTipoPeFormatado = novoTipoPe.trim();
-
-        const { error } = await supabase
-          .from('categorias')
-          .insert({
-            tipo: 'tipo_pe',
-            nome: novoTipoPeFormatado
-          });
-
-        if (error) throw error;
-
-        setTiposPeDisponiveis(prev => [...prev, novoTipoPeFormatado]);
-        setTimeout(() => {
-          setFormData(prev => ({ ...prev, tipoPe: novoTipoPeFormatado }));
-        }, 50);
-        setNovoTipoPe('');
-        setModalNovoTipoPeAberto(false);
-        toast({
-          title: "Tipo de pé adicionado!",
-          description: `O tipo "${novoTipoPeFormatado}" foi adicionado com sucesso.`,
-        });
-      } catch (error) {
-        console.error('Erro ao adicionar tipo de pé:', error);
-        toast({
-          title: "Erro ao adicionar tipo de pé",
-          description: "Não foi possível adicionar o tipo de pé. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    } else if (tiposPeDisponiveis.includes(novoTipoPe.trim())) {
-      toast({
-        title: "Tipo já existe",
-        description: "Este tipo de pé já está na lista.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const excluirTipoPe = async (tipoPeParaRemover: string) => {
-    try {
-      const { error } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('tipo', 'tipo_pe')
-        .eq('nome', tipoPeParaRemover);
-
-      if (error) throw error;
-
-      setTiposPeDisponiveis(prev => prev.filter(tipo => tipo !== tipoPeParaRemover));
-      if (formData.tipoPe === tipoPeParaRemover) {
-        setFormData(prev => ({ ...prev, tipoPe: '' }));
-      }
-      setTipoPeParaExcluir(null);
-      toast({
-        title: "Tipo de pé removido!",
-        description: `O tipo "${tipoPeParaRemover}" foi removido da lista.`,
-      });
-    } catch (error) {
-      console.error('Erro ao excluir tipo de pé:', error);
-      toast({
-        title: "Erro ao excluir tipo de pé",
-        description: "Não foi possível excluir o tipo de pé. Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Funções para Tipo de Serviço
-  const adicionarNovoTipoServico = async () => {
-    if (novoTipoServico.trim() && !tiposServicoDisponiveis.includes(novoTipoServico.trim())) {
-      try {
-        const novoTipoFormatado = novoTipoServico.trim();
-
-        // Salvar no banco de dados
-        const { error } = await supabase
-          .from('categorias')
-          .insert({
-            tipo: 'tipo_servico',
-            nome: novoTipoFormatado
-          });
-
-        if (error) throw error;
-
-        setTiposServicoDisponiveis(prev => [...prev, novoTipoFormatado]);
-        setTimeout(() => {
-          setFormData(prev => ({ ...prev, tipoServico: novoTipoFormatado }));
-        }, 50);
-        setNovoTipoServico('');
-        setModalNovoTipoServicoAberto(false);
-        toast({
-          title: "Tipo de serviço adicionado!",
-          description: `O tipo "${novoTipoFormatado}" foi adicionado com sucesso.`,
-        });
-      } catch (error) {
-        console.error('Erro ao adicionar tipo de serviço:', error);
-        toast({
-          title: "Erro ao adicionar tipo",
-          description: "Não foi possível adicionar o tipo de serviço. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    } else if (tiposServicoDisponiveis.includes(novoTipoServico.trim())) {
-      toast({
-        title: "Tipo já existe",
-        description: "Este tipo de serviço já está na lista.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const excluirTipoServico = async (tipoServicoParaRemover: string) => {
-    try {
-      const { error } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('tipo', 'tipo_servico')
-        .eq('nome', tipoServicoParaRemover);
-
-      if (error) throw error;
-
-      setTiposServicoDisponiveis(prev => prev.filter(tipo => tipo !== tipoServicoParaRemover));
-      if (formData.tipoServico === tipoServicoParaRemover) {
-        setFormData(prev => ({ ...prev, tipoServico: '' }));
-      }
-      setTipoServicoParaExcluir(null);
-      toast({
-        title: "Tipo de serviço removido!",
-        description: `O tipo "${tipoServicoParaRemover}" foi removido da lista.`,
-      });
-    } catch (error) {
-      console.error('Erro ao excluir tipo de serviço:', error);
-      toast({
-        title: "Erro ao excluir tipo de serviço",
-        description: "Não foi possível excluir o tipo de serviço. Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Funções para Tecido
-  const adicionarNovoTecido = async () => {
-    if (novoTecido.trim() && !tecidosDisponiveis.includes(novoTecido.trim())) {
-      try {
-        const novoTecidoFormatado = novoTecido.trim();
-
-        // Salvar no banco de dados
-        const { error } = await supabase
-          .from('categorias')
-          .insert({
-            tipo: 'tecido',
-            nome: novoTecidoFormatado
-          });
-
-        if (error) throw error;
-
-        setTecidosDisponiveis(prev => [...prev, novoTecidoFormatado]);
-        setTimeout(() => {
-          setFormData(prev => ({ ...prev, tecido: novoTecidoFormatado }));
-        }, 50);
-        setNovoTecido('');
-        setModalNovoTecidoAberto(false);
-        toast({
-          title: "Tecido adicionado!",
-          description: `O tecido "${novoTecidoFormatado}" foi adicionado com sucesso.`,
-        });
-      } catch (error) {
-        console.error('Erro ao adicionar tecido:', error);
-        toast({
-          title: "Erro ao adicionar tecido",
-          description: "Não foi possível adicionar o tecido. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    } else if (tecidosDisponiveis.includes(novoTecido.trim())) {
-      toast({
-        title: "Tecido já existe",
-        description: "Este tecido já está na lista.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const excluirTecido = async (tecidoParaRemover: string) => {
-    try {
-      const { error } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('tipo', 'tecido')
-        .eq('nome', tecidoParaRemover);
-
-      if (error) throw error;
-
-      setTecidosDisponiveis(prev => prev.filter(tipo => tipo !== tecidoParaRemover));
-      if (formData.tecido === tecidoParaRemover) {
-        setFormData(prev => ({ ...prev, tecido: '' }));
-      }
-      setTecidoParaExcluir(null);
-      toast({
-        title: "Tecido removido!",
-        description: `O tecido "${tecidoParaRemover}" foi removido da lista.`,
-      });
-    } catch (error) {
-      console.error('Erro ao excluir tecido:', error);
-      toast({
-        title: "Erro ao excluir tecido",
-        description: "Não foi possível excluir o tecido. Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
-
+  // Submissão do Formulário Geral do Pedido
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Evitar salvar antes da etapa final do wizard
-    if (wizardStep < 4) {
-      handleAvancarWizard();
+
+    if (!clienteSelecionado) {
+      toast({
+        title: 'Cliente Obrigatório',
+        description: 'Por favor, selecione ou cadastre um cliente para o pedido.',
+        variant: 'destructive',
+      });
       return;
     }
+
+    if (produtos.length === 0) {
+      toast({
+        title: 'Nenhum Produto Adicionado',
+        description: 'Adicione pelo menos um produto clicando em "PRODUTO +" para salvar o pedido.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: 'Erro de Autenticação',
+        description: 'Usuário não autenticado. Faça login novamente.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Validações básicas
-      if (!clienteSelecionado) {
-        throw new Error('Selecione um cliente para o pedido');
-      }
+      const dataEntregaISO = converterDataParaISO(dataEntrega);
+      const numeroPedidoLimpo = numeroPedido.replace(/\D/g, '') || String(Date.now()).slice(-6);
 
-      if (!formData.dataEntrega || !formData.descricao) {
-        throw new Error('Preencha todos os dados do pedido');
-      }
+      const primeiroProduto = produtos[0];
+      const quantidadeTotalGeral = produtos.reduce((sum, p) => sum + (p.quantidade || 1), 0);
 
-      // Validar formato da data
-      const dataISO = converterDataParaISO(formData.dataEntrega);
-      if (!dataISO) {
-        throw new Error('Por favor, informe uma data válida no formato DD/MM/AAAA');
-      }
-
-      // Garantir dimensões combinadas mesmo se o usuário não tocar nos inputs
-      // Extrai dois números (com vírgula ou ponto) dos campos existentes e salva no formato "Largura Comprimento"
-      const extrairDimensoes = (entrada: string) => {
-        const nums = (entrada || '').match(/\d+[.,]?\d*/g) || [];
-        const [l, c] = [nums[0] || '', nums[1] || ''];
-        return { l: l.replace('.', ','), c: c.replace('.', ',') };
-      };
-      const { l: l1, c: c1 } = extrairDimensoes(formData.dimensoes);
-      const { l: l2, c: c2 } = extrairDimensoes(`${formData.dimensaoLargura} ${formData.dimensaoComprimento}`);
-      const larguraFinal = l1 || l2;
-      const comprimentoFinal = c1 || c2;
-      const dimensoesCombinadas = [larguraFinal, comprimentoFinal].filter(Boolean).join(' x ');
-
-      if (!formData.tipoSofa) {
-        throw new Error('Preencha o tipo do sofá');
-      }
-
-      if (!formData.tipoServico) {
-        throw new Error('Selecione o tipo de serviço');
-      }
-
-      if (!formData.espuma || !formData.tecido || !formData.braco || !formData.tipoPe) {
-        throw new Error('Preencha todas as especificações do produto');
-      }
-
-      if (etapasSelecionadas.length === 0) {
-        throw new Error('Selecione pelo menos uma etapa necessária para o pedido');
-      }
-
-      // Calcular valor_total a partir dos preços dos produtos com descontos e frete
-      const valorTotal = totalFinalPedido;
-      const valorPago = 0;
-
-      // Verificar se o usuário está autenticado
-      if (!user) {
-        throw new Error('Usuário não autenticado');
-      }
-
-      // Preparar dados do pedido
-      const pedidoData: any = {
-        cliente_id: clienteSelecionado.id,
+      const pedidoPayload: any = {
+        cliente_id: clienteSelecionado.id || null,
         cliente_nome: clienteSelecionado.nome,
-        cliente_email: clienteSelecionado.email,
+        cliente_email: clienteSelecionado.email || null,
         cliente_telefone: clienteSelecionado.telefone,
-        cliente_endereco: formData.clienteEndereco,
-        loja: lojaSelecionadaForm,
-        vendedor_id: vendedorSelecionado?.id,
-        data_previsao_entrega: dataISO,
-        descricao_sofa: formData.descricao,
-        tipo_sofa: formData.tipoSofa,
-        tipo_servico: formData.tipoServico,
-        dimensoes: dimensoesCombinadas,
-        observacoes: formData.observacoes,
-        espuma: formData.espuma,
-        tecido: formData.tecido,
-        braco: formData.braco,
-        tipo_pe: formData.tipoPe,
-        valor_total: valorTotal,
-        valor_pago: valorPago,
-        prioridade: formData.prioridade,
-        status: 'pendente',
+        cliente_endereco: clienteSelecionado.endereco_completo || null,
+        vendedor_id: vendedorSelecionado?.id || null,
+        numero_pedido: parseInt(numeroPedidoLimpo, 10),
+        tipo_pedido: tipoPedido,
+        data_previsao_entrega: dataEntregaISO || null,
+        observacoes: observacaoGeral || null,
+        frete: parseValor(frete) || null,
+        descricao_sofa: primeiroProduto.descricao,
+        dimensoes: primeiroProduto.detalhes || null,
+        preco_unitario: parseValor(primeiroProduto.precoUnitario) || null,
+        quantidade: quantidadeTotalGeral,
+        valor_total: totalFinalPedido,
+        desconto_tipo: pedidoDescontoTipo,
+        desconto_valor: parseValor(pedidoDescontoValor) || null,
+        forma_pagamento: formaPagamento || null,
+        prioridade: prioridade || 'media',
+        garantia_tipo: garantiaTipo,
+        garantia_valor: parseValor(garantiaValor) || null,
+        garantia_texto: garantiaTexto,
+        termo_entrega_ativo: termoEntregaAtivo,
+        termo_entrega_texto: termoEntregaTexto,
+        loja: (lojaSelecionadaForm as any) || 'loja_1',
+        status: 'em_producao',
         created_by: user.id,
-        etapas_necessarias: etapasSelecionadas,
-        desconto_tipo: formData.pedidoDescontoTipo,
-        desconto_valor: parseValor(formData.pedidoDescontoValor),
-        quantidade: formData.quantidade || 1,
-        tipo_pedido: formData.tipoPedido
       };
 
-      if (formData.numeroPedido) {
-        const match = formData.numeroPedido.match(/\d+/);
-        if (match) {
-          const parsedNumero = parseInt(match[0], 10);
-          if (!isNaN(parsedNumero)) {
-            pedidoData.numero_pedido = parsedNumero;
-          }
-        }
-      }
+      let pedidoSalvoId: string = pedidoIdParam || '';
 
-      // Incluir preco_unitario se informado e válido
-      if (formData.precoUnitario.trim()) {
-        const valor = parseValor(formData.precoUnitario);
-        if (valor > 0 || formData.precoUnitario.trim() === '0') {
-          pedidoData.preco_unitario = valor;
-        }
-      }
-
-      // Incluir frete se informado e válido
-      if (formData.frete.trim()) {
-        const valorFrete = parseValor(formData.frete);
-        if (valorFrete > 0 || formData.frete.trim() === '0') {
-          pedidoData.frete = valorFrete;
-        }
-      }
-
-      // Incluir forma_pagamento
-      if (formData.formaPagamento.trim()) {
-        pedidoData.forma_pagamento = formData.formaPagamento.trim();
-      }
-
-      // Incluir garantia
-      if (formData.garantiaTipo) {
-        pedidoData.garantia_tipo = formData.garantiaTipo;
-      }
-      if (formData.garantiaValor.trim()) {
-        const gVal = parseInt(formData.garantiaValor.replace(/\D/g, ''), 10);
-        if (!isNaN(gVal)) {
-          pedidoData.garantia_valor = gVal;
-        }
-      }
-      if (formData.garantiaTexto.trim()) {
-        pedidoData.garantia_texto = formData.garantiaTexto.trim();
-      }
-
-      // Incluir termo de entrega e recebimento
-      pedidoData.termo_entrega_ativo = !!formData.termoEntregaAtivo;
-      if (formData.termoEntregaAtivo && formData.termoEntregaTexto.trim()) {
-        pedidoData.termo_entrega_texto = formData.termoEntregaTexto.trim();
-      } else if (!formData.termoEntregaAtivo) {
-        pedidoData.termo_entrega_texto = null;
-      }
-
-      let pedidoAtualId = pedidoIdParam || '';
-      let pedidoCriado = null as any;
       if (!isEditMode) {
-        const { data, error } = await supabase
+        const { data: pedidoCriado, error: erroCriar } = await supabase
           .from('pedidos')
-          .insert([pedidoData])
-          .select();
-        if (error) throw error;
-        pedidoCriado = data[0];
-        pedidoAtualId = pedidoCriado.id;
+          .insert([pedidoPayload])
+          .select()
+          .single();
+
+        if (erroCriar || !pedidoCriado) throw erroCriar || new Error('Erro ao cadastrar pedido');
+        pedidoSalvoId = pedidoCriado.id;
       } else {
-        const { data, error } = await supabase
+        const { error: erroUpdate } = await supabase
           .from('pedidos')
-          .update(pedidoData)
-          .eq('id', pedidoAtualId)
-          .select();
-        if (error) throw error;
-        pedidoCriado = data[0];
+          .update(pedidoPayload)
+          .eq('id', pedidoSalvoId);
+
+        if (erroUpdate) throw erroUpdate;
       }
 
-      // Preparar lista total de imagens para processamento posterior (após salvar itens)
-      const todasImagens = [
-        ...formData.fotosPedido.map(img => ({ ...img, tipo: 'foto_pedido' })),
-        // Fotos dos produtos adicionais (associadas ao pedido)
-        ...itensAdicionais.flatMap(it => it.fotosPedido.map(img => ({ ...img, tipo: 'foto_pedido' }))),
-        ...formData.fotosControle.map(img => ({ ...img, tipo: 'foto_controle' }))
-      ];
-
-      // Em modo edição, remover anexos que foram excluídos pelo usuário
+      // Em modo edição, remover itens e produções antigas para recriar sincronizados
       if (isEditMode) {
-        const atuaisExistentes = todasImagens.filter(img => img.existing).map(img => img.id);
-        const origPedidoIds = anexosOriginaisPedido.map(a => a.id);
-        const origControleIds = anexosOriginaisControle.map(a => a.id);
+        await supabase.from('pedido_itens').delete().eq('pedido_id', pedidoSalvoId);
+        await supabase.from('itens_producao').delete().eq('pedido_id', pedidoSalvoId);
+      }
 
-        const removidosPedido = anexosOriginaisPedido.filter(a => !atuaisExistentes.includes(a.id));
-        const removidosControle = anexosOriginaisControle.filter(a => !atuaisExistentes.includes(a.id));
-        const removidos = [...removidosPedido, ...removidosControle];
+      // Salvar Itens do Pedido (Produtos)
+      const itensPayload = produtos.map((p, idx) => ({
+        pedido_id: pedidoSalvoId,
+        sequencia: idx + 1,
+        descricao: p.descricao,
+        observacoes: p.detalhes || null,
+        preco_unitario: parseValor(p.precoUnitario) || null,
+        quantidade: p.quantidade || 1,
+        desconto_tipo: p.descontoTipo,
+        desconto_valor: parseFloat(p.descontoValor) || 0,
+        visita_tecnica: !!p.visitaTecnicaAtiva,
+        data_visita_tecnica: p.visitaTecnicaAtiva ? (converterDataParaISO(p.visitaTecnicaData) || null) : null,
+        created_by: user.id,
+        espuma: '',
+        tecido: '',
+        braco: '',
+        tipo_pe: '',
+        tipo_servico: '',
+        tipo_sofa: '',
+      }));
+
+      const { data: itensInseridos, error: erroItens } = await supabase
+        .from('pedido_itens')
+        .insert(itensPayload)
+        .select();
+
+      if (erroItens) {
+        console.error('Erro ao salvar pedido_itens:', erroItens);
+        throw new Error('Falha ao salvar itens de produto do pedido.');
+      }
+
+      // Criar Etapas de Produção Automáticas para cada item
+      if (itensInseridos && itensInseridos.length > 0) {
+        const etapasPadrao = ['marcenaria', 'corte_costura', 'espuma', 'bancada', 'tecido'];
+        const producaoPayload = itensInseridos.flatMap(item =>
+          etapasPadrao.map(etapa => ({
+            pedido_id: pedidoSalvoId,
+            pedido_item_id: item.id,
+            etapa,
+            concluida: false,
+          }))
+        );
+
+        const { error: erroProducao } = await supabase
+          .from('itens_producao')
+          .insert(producaoPayload);
+
+        if (erroProducao) {
+          console.warn('Aviso ao gerar itens de produção:', erroProducao);
+        }
+      }
+
+      // Gerenciar Anexos (Fotos dos Produtos e Fotos de Controle)
+      // Em edição, remover anexos excluídos
+      if (isEditMode) {
+        const todasFotosAtuais = [
+          ...produtos.flatMap(p => p.fotosPedido),
+          ...fotosControle
+        ];
+        const idsAtuais = todasFotosAtuais.filter(f => f.existing).map(f => f.id);
+        const removidos = anexosOriginais.filter(a => !idsAtuais.includes(a.id));
 
         for (const rem of removidos) {
           try {
-            // Remover registro do banco
-            const { error: delError } = await supabase
-              .from('pedido_anexos')
-              .delete()
-              .eq('id', rem.id);
-            if (delError) {
-              console.error('Erro ao remover registro de anexo:', delError);
-            }
-
-            // Remover arquivo do storage
+            await supabase.from('pedido_anexos').delete().eq('id', rem.id);
             if (rem.url) {
               const marker = '/pedido-imagens/';
               const idx = rem.url.indexOf(marker);
               if (idx !== -1) {
                 const path = rem.url.substring(idx + marker.length);
-                const { error: storageErr } = await supabase.storage
-                  .from('pedido-imagens')
-                  .remove([path]);
-                if (storageErr) {
-                  console.error('Erro ao remover arquivo do storage:', storageErr);
-                }
+                await supabase.storage.from('pedido-imagens').remove([path]);
               }
             }
-          } catch (e) {
-            console.error('Erro ao remover anexo:', e);
+          } catch (errStorage) {
+            console.error('Erro ao excluir anexo antigo:', errStorage);
           }
         }
       }
 
-      // Persistir itens do pedido (múltiplos produtos)
-      const primeiroItem = {
-        descricao: formData.descricao,
-        tipoSofa: formData.tipoSofa,
-        dimensoes: dimensoesCombinadas,
-        tipoServico: formData.tipoServico,
-        espuma: formData.espuma,
-        tecido: formData.tecido,
-        braco: formData.braco,
-        tipoPe: formData.tipoPe,
-        precoUnitario: formData.precoUnitario,
-        observacoes: formData.observacoes,
-        quantidade: formData.quantidade || 1,
-        descontoTipo: formData.descontoTipo,
-        descontoValor: parseFloat(formData.descontoValor) || 0,
-      } as PedidoItemForm;
+      // Inserir Novas Fotos
+      const novosAnexos: any[] = [];
 
-      const todosItens = [primeiroItem, ...itensAdicionais];
+      // Fotos de cada produto vinculadas ao seu item correspondente
+      produtos.forEach((p, idx) => {
+        const itemInserido = itensInseridos ? itensInseridos[idx] : null;
+        const itemId = itemInserido ? itemInserido.id : null;
+        const fotosNovas = p.fotosPedido.filter(f => !f.existing && f.uploaded && !!f.url);
 
-      // Em modo edição, remover itens antigos para recriar do zero
-      if (isEditMode) {
-        const { error: delItensError } = await supabase
-          .from('pedido_itens')
-          .delete()
-          .eq('pedido_id', pedidoAtualId);
-        if (delItensError) {
-          console.error('Erro ao remover itens antigos do pedido:', delItensError);
-        }
-
-        // Remover etapas de produção antigas para recriar conforme seleção atual
-        const { error: delEtapasError } = await supabase
-          .from('itens_producao')
-          .delete()
-          .eq('pedido_id', pedidoAtualId);
-        if (delEtapasError) {
-          console.error('Erro ao remover etapas antigas de produção:', delEtapasError);
-        }
-      }
-
-      let itensInseridos: any[] = [];
-      if (todosItens.length > 0) {
-        const itensData = todosItens.map((it, idx) => ({
-          pedido_id: pedidoAtualId,
-          descricao: it.descricao || null,
-          tipo_sofa: it.tipoSofa || null,
-          dimensoes: it.dimensoes || null,
-          tipo_servico: it.tipoServico || null,
-          espuma: it.espuma || null,
-          tecido: it.tecido || null,
-          braco: it.braco || null,
-          tipo_pe: it.tipoPe || null,
-          created_by: user.id,
-          observacoes: it.observacoes || null,
-          quantidade: it.quantidade || 1,
-          sequencia: (idx + 1),
-          visita_tecnica: idx === 0 ? !!formData.visitaTecnicaAtiva : !!it.visitaTecnicaAtiva,
-          data_visita_tecnica: (() => {
-            const dataBR = idx === 0 ? (formData.visitaTecnicaData || '') : (it.visitaTecnicaData || '');
-            const dataISO = converterDataParaISO(dataBR);
-            return dataISO || null;
-          })(),
-          preco_unitario: (() => {
-            const v = (it.precoUnitario || '').toString().replace(/\./g, '').replace(',', '.');
-            const n = parseFloat(v);
-            return isNaN(n) ? null : n;
-          })(),
-          desconto_tipo: it.descontoTipo,
-          desconto_valor: it.descontoValor
-        }));
-
-        const { data: itensSalvos, error: itensError } = await supabase
-          .from('pedido_itens')
-          .insert(itensData)
-          .select();
-
-        if (itensError) {
-          console.error('Erro ao salvar itens do pedido:', itensError);
-          throw new Error('Falha ao salvar itens do pedido. Tente novamente.');
-        } else {
-          itensInseridos = itensSalvos || [];
-          if (!Array.isArray(itensInseridos) || itensInseridos.length === 0) {
-            console.error('Nenhum item foi inserido em pedido_itens. Resposta:', itensSalvos);
-            throw new Error('Nenhum item do pedido foi salvo. Verifique os dados e tente novamente.');
-          }
-        }
-      }
-
-      // Inserir anexos novos (após termos os IDs dos itens) e linkar fotos de produto ao item correspondente
-      const novasImagens = todasImagens.filter(img => !img.existing && img.uploaded && !!img.url);
-      if (novasImagens.length > 0) {
-        // Mapear fotos de produto por índice de item: primeiro conjunto é do item 1 (formData), demais seguem a ordem de itensAdicionais
-        // Construção de anexos com vinculação ao item (apenas para tipo 'foto_pedido')
-        let itemIndex = 0;
-        const anexosData = novasImagens.map(img => {
-          let pedido_item_id: string | null = null;
-          if (img.tipo === 'foto_pedido' && itensInseridos[itemIndex]) {
-            pedido_item_id = itensInseridos[itemIndex].id;
-          }
-          // Avançar o índice quando estivermos processando a última foto de um grupo? Simples: assumir fotos agrupadas por item em ordem.
-          // Como não temos marcador de agrupamento aqui, avançaremos manualmente na criação abaixo quando forem usados por item.
-          return {
-            pedido_id: pedidoAtualId,
-            pedido_item_id,
-            nome_arquivo: img.name,
-            url_arquivo: img.url,
-            tipo_arquivo: img.type,
-            tamanho_arquivo: img.size,
-            descricao: img.tipo,
-            uploaded_by: user.id
-          };
-        });
-
-        // Ajuste de pedido_item_id por agrupamento: redistribuir corretamente fotos por item usando contagem baseada nas fontes
-        // Reconstituir grupos: primeiro as fotos do primeiro item, depois de cada item adicional, por fim fotos de controle
-        const gruposFotosItens: UploadedImage[][] = [
-          formData.fotosPedido.filter(img => !img.existing && img.uploaded && !!img.url),
-          ...itensAdicionais.map(it => it.fotosPedido.filter(img => !img.existing && img.uploaded && !!img.url))
-        ];
-        const fotosControleNovas = formData.fotosControle.filter(img => !img.existing && img.uploaded && !!img.url);
-
-        const anexosPorItens: any[] = [];
-        gruposFotosItens.forEach((grupo, idx) => {
-          const itemRow = itensInseridos[idx];
-          const itemId = itemRow ? itemRow.id : null;
-          grupo.forEach(img => {
-            anexosPorItens.push({
-              pedido_id: pedidoAtualId,
-              pedido_item_id: itemId,
-              nome_arquivo: img.name,
-              url_arquivo: img.url,
-              tipo_arquivo: img.type,
-              tamanho_arquivo: img.size,
-              descricao: 'foto_pedido',
-              uploaded_by: user.id
-            });
+        fotosNovas.forEach(foto => {
+          novosAnexos.push({
+            pedido_id: pedidoSalvoId,
+            pedido_item_id: itemId,
+            nome_arquivo: foto.name,
+            url_arquivo: foto.url,
+            tipo_arquivo: foto.type,
+            tamanho_arquivo: foto.size,
+            descricao: 'foto_pedido',
+            uploaded_by: user.id,
           });
         });
+      });
 
-        const anexosControle: any[] = fotosControleNovas.map(img => ({
-          pedido_id: pedidoAtualId,
+      // Fotos de Controle (sem vinculação a item de produto específico)
+      const fotosControleNovas = fotosControle.filter(f => !f.existing && f.uploaded && !!f.url);
+      fotosControleNovas.forEach(foto => {
+        novosAnexos.push({
+          pedido_id: pedidoSalvoId,
           pedido_item_id: null,
-          nome_arquivo: img.name,
-          url_arquivo: img.url,
-          tipo_arquivo: img.type,
-          tamanho_arquivo: img.size,
+          nome_arquivo: foto.name,
+          url_arquivo: foto.url,
+          tipo_arquivo: foto.type,
+          tamanho_arquivo: foto.size,
           descricao: 'foto_controle',
-          uploaded_by: user.id
-        }));
+          uploaded_by: user.id,
+        });
+      });
 
-        const anexosFinal = [...anexosPorItens, ...anexosControle];
+      if (novosAnexos.length > 0) {
+        const { error: erroAnexos } = await supabase
+          .from('pedido_anexos')
+          .insert(novosAnexos);
 
-        if (anexosFinal.length > 0) {
-          const { error: anexosError } = await supabase
-            .from('pedido_anexos')
-            .insert(anexosFinal);
-
-          if (anexosError) {
-            console.error('Erro ao salvar anexos:', anexosError);
-          }
+        if (erroAnexos) {
+          console.error('Erro ao salvar anexos:', erroAnexos);
         }
       }
 
-      // Criar etapas de produção por produto (inclui Produto 1 e adicionais)
-      try {
-        const etapasPorItem: { pedido_item_id: string; etapas: string[] }[] = itensInseridos.map((it, idx) => {
-          const etapas = idx === 0 ? (etapasSelecionadas || []) : (itensAdicionais[idx - 1]?.etapasNecessarias || []);
-          return { pedido_item_id: it.id, etapas };
-        });
+      toast({
+        title: isEditMode ? 'Pedido Atualizado!' : 'Pedido Criado com Sucesso!',
+        description: `Pedido #${numeroPedidoLimpo} foi salvo e enviado para a produção.`,
+      });
 
-        const itensProducaoData = etapasPorItem.flatMap(({ pedido_item_id, etapas }) => {
-          if (!etapas || etapas.length === 0) return [] as any[];
-          return etapas.map((etapa) => ({
-            pedido_id: pedidoAtualId,
-            pedido_item_id,
-            etapa,
-            concluida: false
-          }));
-        });
-
-        if (itensProducaoData.length > 0) {
-          const { error: etapasInsertError } = await supabase
-            .from('itens_producao')
-            .insert(itensProducaoData);
-          if (etapasInsertError) {
-            console.error('Erro ao criar etapas de produção por produto:', etapasInsertError);
-          }
-        }
-
-        // Atualizar status do pedido para em_producao como antes
-        await supabase
-          .from('pedidos')
-          .update({ status: 'em_producao' })
-          .eq('id', pedidoAtualId);
-      } catch (producaoError) {
-        console.error('Erro ao criar etapas de produção por produto:', producaoError);
-      }
-
-      if (!isEditMode) {
-        toast({
-          title: "Pedido Criado com Sucesso!",
-          description: `Pedido #${String(pedidoCriado.numero_pedido).padStart(3, '0')} foi cadastrado e enviado para produção.`,
-        });
-      } else {
-        toast({
-          title: "Pedido Atualizado",
-          description: `Pedido #${String(pedidoCriado.numero_pedido).padStart(3, '0')} foi atualizado com sucesso.`,
-        });
-      }
-
-      // Reset e redirecionamento
-      if (!isEditMode) {
-        setFormData({
-          clienteId: '',
-          clienteNome: '',
-          clienteEmail: '',
-          clienteTelefone: '',
-          clienteEndereco: '',
-          clienteCep: '',
-          clienteBairro: '',
-          clienteCidade: '',
-          clienteEstado: '',
-          numeroPedido: '',
-          dataEntrega: '',
-          descricao: '',
-          tipoSofa: '',
-          dimensoes: '',
-          dimensaoLargura: '',
-          dimensaoComprimento: '',
-          tipoServico: '',
-          observacoes: '',
-          espuma: '',
-          tecido: '',
-          braco: '',
-          tipoPe: '',
-          frete: '',
-          precoUnitario: '',
-          quantidade: 1,
-          descontoTipo: 'percentage',
-          descontoValor: '',
-          pedidoDescontoTipo: 'percentage',
-          pedidoDescontoValor: '',
-          valorTotal: '',
-          valorPago: '',
-          formaPagamento: '',
-          prioridade: 'media',
-          garantiaTipo: 'dias',
-          garantiaValor: '',
-          garantiaTexto: '',
-          termoEntregaAtivo: false,
-          termoEntregaTexto: '',
-          etapasNecessarias: [],
-          fotosPedido: [],
-          fotosControle: [],
-          visitaTecnicaAtiva: false,
-          visitaTecnicaData: ''
-        });
-        setClienteSelecionado(null);
-        setEtapasSelecionadas([]);
-        setItensAdicionais([]);
-        setTimeout(() => {
-          navigate('/dashboard/producao');
-        }, 2000);
-      } else {
+      setTimeout(() => {
         navigate('/dashboard/producao');
-      }
+      }, 1200);
 
     } catch (error: any) {
-      console.error('Erro ao criar pedido:', error);
+      console.error('Erro ao processar pedido:', error);
       toast({
-        title: isEditMode ? "Erro ao Atualizar Pedido" : "Erro ao Criar Pedido",
-        description: error.message || "Ocorreu um erro inesperado. Tente novamente.",
-        variant: "destructive"
+        title: isEditMode ? 'Erro ao Atualizar Pedido' : 'Erro ao Criar Pedido',
+        description: error.message || 'Ocorreu um erro inesperado ao salvar. Tente novamente.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Bloquear Enter nas etapas 1-3 para evitar submit prematuro
-  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
-    if (e.key === 'Enter' && wizardStep < 4) {
-      const target = e.target as HTMLElement;
-      if (target.tagName.toLowerCase() === 'textarea') return;
-      if (target.tagName.toLowerCase() === 'button') return;
-      if (target.closest('[role="dialog"]') || target.closest('[role="combobox"]') || target.closest('[role="listbox"]') || target.hasAttribute('cmdk-input')) {
-        return;
-      }
-      e.preventDefault();
-      handleAvancarWizard();
+  // Helper de data para o Calendar popover
+  const selectedDateObject = useMemo(() => {
+    if (!dataEntrega || dataEntrega.length !== 10) return undefined;
+    try {
+      const parsed = parse(dataEntrega, 'dd/MM/yyyy', new Date());
+      return isValid(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
     }
-  };
+  }, [dataEntrega]);
 
-  // Helper: converter date ISO (YYYY-MM-DD) para BR (DD/MM/AAAA)
-  const isoToBR = (iso: string) => {
-    if (!iso || iso.length !== 10) return '';
-    const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
-  };
-
-  // Helper: converter BR (DD/MM/AAAA) para ISO (YYYY-MM-DD) para o input type=date
-  const brToISO = (br: string) => {
-    if (!br || br.length !== 10) return '';
-    const [d, m, y] = br.split('/');
-    return `${y}-${m}-${d}`;
+  const handleSelectCalendarDate = (date: Date | undefined) => {
+    if (date && isValid(date)) {
+      setDataEntrega(format(date, 'dd/MM/yyyy'));
+    }
   };
 
   return (
     <DashboardLayout
       title={isEditMode ? "Editar Pedido" : "Novo Pedido"}
-      description={isEditMode ? "Atualize os dados do pedido" : "Cadastrar novo pedido de sofá personalizado"}
+      description={isEditMode ? "Atualize os dados do pedido" : "Cadastre um novo pedido de forma rápida e completa"}
     >
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl mx-auto pb-28"
+        transition={{ duration: 0.3 }}
+        className="max-w-5xl mx-auto pb-32 space-y-8"
       >
-        <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
-          {/* Stepper Visual */}
-          <StepperWizard currentStep={wizardStep} />
-          {/* âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ STEP 1: Cliente & Vendedor âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ */}
-          <AnimatePresence mode="wait">
-          {wizardStep === 1 && (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.25 }}
-              className="space-y-4"
+        <form onSubmit={handleSubmit} className="space-y-8">
+          
+          {/* ======================================================== */}
+          {/* SEÇÃO 1: CABEÇALHO / HEADER DO PEDIDO (Expansível)        */}
+          {/* ======================================================== */}
+          <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+            <div className="h-1.5 w-full bg-gradient-to-r from-primary via-blue-500 to-indigo-600" />
+            <CardHeader
+              className="pb-4 cursor-pointer select-none hover:bg-muted/20 transition-colors"
+              onClick={() => setInfoPedidoExpandido(prev => !prev)}
             >
-              {selectedStore === 'todas' && (
-                <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base text-blue-700 dark:text-blue-300">
-                      <Store className="w-5 h-5" />
-                      Selecione a Loja para este Pedido
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    Informações do Pedido
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Identificação, cliente, prazos de entrega e detalhes gerais
+                  </CardDescription>
+                </div>
+
+                <div className="flex items-center gap-3 self-end sm:self-center" onClick={(e) => e.stopPropagation()}>
+                  {/* Tipo de Registro (Pedido vs Orçamento) */}
+                  <div className="flex items-center bg-muted/60 p-1 rounded-xl border">
+                    <button
+                      type="button"
+                      onClick={() => setTipoPedido('pedido')}
+                      className={cn(
+                        "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5",
+                        tipoPedido === 'pedido'
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Package className="w-3.5 h-3.5" />
+                      Pedido
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTipoPedido('orcamento')}
+                      className={cn(
+                        "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5",
+                        tipoPedido === 'orcamento'
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <DollarSign className="w-3.5 h-3.5" />
+                      Orçamento
+                    </button>
+                  </div>
+
+                  {/* Botão + / - para expandir */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setInfoPedidoExpandido(prev => !prev)}
+                    className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                    title={infoPedidoExpandido ? "Recolher informações" : "Expandir informações"}
+                  >
+                    {infoPedidoExpandido ? (
+                      <Minus className="w-3.5 h-3.5" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+
+            {infoPedidoExpandido && (
+              <CardContent className="space-y-5 pt-1 border-t">
+                {/* Linha de Loja (se administrador) */}
+                {selectedStore === 'todas' && (
+                  <div className="p-3 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300 font-medium">
+                      <Store className="w-4 h-4" />
+                      <span>Loja deste Pedido:</span>
+                    </div>
                     <Select value={lojaSelecionadaForm} onValueChange={setLojaSelecionadaForm}>
-                      <SelectTrigger className="w-full md:w-[300px] bg-white dark:bg-card">
+                      <SelectTrigger className="w-full sm:w-[220px] bg-background">
                         <SelectValue placeholder="Selecione a loja" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1957,821 +839,1009 @@ Você deve recusar a entrega e descrever o motivo no verso do pedido nos seguint
                         <SelectItem value="loja_3">Tamarineira</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Como administrador, você deve especificar para qual loja este pedido está sendo criado.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                )}
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <User className="h-5 w-5 text-primary" />
-                    Cliente & Vendedor
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">Selecione o cliente e o vendedor responsável por este pedido.</p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <RequiredLabel>Cliente</RequiredLabel>
-                      <ClienteSelector
-                        onClienteSelect={(cliente) => {
-                          setClienteSelecionado(cliente);
-                          if (cliente) {
-                            setFormData(prev => ({
-                              ...prev,
-                              clienteId: cliente.id,
-                              clienteNome: cliente.nome,
-                              clienteEmail: cliente.email || '',
-                              clienteTelefone: cliente.telefone,
-                              clienteEndereco: cliente.endereco_completo || '',
-                              clienteCep: cliente.cep || '',
-                              clienteBairro: cliente.bairro || '',
-                              clienteCidade: cliente.cidade || '',
-                              clienteEstado: cliente.estado || '',
-                            }));
-                          } else {
-                            setFormData(prev => ({
-                              ...prev,
-                              clienteId: '', clienteNome: '', clienteEmail: '',
-                              clienteTelefone: '', clienteEndereco: '', clienteCep: '',
-                              clienteBairro: '', clienteCidade: '', clienteEstado: '',
-                            }));
-                          }
-                        }}
-                        selectedCliente={clienteSelecionado}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <RequiredLabel>Vendedor</RequiredLabel>
-                      <VendedorSelector
-                        onVendedorSelect={(vendedor) => {
-                          setVendedorSelecionado(vendedor);
-                          setFormData(prev => ({ ...prev, vendedorId: vendedor?.id || '' }));
-                        }}
-                        selectedVendedor={vendedorSelecionado}
-                      />
-                    </div>
+                {/* Grid Principal do Header */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  
+                  {/* Número do Pedido */}
+                  <div className="md:col-span-3 space-y-2">
+                    <Label htmlFor="numeroPedido" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Número do Pedido
+                    </Label>
+                    <Input
+                      id="numeroPedido"
+                      value={numeroPedido}
+                      onChange={(e) => setNumeroPedido(e.target.value)}
+                      placeholder="Ex: 001"
+                      className="font-bold text-base tracking-wide bg-background/50"
+                    />
                   </div>
 
-                  {clienteSelecionado && (
-                    <div className="grid md:grid-cols-2 gap-4 pt-3 border-t">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Telefone</Label>
-                        <p className="text-sm font-medium">{clienteSelecionado.telefone || '—'}</p>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Email</Label>
-                        <p className="text-sm font-medium">{clienteSelecionado.email || '—'}</p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-          </AnimatePresence>
-          {/* âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ STEP 2: Entrega & Pedido âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ */}
-          <AnimatePresence mode="wait">
-          {wizardStep === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.25 }}
-            >
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    Entrega & Pedido
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">Configure o tipo de registro, número e prazo de entrega.</p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Tipo de Registro */}
-                  <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Tipo de Registro</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleInputChange('tipoPedido', 'pedido')}
-                        className={`h-16 rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all font-medium text-sm ${
-                          formData.tipoPedido === 'pedido'
-                            ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                            : 'border-border hover:border-primary/40 text-muted-foreground'
-                        }`}
-                      >
-                        <Package className="w-4 h-4" />
-                        Pedido
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleInputChange('tipoPedido', 'orcamento')}
-                        className={`h-16 rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all font-medium text-sm ${
-                          formData.tipoPedido === 'orcamento'
-                            ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                            : 'border-border hover:border-primary/40 text-muted-foreground'
-                        }`}
-                      >
-                        <DollarSign className="w-4 h-4" />
-                        Orçamento
-                      </button>
-                    </div>
+                  {/* Cliente com seletor e botão + */}
+                  <div className="md:col-span-5 space-y-2">
+                    <RequiredLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Cliente
+                    </RequiredLabel>
+                    <ClienteSelector
+                      selectedCliente={clienteSelecionado}
+                      onClienteSelect={(c) => setClienteSelecionado(c)}
+                    />
                   </div>
 
-                  <Separator />
+                  {/* Vendedor */}
+                  <div className="md:col-span-4 space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Vendedor
+                    </Label>
+                    <VendedorSelector
+                      selectedVendedor={vendedorSelecionado}
+                      onVendedorSelect={(v) => setVendedorSelecionado(v)}
+                    />
+                  </div>
 
-                  {/* Número e Data */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="numeroPedido">Número do Pedido</Label>
+                </div>
+
+                {/* Detalhes do Cliente Selecionado */}
+                {clienteSelecionado && (
+                  <div className="p-3 rounded-lg bg-muted/40 border text-xs grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <span className="text-muted-foreground font-medium">Telefone:</span>{' '}
+                      <span className="font-semibold text-foreground">{clienteSelecionado.telefone || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground font-medium">E-mail:</span>{' '}
+                      <span className="font-semibold text-foreground">{clienteSelecionado.email || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground font-medium">Endereço:</span>{' '}
+                      <span className="font-semibold text-foreground">{clienteSelecionado.endereco_completo || '—'}</span>
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Data da Entrega, Frete e Prioridade */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                  
+                  {/* Data da Entrega com Calendário */}
+                  <div className="md:col-span-5 space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+                      Data da Entrega
+                    </Label>
+                    <div className="flex gap-2">
                       <Input
-                        id="numeroPedido"
-                        value={formData.numeroPedido}
-                        onChange={(e) => handleInputChange('numeroPedido', e.target.value)}
-                        className="font-medium"
+                        value={dataEntrega}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          if (val.length <= 2) setDataEntrega(val);
+                          else if (val.length <= 4) setDataEntrega(`${val.slice(0, 2)}/${val.slice(2)}`);
+                          else setDataEntrega(`${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4, 8)}`);
+                        }}
+                        placeholder="DD/MM/AAAA"
+                        maxLength={10}
+                        className="font-medium bg-background/50"
                       />
-                      <p className="text-xs text-muted-foreground">Preenchido automaticamente. Pode ser editado.</p>
-                    </div>
-                    <div className="space-y-2">
-                      <RequiredLabel htmlFor="dataEntrega">Data de Entrega</RequiredLabel>
-                      <Input
-                        id="dataEntrega"
-                        type="date"
-                        value={brToISO(formData.dataEntrega)}
-                        onChange={(e) => handleInputChange('dataEntrega', isoToBR(e.target.value))}
-                        className="cursor-pointer"
-                      />
+                      
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="px-3 shrink-0 gap-2">
+                            <CalendarIcon className="w-4 h-4 text-primary" />
+                            <span className="hidden sm:inline text-xs">Calendário</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-3" align="end">
+                          <div className="space-y-3">
+                            <div className="flex gap-1.5 flex-wrap pb-2 border-b">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                className="text-xs h-7 px-2"
+                                onClick={() => setDataEntrega(format(addDays(new Date(), 7), 'dd/MM/yyyy'))}
+                              >
+                                +7 dias
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                className="text-xs h-7 px-2"
+                                onClick={() => setDataEntrega(format(addDays(new Date(), 15), 'dd/MM/yyyy'))}
+                              >
+                                +15 dias
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                className="text-xs h-7 px-2"
+                                onClick={() => setDataEntrega(format(addDays(new Date(), 30), 'dd/MM/yyyy'))}
+                              >
+                                +30 dias
+                              </Button>
+                            </div>
+                            <Calendar
+                              mode="single"
+                              selected={selectedDateObject}
+                              onSelect={handleSelectCalendarDate}
+                              locale={ptBR}
+                              initialFocus
+                            />
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
 
-                  <Separator />
-
-                  {/* Prioridade */}
-                  <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Prioridade</Label>
-                    <div className="flex gap-2 flex-wrap">
-                      {[
-                        { value: 'baixa', label: 'Baixa', color: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' },
-                        { value: 'media', label: 'Média', color: 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700' },
-                        { value: 'alta', label: 'Alta', color: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700' },
-                        { value: 'urgente', label: '🚨 Urgente', color: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700' },
-                      ].map(p => (
-                        <button
-                          key={p.value}
-                          type="button"
-                          onClick={() => handleInputChange('prioridade', p.value)}
-                          className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                            formData.prioridade === p.value
-                              ? `${p.color} border-2 shadow-sm scale-105`
-                              : 'border-border text-muted-foreground hover:border-primary/40'
-                          }`}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Frete */}
-                  <div className="space-y-2">
-                    <Label htmlFor="frete">Frete</Label>
+                  {/* Frete (R$) */}
+                  <div className="md:col-span-4 space-y-2">
+                    <Label htmlFor="frete" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-primary" />
+                      Frete (R$) <span className="text-[10px] text-muted-foreground font-normal lowercase">(opcional)</span>
+                    </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-semibold">R$</span>
                       <Input
                         id="frete"
                         type="text"
                         inputMode="decimal"
                         placeholder="0,00"
-                        value={formData.frete}
-                        onChange={(e) => handleInputChange('frete', formatCurrencyInput(e.target.value))}
+                        value={frete}
+                        onChange={(e) => setFrete(formatCurrencyInput(e.target.value))}
                         disabled={isEditMode && isFuncionario}
-                        className="pl-9"
+                        className="pl-9 font-medium bg-background/50"
                       />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-          </AnimatePresence>
 
-          {/* âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ STEP 3: Produto âÃ¢â‚¬ÂÃ¢â€šÂ¬âÃ¢â‚¬ÂÃ¢â€šÂ¬ */}
-          <AnimatePresence mode="wait">
-          {
-            wizardStep === 3 && (
-            <motion.div
-              key="step3"
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.25 }}
-            >
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Package className="w-5 h-5 text-primary" />
-                    Produto 1
+                  {/* Prioridade */}
+                  <div className="md:col-span-3 space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-primary" />
+                      Prioridade
+                    </Label>
+                    <Select value={prioridade} onValueChange={setPrioridade}>
+                      <SelectTrigger className="bg-background/50">
+                        <SelectValue placeholder="Prioridade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="baixa">🟢 Baixa</SelectItem>
+                        <SelectItem value="media">🟡 Média</SelectItem>
+                        <SelectItem value="alta">🟠 Alta</SelectItem>
+                        <SelectItem value="urgente">🔴 Urgente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                </div>
+
+                {/* Observação Geral */}
+                <div className="space-y-2 pt-1">
+                  <Label htmlFor="observacaoGeral" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Observação Geral
+                  </Label>
+                  <Textarea
+                    id="observacaoGeral"
+                    value={observacaoGeral}
+                    onChange={(e) => setObservacaoGeral(e.target.value)}
+                    placeholder="Digite observações importantes sobre o pedido, restrições de entrega, orientações do cliente..."
+                    rows={2}
+                    className="bg-background/50 resize-y"
+                  />
+                </div>
+
+              </CardContent>
+            )}
+          </Card>
+
+
+          {/* ======================================================== */}
+          {/* SEÇÃO 2: PRODUTOS (PRODUTO + E LISTAGEM)                 */}
+          {/* ======================================================== */}
+          <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    Produtos do Pedido
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">Especifique o produto principal do pedido.</p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Seção A: Identificação */}
-                  <div className="space-y-4">
+                  <CardDescription className="text-xs">
+                    Adicione e gerencie os itens e produtos que compõem este pedido
+                  </CardDescription>
+                </div>
+
+                {/* Botão PRODUTO + em destaque */}
+                <Button
+                  type="button"
+                  onClick={handleOpenAddProduto}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md gap-2 font-bold px-5 h-10 rounded-xl"
+                >
+                  <Plus className="w-5 h-5 stroke-[2.5]" />
+                  PRODUTO +
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {produtos.length === 0 ? (
+                /* Estado Vazio */
+                <div className="border-2 border-dashed rounded-2xl p-8 text-center bg-muted/20 flex flex-col items-center justify-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <Package className="w-6 h-6" />
+                  </div>
+                  <div className="max-w-sm space-y-1">
+                    <p className="font-semibold text-base">Nenhum produto adicionado ainda</p>
+                    <p className="text-xs text-muted-foreground">
+                      Clique no botão <strong>PRODUTO +</strong> acima para adicionar o primeiro item ao pedido.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleOpenAddProduto}
+                    className="mt-2 gap-2 text-primary border-primary/30 hover:bg-primary/5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Adicionar Primeiro Produto
+                  </Button>
+                </div>
+              ) : (
+                /* Lista de Produtos Adicionados */
+                <div className="space-y-3">
+                  {produtos.map((prod, idx) => {
+                    const precoUnit = parseValor(prod.precoUnitario);
+                    const qtd = prod.quantidade || 1;
+                    const precoTotal = precoUnit * qtd;
+                    const descVal = parseFloat(prod.descontoValor) || 0;
+                    const precoFinalItem = calculateFinalPrice(precoTotal, prod.descontoTipo, descVal);
+
+                    return (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-xl border border-border/80 bg-background/60 hover:bg-background/90 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm"
+                      >
+                        {/* Info do Produto */}
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="font-bold text-xs bg-muted/60">
+                              Item #{idx + 1}
+                            </Badge>
+                            <h4 className="font-bold text-base text-foreground truncate">
+                              {prod.descricao || 'Produto sem nome'}
+                            </h4>
+                            {prod.visitaTecnicaAtiva && (
+                              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 gap-1 text-[11px]">
+                                <CalendarIcon className="w-3 h-3" />
+                                Visita Técnica {prod.visitaTecnicaData ? `(${prod.visitaTecnicaData})` : ''}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Detalhes livres */}
+                          {prod.detalhes && (
+                            <p className="text-xs text-muted-foreground line-clamp-2 pl-0.5">
+                              {prod.detalhes}
+                            </p>
+                          )}
+
+                          {/* Fotos miniatura se houver */}
+                          {prod.fotosPedido && prod.fotosPedido.length > 0 && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                                <Camera className="w-3 h-3" />
+                                {prod.fotosPedido.length} foto(s):
+                              </span>
+                              <div className="flex -space-x-1.5">
+                                {prod.fotosPedido.slice(0, 4).map((f, fIdx) => (
+                                  <img
+                                    key={fIdx}
+                                    src={f.preview || f.url}
+                                    alt="Foto miniatura"
+                                    className="w-6 h-6 rounded-md object-cover border-2 border-background shadow-xs"
+                                  />
+                                ))}
+                                {prod.fotosPedido.length > 4 && (
+                                  <div className="w-6 h-6 rounded-md bg-muted text-[9px] font-bold flex items-center justify-center border-2 border-background">
+                                    +{prod.fotosPedido.length - 4}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Valores e Quantidade */}
+                        <div className="flex items-center justify-between w-full md:w-auto gap-6 border-t md:border-t-0 pt-3 md:pt-0">
+                          <div className="text-right space-y-0.5">
+                            <div className="text-xs text-muted-foreground">
+                              {qtd}x {precoUnit > 0 ? precoUnit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00'}
+                              {descVal > 0 && (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium ml-1">
+                                  (-{prod.descontoTipo === 'percentage' ? `${descVal}%` : `R$ ${descVal}`})
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-base font-extrabold text-foreground">
+                              {precoFinalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </div>
+                          </div>
+
+                          {/* Ações */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEditProduto(idx)}
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                              title="Editar Produto"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveProduto(idx)}
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                              title="Remover Produto"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+
+          {/* ======================================================== */}
+          {/* SEÇÃO 3: PEDIDO GERAL (FINANCEIRO, GARANTIA, TERMOS)     */}
+          {/* ======================================================== */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* Coluna Esquerda: Garantia, Termos, Pagamento, Fotos */}
+            <div className="lg:col-span-7 space-y-6">
+              
+              {/* Card de Garantia (Expansível) */}
+              <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+                <CardHeader
+                  className="pb-3 cursor-pointer select-none hover:bg-muted/20 transition-colors"
+                  onClick={() => setGarantiaExpandida(prev => !prev)}
+                >
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="h-5 w-1 rounded-full bg-primary" />
-                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Identificação</h3>
+                      <ShieldCheck className="w-4 h-4 text-primary" />
+                      <CardTitle className="text-sm sm:text-base font-semibold">
+                        Garantia do Pedido
+                      </CardTitle>
                     </div>
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setGarantiaExpandida(prev => !prev);
+                      }}
+                      className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                      title={garantiaExpandida ? "Recolher garantia" : "Expandir garantia"}
+                    >
+                      {garantiaExpandida ? (
+                        <Minus className="w-3.5 h-3.5" />
+                      ) : (
+                        <Plus className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
+
+                {garantiaExpandida && (
+                  <CardContent className="space-y-4 pt-1 border-t">
+                    <Tabs
+                      value={garantiaTipo}
+                      onValueChange={(v) => {
+                        setGarantiaTipo(v);
+                        setGarantiaValor(v === 'dias' ? '90' : v === 'meses' ? '3' : '1');
+                      }}
+                    >
+                      <TabsList className="grid grid-cols-3 w-full max-w-[280px]">
+                        <TabsTrigger value="dias">Dias</TabsTrigger>
+                        <TabsTrigger value="meses">Meses</TabsTrigger>
+                        <TabsTrigger value="anos">Anos</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="dias" className="pt-2">
+                        <div className="flex gap-2 items-center flex-wrap">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={garantiaValor === '30' ? 'default' : 'outline'}
+                            onClick={() => setGarantiaValor('30')}
+                          >
+                            30 dias
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={garantiaValor === '90' ? 'default' : 'outline'}
+                            onClick={() => setGarantiaValor('90')}
+                          >
+                            90 dias
+                          </Button>
+                          <Input
+                            placeholder="Outros (dias)"
+                            value={!['30', '90'].includes(garantiaValor) ? garantiaValor : ''}
+                            onChange={(e) => setGarantiaValor(e.target.value)}
+                            className="w-32 h-9 text-xs"
+                          />
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="meses" className="pt-2">
+                        <div className="flex gap-2 items-center flex-wrap">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={garantiaValor === '3' ? 'default' : 'outline'}
+                            onClick={() => setGarantiaValor('3')}
+                          >
+                            3 meses
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={garantiaValor === '12' ? 'default' : 'outline'}
+                            onClick={() => setGarantiaValor('12')}
+                          >
+                            12 meses
+                          </Button>
+                          <Input
+                            placeholder="Outros (meses)"
+                            value={!['3', '12'].includes(garantiaValor) ? garantiaValor : ''}
+                            onChange={(e) => setGarantiaValor(e.target.value)}
+                            className="w-32 h-9 text-xs"
+                          />
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="anos" className="pt-2">
+                        <div className="flex gap-2 items-center flex-wrap">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={garantiaValor === '1' ? 'default' : 'outline'}
+                            onClick={() => setGarantiaValor('1')}
+                          >
+                            1 ano
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={garantiaValor === '3' ? 'default' : 'outline'}
+                            onClick={() => setGarantiaValor('3')}
+                          >
+                            3 anos
+                          </Button>
+                          <Input
+                            placeholder="Outros (anos)"
+                            value={!['1', '3'].includes(garantiaValor) ? garantiaValor : ''}
+                            onChange={(e) => setGarantiaValor(e.target.value)}
+                            className="w-32 h-9 text-xs"
+                          />
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+
                     <div className="space-y-2">
-                      <RequiredLabel htmlFor="descricao">Descrição do Pedido</RequiredLabel>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">Texto dos Termos de Garantia</Label>
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs text-primary gap-1"
+                          onClick={() => setGarantiaTexto(TERMO_GARANTIA_PADRAO)}
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          Gerar automaticamente
+                        </Button>
+                      </div>
                       <Textarea
-                        id="descricao"
-                        value={formData.descricao}
-                        onChange={(e) => handleInputChange('descricao', e.target.value)}
-                        placeholder="Ex: Sofá de canto em couro, 3 módulos, reclinável..."
-                        rows={3}
+                        value={garantiaTexto}
+                        onChange={(e) => setGarantiaTexto(e.target.value)}
+                        rows={4}
+                        placeholder="Condições e termos de garantia..."
+                        className="text-xs bg-background/50 font-mono"
                       />
                     </div>
-                  </div>
+                  </CardContent>
+                )}
+              </Card>
 
-                  {/* Visita técnica */}
-                  <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">Visita Técnica</p>
-                        <p className="text-xs text-muted-foreground">Necessário antes da fabricação?</p>
-                      </div>
+              {/* Card de Termos de Entrega e Recebimento (Expansível) */}
+              <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+                <CardHeader
+                  className="pb-3 cursor-pointer select-none hover:bg-muted/20 transition-colors"
+                  onClick={() => setTermoEntregaExpandido(prev => !prev)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-primary" />
+                      <CardTitle className="text-sm sm:text-base font-semibold">
+                        Termos de Entrega e Recebimento
+                      </CardTitle>
+                    </div>
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTermoEntregaExpandido(prev => !prev);
+                      }}
+                      className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                      title={termoEntregaExpandido ? "Recolher termos" : "Expandir termos"}
+                    >
+                      {termoEntregaExpandido ? (
+                        <Minus className="w-3.5 h-3.5" />
+                      ) : (
+                        <Plus className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
+
+                {termoEntregaExpandido && (
+                  <CardContent className="space-y-4 pt-1 border-t">
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs text-muted-foreground">Status do termo no pedido:</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{formData.visitaTecnicaAtiva ? 'Sim' : 'Não'}</span>
+                        <span className="text-xs text-muted-foreground font-medium">
+                          {termoEntregaAtivo ? 'Habilitado' : 'Desabilitado'}
+                        </span>
                         <Switch
-                          checked={formData.visitaTecnicaAtiva}
-                          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, visitaTecnicaAtiva: checked }))}
+                          checked={termoEntregaAtivo}
+                          onCheckedChange={setTermoEntregaAtivo}
                         />
                       </div>
                     </div>
-                    {formData.visitaTecnicaAtiva && (
+
+                    {termoEntregaAtivo && (
                       <div className="space-y-2">
-                        <Label htmlFor="dataVisitaTecnica">Data da Visita</Label>
-                        <Input
-                          id="dataVisitaTecnica"
-                          type="date"
-                          value={brToISO(formData.visitaTecnicaData)}
-                          onChange={(e) => setFormData(prev => ({ ...prev, visitaTecnicaData: isoToBR(e.target.value) }))}
-                          className="max-w-[200px] cursor-pointer"
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground">Texto do Termo</Label>
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs text-primary gap-1"
+                            onClick={() => setTermoEntregaTexto(TERMO_ENTREGA_PADRAO)}
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            Gerar automaticamente
+                          </Button>
+                        </div>
+                        <Textarea
+                          value={termoEntregaTexto}
+                          onChange={(e) => setTermoEntregaTexto(e.target.value)}
+                          rows={5}
+                          placeholder="Termos de entrega..."
+                          className="text-xs bg-background/50 font-mono"
                         />
                       </div>
                     )}
-                  </div>
+                  </CardContent>
+                )}
+              </Card>
 
-                  {/* Seção B: Especificações do Sofá */}
-                  <Separator />
-                  <div className="space-y-4">
+              {/* Forma de Pagamento (Expansível) */}
+              <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+                <CardHeader
+                  className="pb-3 cursor-pointer select-none hover:bg-muted/20 transition-colors"
+                  onClick={() => setFormaPagamentoExpandido(prev => !prev)}
+                >
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="h-5 w-1 rounded-full bg-primary" />
-                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Especificações</h3>
+                      <DollarSign className="w-4 h-4 text-primary" />
+                      <CardTitle className="text-sm sm:text-base font-semibold">
+                        Forma de Pagamento
+                      </CardTitle>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <RequiredLabel htmlFor="tipoSofa">Tipo de Sofá</RequiredLabel>
-                      <SearchableSelect
-                        value={formData.tipoSofa}
-                        onValueChange={(value) => handleInputChange('tipoSofa', value)}
-                        options={tiposSofaDisponiveis}
-                        placeholder="Selecionar tipo de sofá"
-                        addLabel="Adicionar Novo Tipo de Sofá"
-                        addPlaceholder="Ex: Sofá Reclinável 3L"
-                        onAddOption={adicionarNovoTipoSofa}
-                        onDeleteOption={excluirTipoSofa}
-                      />
-                    </div>
-                      <div className="space-y-2">
-                        <RequiredLabel htmlFor="tipoServico">Tipo de Serviço</RequiredLabel>
-                        <SearchableSelect
-                          value={formData.tipoServico}
-                          onValueChange={(value) => handleInputChange('tipoServico', value)}
-                          options={tiposServicoDisponiveis}
-                          placeholder="Selecionar tipo de serviço"
-                          addLabel="Adicionar Novo Tipo de Serviço"
-                          addPlaceholder="Ex: MANUTENÇÃO"
-                          onAddOption={adicionarNovoTipoServico}
-                          onDeleteOption={excluirTipoServico}
-                        />
-                      </div>
 
-                      {/* Dimensões inline */}
-                      <div className="space-y-2">
-                        <Label>Dimensões (metros)</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            id="dimensaoLargura"
-                            value={formData.dimensaoLargura}
-                            onChange={(e) => handleDimensaoChange('dimensaoLargura', e.target.value)}
-                            placeholder="2,20"
-                            maxLength={4}
-                            className="text-center"
-                          />
-                          <span className="text-lg font-bold text-muted-foreground">×</span>
-                          <Input
-                            id="dimensaoComprimento"
-                            value={formData.dimensaoComprimento}
-                            onChange={(e) => handleDimensaoChange('dimensaoComprimento', e.target.value)}
-                            placeholder="1,10"
-                            maxLength={4}
-                            className="text-center"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <RequiredLabel htmlFor="espuma">Espuma</RequiredLabel>
-                        <SearchableSelect
-                          value={formData.espuma}
-                          onValueChange={(value) => handleInputChange('espuma', value)}
-                          options={espumasDisponiveis}
-                          placeholder="Selecionar espuma"
-                          addLabel="Adicionar Nova Espuma"
-                          addPlaceholder="Ex: D45"
-                          onAddOption={adicionarNovaEspuma}
-                          onDeleteOption={excluirEspuma}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <RequiredLabel htmlFor="tecido">Tecido</RequiredLabel>
-                        <SearchableSelect
-                          value={formData.tecido}
-                          onValueChange={(value) => handleInputChange('tecido', value)}
-                          options={tecidosDisponiveis}
-                          placeholder="Selecionar tecido"
-                          addLabel="Adicionar Novo Tecido"
-                          addPlaceholder="Ex: Bouclê Bege"
-                          onAddOption={adicionarNovoTecido}
-                          onDeleteOption={excluirTecido}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <RequiredLabel htmlFor="braco">Braço</RequiredLabel>
-                        <SearchableSelect
-                          value={formData.braco}
-                          onValueChange={(value) => handleInputChange('braco', value)}
-                          options={bracosDisponiveis}
-                          placeholder="Selecionar braço"
-                          addLabel="Adicionar Novo Braço"
-                          addPlaceholder="Ex: Ultra Slim"
-                          onAddOption={adicionarNovoBraco}
-                          onDeleteOption={excluirBraco}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <RequiredLabel htmlFor="tipoPe">Tipo de Pé</RequiredLabel>
-                        <SearchableSelect
-                          value={formData.tipoPe}
-                          onValueChange={(value) => handleInputChange('tipoPe', value)}
-                          options={tiposPeDisponiveis}
-                          placeholder="Selecionar tipo de pé"
-                          addLabel="Adicionar Novo Tipo de Pé"
-                          addPlaceholder="Ex: Redondo Cromado"
-                          onAddOption={adicionarNovoTipoPe}
-                          onDeleteOption={excluirTipoPe}
-                        />
-                      </div>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFormaPagamentoExpandido(prev => !prev);
+                      }}
+                      className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                      title={formaPagamentoExpandido ? "Recolher forma de pagamento" : "Expandir forma de pagamento"}
+                    >
+                      {formaPagamentoExpandido ? (
+                        <Minus className="w-3.5 h-3.5" />
+                      ) : (
+                        <Plus className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
                   </div>
-                  {/* Seção C: Comercial */}
-                  <Separator />
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-5 w-1 rounded-full bg-primary" />
-                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Comercial</h3>
+                </CardHeader>
+
+                {formaPagamentoExpandido && (
+                  <CardContent className="space-y-3 pt-1 border-t">
+                    <Input
+                      value={formaPagamento}
+                      onChange={(e) => setFormaPagamento(e.target.value)}
+                      placeholder="Ex: À vista no PIX, 50% de entrada + 50% na entrega, 12x no cartão..."
+                      className="bg-background/50 font-medium"
+                    />
+                    <div className="flex gap-2 flex-wrap">
+                      {['À vista (PIX/Dinheiro)', '50% sinal + 50% entrega', 'Cartão 10x sem juros', 'Cartão 12x'].map((sugestao) => (
+                        <button
+                          key={sugestao}
+                          type="button"
+                          onClick={() => setFormaPagamento(sugestao)}
+                          className="text-[11px] px-2.5 py-1 rounded-md bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-all border"
+                        >
+                          {sugestao}
+                        </button>
+                      ))}
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="precoUnitario">Preço Unitário</Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
-                          <Input
-                            id="precoUnitario"
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0,00"
-                            value={formData.precoUnitario}
-                            onChange={(e) => handleInputChange('precoUnitario', formatCurrencyInput(e.target.value))}
-                            disabled={isEditMode && isFuncionario}
-                            className="pl-9"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quantidade">Quantidade</Label>
-                        <Input
-                          id="quantidade"
-                          type="number"
-                          min={1}
-                          value={formData.quantidade || 1}
-                          onChange={(e) => handleInputChange('quantidade', parseInt(e.target.value) || 1)}
-                          className="w-full"
-                        />
-                      </div>
+                  </CardContent>
+                )}
+              </Card>
+
+              {/* Fotos de Controle (Expansível) */}
+              <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+                <CardHeader
+                  className="pb-3 cursor-pointer select-none hover:bg-muted/20 transition-colors"
+                  onClick={() => setFotosControleExpandido(prev => !prev)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
+                        <Camera className="w-4 h-4 text-primary" />
+                        Fotos de Controle
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Anexe fotos de controle interno, amostras de referência ou croquis
+                      </CardDescription>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Desconto por Item</Label>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFotosControleExpandido(prev => !prev);
+                      }}
+                      className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                      title={fotosControleExpandido ? "Recolher fotos de controle" : "Expandir fotos de controle"}
+                    >
+                      {fotosControleExpandido ? (
+                        <Minus className="w-3.5 h-3.5" />
+                      ) : (
+                        <Plus className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
+
+                {fotosControleExpandido && (
+                  <CardContent className="pt-1 border-t">
+                    <ImageUpload
+                      images={fotosControle}
+                      onImagesChange={setFotosControle}
+                      maxImages={6}
+                      bucketName="pedido-imagens"
+                      folder="fotos-controle"
+                    />
+                  </CardContent>
+                )}
+              </Card>
+
+            </div>
+
+            {/* Coluna Direita: Resumo Financeiro & Ação de Salvar */}
+            <div className="lg:col-span-5 space-y-6">
+              <div className="sticky top-6 space-y-6">
+                
+                {/* Card de Resumo Financeiro */}
+                <Card className="border-border/80 shadow-md bg-card overflow-hidden">
+                  <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 to-teal-600" />
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Resumo Financeiro
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    
+                    {/* Linha Total dos Produtos */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Total dos Produtos ({produtos.length})</span>
+                      <span className="font-semibold text-foreground">
+                        {totalProdutos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    </div>
+
+                    {/* Linha Frete */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Frete</span>
+                      <span className="font-semibold text-foreground">
+                        {parseValor(frete) > 0
+                          ? parseValor(frete).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                          : 'R$ 0,00'}
+                      </span>
+                    </div>
+
+                    {/* Linha Subtotal */}
+                    <div className="flex items-center justify-between text-sm pt-2 border-t font-medium">
+                      <span className="text-muted-foreground">Subtotal (Produtos + Frete)</span>
+                      <span className="text-foreground">
+                        {totalComFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    </div>
+
+                    {/* Desconto no Total do Pedido */}
+                    <div className="space-y-2 pt-2 border-t">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Desconto no Total do Pedido
+                      </Label>
                       <DiscountInput
-                        price={parseValor(formData.precoUnitario) * (formData.quantidade || 1)}
-                        discountType={formData.descontoTipo}
-                        discountValue={formData.descontoValor}
-                        onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, descontoTipo: type }))}
-                        onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, descontoValor: value.toString() }))}
+                        price={totalComFrete}
+                        discountType={pedidoDescontoTipo}
+                        discountValue={pedidoDescontoValor}
+                        onDiscountTypeChange={setPedidoDescontoTipo}
+                        onDiscountValueChange={(val) => setPedidoDescontoValor(val.toString())}
                         label=""
                         disabled={isEditMode && isFuncionario}
                       />
                     </div>
-                  </div>
 
-
-                  {/* Seção D: Produção */}
-                  <Separator />
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-5 w-1 rounded-full bg-primary" />
-                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Produção</h3>
-                    </div>
-                    <div className="space-y-3">
-                      <RequiredLabel>Etapas Necessárias</RequiredLabel>
-                      <p className="text-xs text-muted-foreground">
-                        Selecione onde este pedido deve aparecer na produção.
-                      </p>
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                        {etapasDisponiveis.map((etapa) => {
-                          const isSelected = etapasSelecionadas.includes(etapa);
-                          const etapaLabel = {
-                            'marcenaria': '🪵 Marcenaria',
-                            'corte_costura': '✂️ Corte/Costura',
-                            'espuma': '🛋️ Espuma',
-                            'bancada': '🔧 Bancada',
-                            'tecido': '🧵 Tecido'
-                          }[etapa] || etapa;
-                          return (
-                            <button
-                              key={etapa}
-                              type="button"
-                              onClick={() => toggleEtapa(etapa)}
-                              className={`h-14 rounded-lg border-2 text-xs font-medium transition-all ${
-                                isSelected
-                                  ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                                  : 'border-border hover:border-primary/40 text-muted-foreground'
-                              }`}
-                            >
-                              {etapaLabel}
-                            </button>
-                          );
-                        })}
+                    {/* Total Final */}
+                    <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 mt-4 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                          Total Final
+                        </span>
+                        <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
+                          {totalFinalPedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
                       </div>
-                      {etapasSelecionadas.length === 0 && (
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700">
-                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                          <p className="text-xs text-amber-700 dark:text-amber-400">Nenhuma etapa selecionada — o pedido não entrará na produção.</p>
-                        </div>
-                      )}
+                      <p className="text-[11px] text-emerald-600/90 dark:text-emerald-400/80">
+                        {tipoPedido === 'orcamento' ? 'Valor orçado' : 'Valor final do pedido'}
+                      </p>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="observacoes">Observações</Label>
-                      <Textarea
-                        id="observacoes"
-                        value={formData.observacoes}
-                        onChange={(e) => handleInputChange('observacoes', e.target.value)}
-                        placeholder="Observações adicionais sobre o produto..."
-                        rows={2}
-                      />
-                    </div>
-                  </div>
 
-                  {/* Foto do Produto */}
-                  <Separator />
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-5 w-1 rounded-full bg-primary" />
-                      <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Fotos do Produto</h3>
+                    {/* Botão de Salvar Pedido */}
+                    <div className="pt-3">
+                      <Button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full h-12 text-base font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg gap-2 rounded-xl"
+                      >
+                        {isLoading ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                            <span>{isEditMode ? 'Atualizando Pedido...' : 'Salvando Pedido...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-5 h-5" />
+                            <span>{isEditMode ? 'Salvar Alterações' : 'Salvar PEDIDO'}</span>
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <ImageUpload
-                      images={formData.fotosPedido}
-                      onImagesChange={handleFotosPedidoChange}
-                      maxImages={5}
-                      bucketName="pedido-imagens"
-                      folder="fotos-pedido"
-                    />
-                  </div>
-                  {/* Produtos Adicionais */}
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={addItem}
-                      className="flex items-center gap-2 text-sm text-primary border border-primary/30 rounded-lg px-4 py-2 hover:bg-primary/5 transition-colors"
-                    >
-                      <span className="text-base leading-none">+</span>
-                      Adicionar Produto Adicional
-                    </button>
-                  </div>
-                  
-                  {/* Produtos adicionais */}
-                  {itensAdicionais.length > 0 && (
-                    <div className="md:col-span-2 space-y-4 mt-6">
-                      <Label>Produtos adicionais</Label>
-                      {itensAdicionais.map((item, index) => (
-                        <div key={index} className="border rounded-md p-4 space-y-4 bg-muted/30">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Produto {index + 2}</span>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)}>
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </div>
-                          <ProdutoCampos
-                            values={{
-                              descricao: item.descricao,
-                              fotosPedido: item.fotosPedido || [],
-                              tipoSofa: item.tipoSofa,
-                              dimensaoLargura: item.dimensaoLargura || '',
-                              dimensaoComprimento: item.dimensaoComprimento || '',
-                              tipoServico: item.tipoServico,
-                              precoUnitario: item.precoUnitario,
-                              quantidade: item.quantidade || 1,
-                              observacoes: item.observacoes,
-                              espuma: item.espuma,
-                              tecido: item.tecido,
-                              braco: item.braco,
-                              tipoPe: item.tipoPe,
-                              descontoTipo: item.descontoTipo,
-                              descontoValor: item.descontoValor,
-                            }}
-                            onChange={(field, value) => handleItemChange(index, field, value)}
-                            isFuncionario={isEditMode && isFuncionario}
-                            onFotosChange={(imgs) => handleItemFotosChange(index, imgs)}
-                            onDimensaoChange={(field, value) => handleItemDimensaoChange(index, field, value)}
-                            imageFolder={`fotos-pedido/item-${index + 2}`}
-                            tiposSofaDisponiveis={tiposSofaDisponiveis}
-                            tiposServicoDisponiveis={tiposServicoDisponiveis}
-                            espumasDisponiveis={espumasDisponiveis}
-                            bracosDisponiveis={bracosDisponiveis}
-                            tiposPeDisponiveis={tiposPeDisponiveis}
-                            tecidosDisponiveis={tecidosDisponiveis}
-                            setModalNovoTipoSofaAberto={setModalNovoTipoSofaAberto}
-                            setModalNovoTipoServicoAberto={setModalNovoTipoServicoAberto}
-                            setModalNovaEspumaAberto={setModalNovaEspumaAberto}
-                            setModalNovoBracoAberto={setModalNovoBracoAberto}
-                            setModalNovoTipoPeAberto={setModalNovoTipoPeAberto}
-                            setModalNovoTecidoAberto={setModalNovoTecidoAberto}
-                            setTipoSofaParaExcluir={setTipoSofaParaExcluir}
-                            setTipoServicoParaExcluir={setTipoServicoParaExcluir}
-                            setEspumaParaExcluir={setEspumaParaExcluir}
-                            setBracoParaExcluir={setBracoParaExcluir}
-                            setTipoPeParaExcluir={setTipoPeParaExcluir}
-                            setTecidoParaExcluir={setTecidoParaExcluir}
-                            etapasDisponiveis={etapasDisponiveis}
-                            etapasSelecionadas={item.etapasNecessarias || []}
-                            onToggleEtapa={(etapa) => toggleEtapaItem(index, etapa)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+
                   </CardContent>
                 </Card>
-            </motion.div>
-            )}
-          </AnimatePresence>
 
-          {/* Ã¢â€â‚¬Ã¢â€â‚¬ STEP 4: Detalhes Ã¢â€â‚¬Ã¢â€â‚¬ */}
-
-          <AnimatePresence mode="wait">
-          {
-            wizardStep === 4 && (
-            <motion.div
-              key="step4"
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.25 }}
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-primary" />
-                    Financeiro & Detalhes
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">Revise valores, garantia, termo de entrega e fotos de controle.</p>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Resumo: Total e Total+frete */}
-                  <div className="md:col-span-2">
-                    <div className="rounded-md border p-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Total dos produtos (com descontos nos itens)</span>
-                        <span className="text-lg font-semibold">{totalProdutos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Frete</span>
-                        <span className="text-lg font-medium">{(parseValor(formData.frete || '')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between border-t pt-2">
-                        <span className="text-sm text-muted-foreground font-medium">Subtotal</span>
-                        <span className="text-lg font-semibold">{totalComFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                      </div>
-
-                      <div className="pt-2 border-t">
-                        <div className="flex flex-col gap-2 mb-2">
-                          <Label>Desconto no Total do Pedido</Label>
-                          <div className="w-full">
-                            <DiscountInput
-                              price={totalComFrete}
-                              discountType={formData.pedidoDescontoTipo}
-                              discountValue={formData.pedidoDescontoValor}
-                              onDiscountTypeChange={(type) => setFormData(prev => ({ ...prev, pedidoDescontoTipo: type }))}
-                              onDiscountValueChange={(value) => setFormData(prev => ({ ...prev, pedidoDescontoValor: value.toString() }))}
-                              label=""
-                              disabled={isEditMode && isFuncionario}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-4 border-t bg-muted/20 -mx-4 px-4 -mb-4 py-4 rounded-b-md">
-                        <span className="text-lg font-bold">Total Final</span>
-                        <span className="text-2xl font-bold text-green-600">{totalFinalPedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Garantia (Pedido Geral) */}
-                  <div className="space-y-3 md:col-span-2">
-                    <Label className="text-base font-medium">Garantia</Label>
-                    <Tabs value={formData.garantiaTipo} onValueChange={(v) => setFormData(prev => ({ ...prev, garantiaTipo: v, garantiaValor: '' }))}>
-                      <TabsList className="mb-2">
-                        <TabsTrigger value="dias">dias</TabsTrigger>
-                        <TabsTrigger value="meses">meses</TabsTrigger>
-                        <TabsTrigger value="anos">anos</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="dias">
-                        <div className="grid grid-cols-3 gap-3">
-                          <Button type="button" variant={formData.garantiaValor === '30' && formData.garantiaTipo === 'dias' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: '30' }))}>30 dias</Button>
-                          <Button type="button" variant={formData.garantiaValor === '90' && formData.garantiaTipo === 'dias' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: '90' }))}>90 dias</Button>
-                          <Input placeholder="Outros (dias)" value={formData.garantiaTipo === 'dias' && !['30', '90'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'dias', garantiaValor: e.target.value }))} />
-                        </div>
-                      </TabsContent>
-                      <TabsContent value="meses">
-                        <div className="grid grid-cols-3 gap-3">
-                          <Button type="button" variant={formData.garantiaValor === '3' && formData.garantiaTipo === 'meses' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: '3' }))}>3 meses</Button>
-                          <Button type="button" variant={formData.garantiaValor === '12' && formData.garantiaTipo === 'meses' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: '12' }))}>12 meses</Button>
-                          <Input placeholder="Outros (meses)" value={formData.garantiaTipo === 'meses' && !['3', '12'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'meses', garantiaValor: e.target.value }))} />
-                        </div>
-                      </TabsContent>
-                      <TabsContent value="anos">
-                        <div className="grid grid-cols-3 gap-3">
-                          <Button type="button" variant={formData.garantiaValor === '1' && formData.garantiaTipo === 'anos' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: '1' }))}>1 ano</Button>
-                          <Button type="button" variant={formData.garantiaValor === '3' && formData.garantiaTipo === 'anos' ? 'default' : 'outline'} onClick={() => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: '3' }))}>3 anos</Button>
-                          <Input placeholder="Outros (anos)" value={formData.garantiaTipo === 'anos' && !['1', '3'].includes(formData.garantiaValor) ? formData.garantiaValor : ''} onChange={(e) => setFormData(prev => ({ ...prev, garantiaTipo: 'anos', garantiaValor: e.target.value }))} />
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                    <div className="space-y-3">
-                      <Button type="button" variant="secondary" onClick={() => setFormData(prev => ({ ...prev, garantiaTexto: `Este produto está efetivamente garantido contra eventuais defeitos de fabricação conforme prazos indicados abaixo, a partir da data de compra, sem prorrogação.\nReforma: Prazo TOTAL de 3 (três) meses.\nFabricação: Revestimentos: prazo total de 3 (três) meses, desde que o revestimento seja do mostruário Válleri. Não será concedida qualquer garantia ao revestimento quando o tecido for fornecido pelo próprio cliente ou tenha sido adquirido de empresa terceira por solicitação do mesmo.\nEstrutura (madeiras, espumas, percintas, mecanismos, pés, fibras naturais): prazo total de 12 (doze) meses.\n\nA garantia perderá a sua validade:\n• Em caso de mau uso, considerando a finalidade a que se destina o móvel e as orientações constantes neste termo:\n• Em caso de limpeza incorreta, falta de manutenção básica ao uso, aplicação de produtos químicos, tratamentos de proteção aplicados pelo comprador, detergentes, condicionadores, fluidos corporais ou danos devidos à  exposição direta ou indireta à  luz solar, umidade excessiva, calor excessivo, luminosidade intensa, ou condições semelhantes, bem como avaria de transporte, quando o mesmo for realizado pelo próprio consumidor;\n• Em caso de danos causados pela ação de cupins, insetos, broca ou outras pragas;\n• Se forem realizados, sem prévia autorização da fábrica, alterações, reparos ou substituições de partes do móvel, ou por qualquer meio danificar o produto por ato que praticar.\n\nSolicitação de Assistência Técnica:\n• O consumidor deverá entrar em contato através do canal de atendimento (81) 98771-4814 munido do pedido de compra, a fim de formalizar a solicitação de assistência técnica;\n• A Válleri se reserva o direito de efetuar avaliação técnica da solicitação;\n• Caso seja constatado uso inadequado ou a presença de quaisquer condições que excluem ou não compreendam a garantia do produto, as despesas decorrentes do transporte e da reforma serão por conta do cliente ou consumidor final.` }))}>
-                        Gerar automaticamente
-                      </Button>
-                      <Textarea
-                        value={formData.garantiaTexto}
-                        onChange={(e) => handleInputChange('garantiaTexto', e.target.value)}
-                        rows={8}
-                        placeholder="Condições da garantia"
-                      />
-                      <div className="flex justify-end">
-                        <Button type="button" onClick={() => toast({ title: 'Garantia salva', description: 'Campo de garantia atualizado no pedido.' })}>salvar garantia</Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Termo de entrega e recebimento */}
-                  <div className="space-y-3 md:col-span-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-base font-medium">Termo de entrega e recebimento</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Habilitar termo</span>
-                        <Switch
-                          checked={formData.termoEntregaAtivo}
-                          onCheckedChange={(checked) =>
-                            setFormData(prev => ({
-                              ...prev,
-                              termoEntregaAtivo: checked,
-                              termoEntregaTexto: checked ? TERMO_ENTREGA_PADRAO : prev.termoEntregaTexto,
-                            }))
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setFormData(prev => ({ ...prev, termoEntregaTexto: TERMO_ENTREGA_PADRAO, termoEntregaAtivo: true }))}
-                      >
-                        Gerar automaticamente
-                      </Button>
-                      <Textarea
-                        value={formData.termoEntregaTexto}
-                        onChange={(e) => handleInputChange('termoEntregaTexto', e.target.value)}
-                        rows={10}
-                        placeholder="Termo de entrega e recebimento"
-                        disabled={!formData.termoEntregaAtivo}
-                      />
-                      <div className="flex justify-end">
-                        <Button type="button" onClick={() => toast({ title: 'Termo salvo', description: 'Termo de entrega atualizado no pedido.' })}>salvar termo</Button>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Forma de Pagamento */}
-                  <div className="space-y-2 md:col-span-2">
-                    <Label>Forma de Pagamento</Label>
-                    <Input
-                      value={formData.formaPagamento}
-                      onChange={(e) => setFormData(prev => ({ ...prev, formaPagamento: e.target.value }))}
-                      placeholder="Descreva a forma de pagamento (Ex: À vista, 50% entrada + 2x, etc)"
-                    />
-                  </div>
-
-                  {/* Fotos de Controle */}
-                  <div className="space-y-2 md:col-span-2">
-                    <Label className="flex items-center gap-2">
-                      <Camera className="h-4 w-4" />
-                      Fotos de Controle
-                    </Label>
-                    <ImageUpload
-                      images={formData.fotosControle}
-                      onImagesChange={handleFotosControleChange}
-                      maxImages={5}
-                      bucketName="pedido-imagens"
-                      folder="fotos-controle"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-            )
-          }
-          </AnimatePresence>
-
-          {/* Ã¢â€â‚¬ Barra de Ação Sticky Ã¢â€â‚¬ */}
-          <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm shadow-lg">
-            <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground hidden sm:block">
-                Etapa <span className="font-semibold text-foreground">{wizardStep}</span> de{' '}
-                <span className="font-semibold text-foreground">4</span>
-              </div>
-              <div className="flex items-center gap-3 ml-auto">
-                {wizardStep === 1 && (
-                  <Button type="button" variant="ghost" onClick={() => navigate('/dashboard')} disabled={isLoading}>
-                    Cancelar
-                  </Button>
-                )}
-                {wizardStep > 1 && (
-                  <Button type="button" variant="outline" onClick={() => setWizardStep(prev => Math.max(1, prev - 1))} disabled={isLoading} className="gap-2">
-                    <ChevronLeft className="h-4 w-4" />
-                    Voltar
-                  </Button>
-                )}
-                {wizardStep < 4 && (
-                  <Button key="btn-avancar" type="button" onClick={() => handleAvancarWizard()} disabled={isLoading} className="gap-2 min-w-[120px]">
-                    Avançar
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                )}
-                {wizardStep === 4 && (
-                  <Button key="btn-salvar" type="submit" className="gap-2 min-w-[140px]" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        {isEditMode ? 'Atualizando...' : 'Salvando...'}
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        {isEditMode ? 'Atualizar Pedido' : 'Salvar Pedido'}
-                      </>
-                    )}
-                  </Button>
-                )}
               </div>
             </div>
+
           </div>
-        </form >
-      </motion.div >
-    </DashboardLayout >
+
+        </form>
+      </motion.div>
+
+
+      {/* ======================================================== */}
+      {/* MODAL / ABA DE CRIAÇÃO & EDIÇÃO DE PRODUTO               */}
+      {/* ======================================================== */}
+      <Dialog open={modalProdutoAberto} onOpenChange={setModalProdutoAberto}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+          <DialogHeader className="pb-2 border-b">
+            <DialogTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" />
+              {editingProdutoIndex !== null ? `Editar Produto #${editingProdutoIndex + 1}` : 'Adicionar Novo Produto'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Preencha os detalhes e valores do item para incluí-lo no pedido
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-4">
+            
+            {/* Qual é o produto? */}
+            <div className="space-y-2">
+              <RequiredLabel htmlFor="modalNomeProduto" className="text-sm font-semibold">
+                Qual é o produto?
+              </RequiredLabel>
+              <Input
+                id="modalNomeProduto"
+                value={tempProduto.descricao}
+                onChange={(e) => setTempProduto(prev => ({ ...prev, descricao: e.target.value }))}
+                placeholder="Ex: Sofá Retrátil 3 Lugares, Poltrona Decorativa, Puff..."
+                className="font-medium text-base"
+                autoFocus
+              />
+            </div>
+
+            {/* Detalhes */}
+            <div className="space-y-2">
+              <Label htmlFor="modalDetalhesProduto" className="text-sm font-semibold">
+                Detalhes
+              </Label>
+              <Textarea
+                id="modalDetalhesProduto"
+                value={tempProduto.detalhes}
+                onChange={(e) => setTempProduto(prev => ({ ...prev, detalhes: e.target.value }))}
+                placeholder="Descreva medidas, tecidos, espuma, modelo de braço, pés, acabamento ou qualquer especificação livre..."
+                rows={3}
+                className="resize-y"
+              />
+            </div>
+
+            {/* Valor Unitário, Quantidade e Desconto por Item */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              {/* Valor Unitário */}
+              <div className="space-y-2">
+                <Label htmlFor="modalValorUnitario" className="text-sm font-semibold">
+                  Valor Unitário
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-semibold">R$</span>
+                  <Input
+                    id="modalValorUnitario"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={tempProduto.precoUnitario}
+                    onChange={(e) => setTempProduto(prev => ({ ...prev, precoUnitario: formatCurrencyInput(e.target.value) }))}
+                    disabled={isEditMode && isFuncionario}
+                    className="pl-9 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Quantidade */}
+              <div className="space-y-2">
+                <Label htmlFor="modalQuantidade" className="text-sm font-semibold">
+                  Quantidade
+                </Label>
+                <Input
+                  id="modalQuantidade"
+                  type="number"
+                  min={1}
+                  value={tempProduto.quantidade || 1}
+                  onChange={(e) => setTempProduto(prev => ({ ...prev, quantidade: parseInt(e.target.value, 10) || 1 }))}
+                  className="font-medium"
+                />
+              </div>
+
+            </div>
+
+            {/* Desconto por Item */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">
+                Desconto por Item
+              </Label>
+              <DiscountInput
+                price={parseValor(tempProduto.precoUnitario) * (tempProduto.quantidade || 1)}
+                discountType={tempProduto.descontoTipo}
+                discountValue={tempProduto.descontoValor}
+                onDiscountTypeChange={(type) => setTempProduto(prev => ({ ...prev, descontoTipo: type }))}
+                onDiscountValueChange={(val) => setTempProduto(prev => ({ ...prev, descontoValor: val.toString() }))}
+                label=""
+                disabled={isEditMode && isFuncionario}
+              />
+            </div>
+
+            {/* Visita Técnica (Sim/Não) */}
+            <div className="p-4 rounded-xl border bg-muted/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Visita Técnica</p>
+                  <p className="text-xs text-muted-foreground">Necessário agendar visita técnica prévia?</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {tempProduto.visitaTecnicaAtiva ? 'Sim' : 'Não'}
+                  </span>
+                  <Switch
+                    checked={tempProduto.visitaTecnicaAtiva}
+                    onCheckedChange={(checked) => setTempProduto(prev => ({ ...prev, visitaTecnicaAtiva: checked }))}
+                  />
+                </div>
+              </div>
+
+              {tempProduto.visitaTecnicaAtiva && (
+                <div className="pt-2 border-t space-y-1.5">
+                  <Label htmlFor="modalDataVisita" className="text-xs font-semibold uppercase text-muted-foreground">
+                    Data da Visita Técnica
+                  </Label>
+                  <Input
+                    id="modalDataVisita"
+                    value={tempProduto.visitaTecnicaData}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      if (val.length <= 2) setTempProduto(prev => ({ ...prev, visitaTecnicaData: val }));
+                      else if (val.length <= 4) setTempProduto(prev => ({ ...prev, visitaTecnicaData: `${val.slice(0, 2)}/${val.slice(2)}` }));
+                      else setTempProduto(prev => ({ ...prev, visitaTecnicaData: `${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4, 8)}` }));
+                    }}
+                    placeholder="DD/MM/AAAA"
+                    maxLength={10}
+                    className="max-w-[180px]"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Fotos do Produto */}
+            <div className="space-y-2 pt-1">
+              <Label className="text-sm font-semibold flex items-center gap-1.5">
+                <Camera className="w-4 h-4 text-primary" />
+                Fotos do Produto
+              </Label>
+              <ImageUpload
+                images={tempProduto.fotosPedido}
+                onImagesChange={(imgs) => setTempProduto(prev => ({ ...prev, fotosPedido: imgs }))}
+                maxImages={6}
+                bucketName="pedido-imagens"
+                folder="fotos-pedido"
+              />
+            </div>
+
+          </div>
+
+          <DialogFooter className="pt-3 border-t flex flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setModalProdutoAberto(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveProdutoModal}
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Salvar Produto
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+    </DashboardLayout>
   );
 };
 
