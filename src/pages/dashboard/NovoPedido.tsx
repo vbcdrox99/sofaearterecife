@@ -192,6 +192,48 @@ const NovoPedido = () => {
   const [formaPagamentoExpandido, setFormaPagamentoExpandido] = useState<boolean>(false);
   const [fotosControleExpandido, setFotosControleExpandido] = useState<boolean>(false);
 
+  // Controle de seções já visualizadas/abertas pelo menos uma vez
+  const [infoPedidoJaAberto, setInfoPedidoJaAberto] = useState<boolean>(false);
+  const [garantiaJaAberta, setGarantiaJaAberta] = useState<boolean>(false);
+  const [termoEntregaJaAberto, setTermoEntregaJaAberto] = useState<boolean>(false);
+  const [formaPagamentoJaAberta, setFormaPagamentoJaAberta] = useState<boolean>(false);
+  const [fotosControleJaAberto, setFotosControleJaAberto] = useState<boolean>(false);
+
+  const toggleInfoPedido = () => {
+    setInfoPedidoExpandido(prev => {
+      if (!prev) setInfoPedidoJaAberto(true);
+      return !prev;
+    });
+  };
+
+  const toggleGarantia = () => {
+    setGarantiaExpandida(prev => {
+      if (!prev) setGarantiaJaAberta(true);
+      return !prev;
+    });
+  };
+
+  const toggleTermoEntrega = () => {
+    setTermoEntregaExpandido(prev => {
+      if (!prev) setTermoEntregaJaAberto(true);
+      return !prev;
+    });
+  };
+
+  const toggleFormaPagamento = () => {
+    setFormaPagamentoExpandido(prev => {
+      if (!prev) setFormaPagamentoJaAberta(true);
+      return !prev;
+    });
+  };
+
+  const toggleFotosControle = () => {
+    setFotosControleExpandido(prev => {
+      if (!prev) setFotosControleJaAberto(true);
+      return !prev;
+    });
+  };
+
   const [fotosControle, setFotosControle] = useState<UploadedImage[]>([]);
 
   // Anexos originais em modo edição
@@ -213,6 +255,7 @@ const NovoPedido = () => {
         const { data, error } = await supabase
           .from('pedidos')
           .select('numero_pedido')
+          .lt('numero_pedido', 1000000)
           .order('numero_pedido', { ascending: false })
           .limit(1);
 
@@ -222,9 +265,7 @@ const NovoPedido = () => {
         }
 
         const nextNumber = maxNumber + 1;
-        const formattedNextNumber = formatOrderNumber(nextNumber, new Date().toISOString());
-
-        setNumeroPedido(prev => prev || formattedNextNumber);
+        setNumeroPedido(prev => prev || String(nextNumber));
       } catch (err) {
         console.error('Erro ao buscar próximo número do pedido:', err);
       }
@@ -272,6 +313,13 @@ const NovoPedido = () => {
         if (pedido.loja) {
           setLojaSelecionadaForm(pedido.loja);
         }
+
+        // Em modo edição, marcar seções como já visualizadas
+        setInfoPedidoJaAberto(true);
+        setGarantiaJaAberta(true);
+        setTermoEntregaJaAberto(true);
+        setFormaPagamentoJaAberta(true);
+        setFotosControleJaAberto(true);
 
         // Cliente
         if (pedido.cliente_id) {
@@ -510,7 +558,9 @@ const NovoPedido = () => {
 
     try {
       const dataEntregaISO = converterDataParaISO(dataEntrega);
-      const numeroPedidoLimpo = numeroPedido.replace(/\D/g, '') || String(Date.now()).slice(-6);
+      // Extrai apenas o número do pedido inicial caso contenha ano ou separadores (ex: "49 2026")
+      const primeiroTermo = numeroPedido.trim().split(/[\s\/-]+/)[0];
+      const numeroPedidoLimpo = primeiroTermo.replace(/\D/g, '') || numeroPedido.replace(/\D/g, '') || String(Date.now()).slice(-6);
 
       const primeiroProduto = produtos[0];
       const quantidadeTotalGeral = produtos.reduce((sum, p) => sum + (p.quantidade || 1), 0);
@@ -705,7 +755,12 @@ const NovoPedido = () => {
       });
 
       setTimeout(() => {
-        navigate('/dashboard/producao');
+        navigate('/dashboard', {
+          state: {
+            novoPedidoCriadoId: pedidoSalvoId,
+            numeroPedido: numeroPedidoLimpo,
+          },
+        });
       }, 1200);
 
     } catch (error: any) {
@@ -753,17 +808,28 @@ const NovoPedido = () => {
           {/* ======================================================== */}
           {/* SEÇÃO 1: CABEÇALHO / HEADER DO PEDIDO (Expansível)        */}
           {/* ======================================================== */}
-          <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+          <Card className={cn(
+            "shadow-xs backdrop-blur-sm overflow-hidden transition-all duration-200",
+            !infoPedidoJaAberto
+              ? "border-primary/40 dark:border-primary/30 bg-card hover:border-primary/60"
+              : "border-border/50 bg-card/80 hover:border-border"
+          )}>
             <div className="h-1.5 w-full bg-gradient-to-r from-primary via-blue-500 to-indigo-600" />
             <CardHeader
               className="pb-4 cursor-pointer select-none hover:bg-muted/20 transition-colors"
-              onClick={() => setInfoPedidoExpandido(prev => !prev)}
+              onClick={toggleInfoPedido}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
                     <FileText className="w-4 h-4 text-primary" />
                     Informações do Pedido
+                    {!infoPedidoJaAberto && (
+                      <span className="text-[10px] tracking-wide font-medium text-muted-foreground px-2 py-0.5 rounded-md border border-border/70 bg-muted/40 inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/70"></span>
+                        Obrigatório
+                      </span>
+                    )}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Identificação, cliente, prazos de entrega e detalhes gerais
@@ -806,8 +872,13 @@ const NovoPedido = () => {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setInfoPedidoExpandido(prev => !prev)}
-                    className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                    onClick={toggleInfoPedido}
+                    className={cn(
+                      "h-7 w-7 p-0 rounded-lg border transition-all duration-200 shrink-0",
+                      !infoPedidoJaAberto && !infoPedidoExpandido
+                        ? "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/60"
+                        : "border-border/60 bg-background/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
                     title={infoPedidoExpandido ? "Recolher informações" : "Expandir informações"}
                   >
                     {infoPedidoExpandido ? (
@@ -1213,16 +1284,26 @@ const NovoPedido = () => {
             <div className="lg:col-span-7 space-y-6">
               
               {/* Card de Garantia (Expansível) */}
-              <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+              <Card className={cn(
+                "shadow-xs backdrop-blur-sm overflow-hidden transition-all duration-200",
+                !garantiaJaAberta
+                  ? "border-border/80 dark:border-border/90 bg-card hover:border-foreground/20"
+                  : "border-border/40 bg-card/70 opacity-95 hover:border-border/70"
+              )}>
                 <CardHeader
                   className="pb-3 cursor-pointer select-none hover:bg-muted/20 transition-colors"
-                  onClick={() => setGarantiaExpandida(prev => !prev)}
+                  onClick={toggleGarantia}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-primary" />
-                      <CardTitle className="text-sm sm:text-base font-semibold">
+                      <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
                         Garantia do Pedido
+                        {!garantiaJaAberta && (
+                          <span className="text-[10px] tracking-wide font-medium text-muted-foreground/70 px-2 py-0.5 rounded-md border border-border/50 bg-muted/30">
+                            Pendente
+                          </span>
+                        )}
                       </CardTitle>
                     </div>
                     
@@ -1232,9 +1313,14 @@ const NovoPedido = () => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setGarantiaExpandida(prev => !prev);
+                        toggleGarantia();
                       }}
-                      className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                      className={cn(
+                        "h-7 w-7 p-0 rounded-lg border transition-all duration-200 shrink-0",
+                        !garantiaJaAberta && !garantiaExpandida
+                          ? "border-border/80 text-foreground bg-muted/30 hover:bg-muted"
+                          : "border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                      )}
                       title={garantiaExpandida ? "Recolher garantia" : "Expandir garantia"}
                     >
                       {garantiaExpandida ? (
@@ -1370,16 +1456,26 @@ const NovoPedido = () => {
               </Card>
 
               {/* Card de Termos de Entrega e Recebimento (Expansível) */}
-              <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+              <Card className={cn(
+                "shadow-xs backdrop-blur-sm overflow-hidden transition-all duration-200",
+                !termoEntregaJaAberto
+                  ? "border-border/80 dark:border-border/90 bg-card hover:border-foreground/20"
+                  : "border-border/40 bg-card/70 opacity-95 hover:border-border/70"
+              )}>
                 <CardHeader
                   className="pb-3 cursor-pointer select-none hover:bg-muted/20 transition-colors"
-                  onClick={() => setTermoEntregaExpandido(prev => !prev)}
+                  onClick={toggleTermoEntrega}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Truck className="w-4 h-4 text-primary" />
-                      <CardTitle className="text-sm sm:text-base font-semibold">
+                      <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
                         Termos de Entrega e Recebimento
+                        {!termoEntregaJaAberto && (
+                          <span className="text-[10px] tracking-wide font-medium text-muted-foreground/70 px-2 py-0.5 rounded-md border border-border/50 bg-muted/30">
+                            Pendente
+                          </span>
+                        )}
                       </CardTitle>
                     </div>
                     
@@ -1389,9 +1485,14 @@ const NovoPedido = () => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setTermoEntregaExpandido(prev => !prev);
+                        toggleTermoEntrega();
                       }}
-                      className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                      className={cn(
+                        "h-7 w-7 p-0 rounded-lg border transition-all duration-200 shrink-0",
+                        !termoEntregaJaAberto && !termoEntregaExpandido
+                          ? "border-border/80 text-foreground bg-muted/30 hover:bg-muted"
+                          : "border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                      )}
                       title={termoEntregaExpandido ? "Recolher termos" : "Expandir termos"}
                     >
                       {termoEntregaExpandido ? (
@@ -1447,16 +1548,26 @@ const NovoPedido = () => {
               </Card>
 
               {/* Forma de Pagamento (Expansível) */}
-              <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+              <Card className={cn(
+                "shadow-xs backdrop-blur-sm overflow-hidden transition-all duration-200",
+                !formaPagamentoJaAberta
+                  ? "border-border/80 dark:border-border/90 bg-card hover:border-foreground/20"
+                  : "border-border/40 bg-card/70 opacity-95 hover:border-border/70"
+              )}>
                 <CardHeader
                   className="pb-3 cursor-pointer select-none hover:bg-muted/20 transition-colors"
-                  onClick={() => setFormaPagamentoExpandido(prev => !prev)}
+                  onClick={toggleFormaPagamento}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-primary" />
-                      <CardTitle className="text-sm sm:text-base font-semibold">
+                      <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
                         Forma de Pagamento
+                        {!formaPagamentoJaAberta && (
+                          <span className="text-[10px] tracking-wide font-medium text-muted-foreground/70 px-2 py-0.5 rounded-md border border-border/50 bg-muted/30">
+                            Pendente
+                          </span>
+                        )}
                       </CardTitle>
                     </div>
 
@@ -1466,9 +1577,14 @@ const NovoPedido = () => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setFormaPagamentoExpandido(prev => !prev);
+                        toggleFormaPagamento();
                       }}
-                      className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                      className={cn(
+                        "h-7 w-7 p-0 rounded-lg border transition-all duration-200 shrink-0",
+                        !formaPagamentoJaAberta && !formaPagamentoExpandido
+                          ? "border-border/80 text-foreground bg-muted/30 hover:bg-muted"
+                          : "border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                      )}
                       title={formaPagamentoExpandido ? "Recolher forma de pagamento" : "Expandir forma de pagamento"}
                     >
                       {formaPagamentoExpandido ? (
@@ -1505,20 +1621,32 @@ const NovoPedido = () => {
               </Card>
 
               {/* Fotos de Controle (Expansível) */}
-              <Card className="border-border/60 shadow-sm bg-card/90 backdrop-blur-sm overflow-hidden transition-all">
+              <Card className={cn(
+                "shadow-xs backdrop-blur-sm overflow-hidden transition-all duration-200",
+                !fotosControleJaAberto
+                  ? "border-border/80 dark:border-border/90 bg-card hover:border-foreground/20"
+                  : "border-border/40 bg-card/70 opacity-95 hover:border-border/70"
+              )}>
                 <CardHeader
                   className="pb-3 cursor-pointer select-none hover:bg-muted/20 transition-colors"
-                  onClick={() => setFotosControleExpandido(prev => !prev)}
+                  onClick={toggleFotosControle}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
-                        <Camera className="w-4 h-4 text-primary" />
-                        Fotos de Controle
-                      </CardTitle>
-                      <CardDescription className="text-xs">
-                        Anexe fotos de controle interno, amostras de referência ou croquis
-                      </CardDescription>
+                    <div className="flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-primary" />
+                      <div>
+                        <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
+                          Fotos de Controle
+                          {!fotosControleJaAberto && (
+                            <span className="text-[10px] tracking-wide font-medium text-muted-foreground/70 px-2 py-0.5 rounded-md border border-border/50 bg-muted/30">
+                              Pendente
+                            </span>
+                          )}
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Anexe fotos de controle interno, amostras de referência ou croquis
+                        </CardDescription>
+                      </div>
                     </div>
 
                     <Button
@@ -1527,9 +1655,14 @@ const NovoPedido = () => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setFotosControleExpandido(prev => !prev);
+                        toggleFotosControle();
                       }}
-                      className="h-7 w-7 p-0 rounded-full border bg-background/80 hover:bg-background text-foreground shrink-0 shadow-xs"
+                      className={cn(
+                        "h-7 w-7 p-0 rounded-lg border transition-all duration-200 shrink-0",
+                        !fotosControleJaAberto && !fotosControleExpandido
+                          ? "border-border/80 text-foreground bg-muted/30 hover:bg-muted"
+                          : "border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                      )}
                       title={fotosControleExpandido ? "Recolher fotos de controle" : "Expandir fotos de controle"}
                     >
                       {fotosControleExpandido ? (

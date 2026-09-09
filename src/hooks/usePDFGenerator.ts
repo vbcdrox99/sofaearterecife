@@ -19,6 +19,13 @@ interface Pedido {
   cliente_nome: string;
 }
 
+export interface PDFGenerationResult {
+  blobUrl: string;
+  fileName: string;
+  title: string;
+  doc: jsPDF;
+}
+
 export const usePDFGenerator = () => {
   // Helper: formata número de telefone no padrão brasileiro
   const formatPhoneBR = (raw?: string) => {
@@ -239,7 +246,7 @@ export const usePDFGenerator = () => {
   }, []);
 
   // PDF "Pedido do Cliente" alinhado ao layout da OS, adicionando apenas a seção Pagamento
-  const generatePedidoClientePDF = useCallback(async (pedidoId: string, isOrcamento: boolean = false) => {
+  const generatePedidoClientePDF = useCallback(async (pedidoId: string, isOrcamento: boolean = false, autoDownload: boolean = true): Promise<PDFGenerationResult | null> => {
     try {
       const { data: pedido, error: pedidoError } = await supabase
         .from('pedidos')
@@ -882,14 +889,25 @@ export const usePDFGenerator = () => {
 
       const prefix = isOrcamento ? 'orcamento' : 'pedido-cliente';
       const fileName = `${prefix}-${numero}.pdf`;
-      pdf.save(fileName);
+      const blob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      if (autoDownload) {
+        pdf.save(fileName);
+      }
+      return {
+        blobUrl,
+        fileName,
+        title: isOrcamento ? `Orçamento #${numero}` : `Pedido do Cliente #${numero}`,
+        doc: pdf
+      };
     } catch (err) {
       console.error('Erro ao gerar PDF do cliente:', err);
+      return null;
     }
   }, []);
 
   // PDF por Pedido (busca Supabase e gera layout multi-seções)
-  const generatePedidoPDF = useCallback(async (pedidoId: string) => {
+  const generatePedidoPDF = useCallback(async (pedidoId: string, autoDownload: boolean = true): Promise<PDFGenerationResult | null> => {
     try {
       const { data: pedido, error: pedidoError } = await supabase
         .from('pedidos')
@@ -1486,9 +1504,20 @@ export const usePDFGenerator = () => {
       await addPhotosSection('Fotos de controle', fotosControle, startYPhotos);
 
       const fileName = `pedido-${numero}.pdf`;
-      pdf.save(fileName);
+      const blob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      if (autoDownload) {
+        pdf.save(fileName);
+      }
+      return {
+        blobUrl,
+        fileName,
+        title: `Ordem de Serviço #${numero}`,
+        doc: pdf
+      };
     } catch (err) {
       console.error('Erro ao gerar PDF do pedido:', err);
+      return null;
     }
   }, []);
 

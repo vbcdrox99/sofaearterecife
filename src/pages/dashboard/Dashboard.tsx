@@ -32,7 +32,8 @@ import { usePedidos } from '@/hooks/usePedidos';
 import { usePDFGenerator } from '@/hooks/usePDFGenerator';
 import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import PedidoPhotosModal from '@/components/PedidoPhotosModal';
-import { useNavigate } from 'react-router-dom';
+import PDFPreviewModal from '@/components/dashboard/PDFPreviewModal';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -40,6 +41,7 @@ const Dashboard = () => {
   const { pedidos, apagarPedido } = usePedidos();
   const { selectedStore, isAdmin, isGerente, isFuncionario } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { printRef, printCurrentView, isPrinting, generatePedidoPDF, generatePedidoClientePDF } = usePDFGenerator();
   const [pedidoExcluir, setPedidoExcluir] = useState<string | null>(null);
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
@@ -58,6 +60,114 @@ const Dashboard = () => {
   // Estado do modal de seleção de pedidos para PDF
   const [pdfModalAberto, setPdfModalAberto] = useState(false);
   const [pdfSelecionados, setPdfSelecionados] = useState<Set<string>>(new Set());
+
+  // Estado do diálogo de impressão automática ao finalizar pedido
+  const [dialogImprimirAberto, setDialogImprimirAberto] = useState(false);
+  const [pedidoPromptInfo, setPedidoPromptInfo] = useState<{ id: string; numero: string | number } | null>(null);
+
+  useEffect(() => {
+    if (location.state?.novoPedidoCriadoId) {
+      setPedidoPromptInfo({
+        id: location.state.novoPedidoCriadoId,
+        numero: location.state.numeroPedido || '',
+      });
+      setDialogImprimirAberto(true);
+      // Limpa o state do router para evitar reabertura involuntária ao dar refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
+
+  // Estado para manter hora atual e reavaliar pedidos recentes (< 1h) a cada minuto
+  const [horaAtual, setHoraAtual] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHoraAtual(Date.now());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Estado do modal de pré-visualização de PDF
+  const [pdfPreview, setPdfPreview] = useState<{
+    isOpen: boolean;
+    url: string | null;
+    title: string;
+    fileName: string;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    url: null,
+    title: '',
+    fileName: '',
+    isLoading: false,
+  });
+
+  const handlePreviewOS = async (pedidoId: string) => {
+    setPdfPreview({
+      isOpen: true,
+      url: null,
+      title: 'Gerando Ordem de Serviço...',
+      fileName: 'ordem-de-servico.pdf',
+      isLoading: true,
+    });
+    try {
+      const res = await generatePedidoPDF(pedidoId, false);
+      if (res) {
+        setPdfPreview({
+          isOpen: true,
+          url: res.blobUrl,
+          title: res.title,
+          fileName: res.fileName,
+          isLoading: false,
+        });
+      } else {
+        setPdfPreview(prev => ({ ...prev, isOpen: false, isLoading: false }));
+      }
+    } catch (err) {
+      console.error('Erro ao gerar pré-visualização da OS:', err);
+      setPdfPreview(prev => ({ ...prev, isOpen: false, isLoading: false }));
+    }
+  };
+
+  const handlePreviewCliente = async (pedidoId: string, isOrcamento: boolean) => {
+    const rotulo = isOrcamento ? 'Orçamento' : 'Pedido do Cliente';
+    setPdfPreview({
+      isOpen: true,
+      url: null,
+      title: `Gerando ${rotulo}...`,
+      fileName: `${isOrcamento ? 'orcamento' : 'pedido-cliente'}.pdf`,
+      isLoading: true,
+    });
+    try {
+      const res = await generatePedidoClientePDF(pedidoId, isOrcamento, false);
+      if (res) {
+        setPdfPreview({
+          isOpen: true,
+          url: res.blobUrl,
+          title: res.title,
+          fileName: res.fileName,
+          isLoading: false,
+        });
+      } else {
+        setPdfPreview(prev => ({ ...prev, isOpen: false, isLoading: false }));
+      }
+    } catch (err) {
+      console.error(`Erro ao gerar pré-visualização de ${rotulo}:`, err);
+      setPdfPreview(prev => ({ ...prev, isOpen: false, isLoading: false }));
+    }
+  };
+
+  const handleClosePdfPreview = () => {
+    if (pdfPreview.url) {
+      URL.revokeObjectURL(pdfPreview.url);
+    }
+    setPdfPreview({
+      isOpen: false,
+      url: null,
+      title: '',
+      fileName: '',
+      isLoading: false,
+    });
+  };
 
   // Restaura os elementos escondidos manualmente após a impressão terminar
   useEffect(() => {
@@ -280,6 +390,16 @@ const Dashboard = () => {
   })
     .filter(p => p.itensProducao.length > 0);
 
+  // Função para verificar se o pedido foi criado há menos de 1 hora
+  const UMA_HORA_MS = 60 * 60 * 1000;
+  const isPedidoRecente = (createdAt?: string) => {
+    if (!createdAt) return false;
+    const time = new Date(createdAt).getTime();
+    if (isNaN(time)) return false;
+    const diff = horaAtual - time;
+    return diff >= 0 && diff < UMA_HORA_MS;
+  };
+
   const linhasExpandido = pedidosComProducao.flatMap(({ pedido, itensProducao }) => {
     const itensDoPedido = pedidoItens.filter(it => it.pedido_id === pedido.id);
     const base = (seq: number, itemId?: string, item?: any) => ({ pedido, itensProducao, seq, itemId, item });
@@ -289,9 +409,23 @@ const Dashboard = () => {
     }
     return itensDoPedido.map((it: any) => base(it.sequencia ?? 1, it.id, it));
   })
-    // Ordenar por urgência da entrega
-    // Ordenar por data de entrega (mais urgentes primeiro)
+    // Ordenar: pedidos criados há menos de 1 hora ficam fixados no topo.
+    // Após 1 hora, voltam à ordenação padrão por data de entrega (mais urgentes primeiro).
     .sort((a, b) => {
+      const aRecente = isPedidoRecente(a.pedido.created_at);
+      const bRecente = isPedidoRecente(b.pedido.created_at);
+
+      if (aRecente && !bRecente) return -1;
+      if (!aRecente && bRecente) return 1;
+      if (aRecente && bRecente) {
+        // Se ambos foram criados na última hora, o mais novo fica no topo
+        const timeA = new Date(a.pedido.created_at).getTime();
+        const timeB = new Date(b.pedido.created_at).getTime();
+        if (timeB !== timeA) return timeB - timeA;
+        return (a.seq || 1) - (b.seq || 1);
+      }
+
+      // Ordenar por urgência da entrega (mais urgentes primeiro)
       const diasA = calcularDiasRestantes(a.pedido.data_previsao_entrega);
       const diasB = calcularDiasRestantes(b.pedido.data_previsao_entrega);
 
@@ -556,6 +690,15 @@ const Dashboard = () => {
                                         {(pedido as any).tipo_pedido === 'orcamento' ? 'ORÇ' : 'PED'}
                                       </span>
                                     )}
+                                    {(!seq || seq === 1) && isPedidoRecente(pedido.created_at) && (
+                                      <span
+                                        className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900 flex items-center gap-1 shadow-xs"
+                                        title="Pedido recente fixado no topo por 1 hora"
+                                      >
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                        Recente
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -719,13 +862,13 @@ const Dashboard = () => {
                                         </button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => generatePedidoPDF(pedido.id)}>
+                                        <DropdownMenuItem onClick={() => handlePreviewOS(pedido.id)}>
                                           Ordem de Serviço
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => generatePedidoClientePDF(pedido.id, false)}>
+                                        <DropdownMenuItem onClick={() => handlePreviewCliente(pedido.id, false)}>
                                           Pedido do Cliente
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => generatePedidoClientePDF(pedido.id, true)}>
+                                        <DropdownMenuItem onClick={() => handlePreviewCliente(pedido.id, true)}>
                                           Orçamento
                                         </DropdownMenuItem>
                                       </DropdownMenuContent>
@@ -1087,6 +1230,100 @@ const Dashboard = () => {
               }}
             >
               Sim, excluir pedido
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Pré-visualização de PDF com opção de download */}
+      <PDFPreviewModal
+        isOpen={pdfPreview.isOpen}
+        onClose={handleClosePdfPreview}
+        pdfUrl={pdfPreview.url}
+        title={pdfPreview.title}
+        fileName={pdfPreview.fileName}
+        isLoading={pdfPreview.isLoading}
+      />
+
+      {/* Dialog perguntando se deseja imprimir o pedido recém-finalizado */}
+      <Dialog open={dialogImprimirAberto} onOpenChange={setDialogImprimirAberto}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader className="space-y-2">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1">
+              <Printer className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-center text-lg font-semibold">
+              Deseja imprimir o pedido {pedidoPromptInfo?.numero ? `#${pedidoPromptInfo.numero}` : ''}?
+            </DialogTitle>
+            <p className="text-center text-xs text-muted-foreground">
+              O pedido foi salvo com sucesso! Escolha o documento que deseja visualizar e imprimir agora, ou cancele para continuar no painel.
+            </p>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-2.5 pt-4 pb-2">
+            <Button
+              variant="outline"
+              className="w-full justify-start h-12 text-sm font-medium hover:bg-muted/80 flex items-center gap-3 border-border px-4"
+              onClick={() => {
+                if (pedidoPromptInfo?.id) {
+                  const id = pedidoPromptInfo.id;
+                  setDialogImprimirAberto(false);
+                  handlePreviewOS(id);
+                }
+              }}
+            >
+              <ClipboardList className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <div className="flex flex-col text-left min-w-0">
+                <span className="font-semibold text-xs">Ordem de Serviço</span>
+                <span className="text-[10px] text-muted-foreground">Para linha de produção e acompanhamento</span>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start h-12 text-sm font-medium hover:bg-muted/80 flex items-center gap-3 border-border px-4"
+              onClick={() => {
+                if (pedidoPromptInfo?.id) {
+                  const id = pedidoPromptInfo.id;
+                  setDialogImprimirAberto(false);
+                  handlePreviewCliente(id, false);
+                }
+              }}
+            >
+              <User className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <div className="flex flex-col text-left min-w-0">
+                <span className="font-semibold text-xs">Pedido do Cliente</span>
+                <span className="text-[10px] text-muted-foreground">Com dados de entrega, itens e pagamento</span>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start h-12 text-sm font-medium hover:bg-muted/80 flex items-center gap-3 border-border px-4"
+              onClick={() => {
+                if (pedidoPromptInfo?.id) {
+                  const id = pedidoPromptInfo.id;
+                  setDialogImprimirAberto(false);
+                  handlePreviewCliente(id, true);
+                }
+              }}
+            >
+              <FileText className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div className="flex flex-col text-left min-w-0">
+                <span className="font-semibold text-xs">Orçamento</span>
+                <span className="text-[10px] text-muted-foreground">Versão de orçamento para apresentação</span>
+              </div>
+            </Button>
+          </div>
+
+          <div className="pt-2 border-t mt-1 flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setDialogImprimirAberto(false)}
+            >
+              Cancelar (não imprimir agora)
             </Button>
           </div>
         </DialogContent>
