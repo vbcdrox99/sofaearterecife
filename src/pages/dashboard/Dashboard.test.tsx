@@ -83,6 +83,27 @@ vi.mock('@/hooks/useMateriais', () => ({
   })),
 }));
 
+vi.mock('@/lib/supabase', () => ({
+  producaoService: {
+    getAll: vi.fn().mockResolvedValue([
+      {
+        id: 'ip-1',
+        pedido_id: '1',
+        etapa: 'marcenaria',
+        status: 'pendente',
+        pedidos: {
+          numero_pedido: 1,
+          cliente_nome: 'Cliente Teste',
+          tipo_sofa: 'Sofá Retrátil',
+          observacoes: 'Espuma D33, Tecido Bouclê',
+          data_previsao_entrega: '2026-10-01',
+          forma_pagamento: 'À vista',
+        }
+      }
+    ]),
+  },
+}));
+
 const renderWithProviders = (component: React.ReactElement) => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -110,57 +131,39 @@ describe('Dashboard', () => {
     vi.clearAllMocks();
   });
 
-  it('deve renderizar o título do dashboard', () => {
+  it('deve renderizar o título de status de produção', async () => {
     renderWithProviders(<Dashboard />);
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(await screen.findByText('Status de Produção - Todos os Pedidos')).toBeInTheDocument();
   });
 
-  it('deve exibir as estatísticas de pedidos', () => {
+  it('deve exibir os botões de filtro por área de produção', async () => {
     renderWithProviders(<Dashboard />);
-    
-    // Verifica se os cards de estatísticas estão presentes
-    expect(screen.getByText('Aguardando Produção')).toBeInTheDocument();
-    expect(screen.getByText('Em Produção')).toBeInTheDocument();
-    expect(screen.getByText('Finalizados')).toBeInTheDocument();
-    expect(screen.getByText('Em Entrega')).toBeInTheDocument();
+    expect(await screen.findByText('GERAL/TODOS')).toBeInTheDocument();
+    expect(screen.getByText('Marcenaria')).toBeInTheDocument();
+    expect(screen.getByText('Corte Costura')).toBeInTheDocument();
+    expect(screen.getByText('Espuma')).toBeInTheDocument();
+    expect(screen.getByText('Bancada')).toBeInTheDocument();
+    expect(screen.getByText('Tecido')).toBeInTheDocument();
   });
 
-  it('deve exibir alertas de baixo estoque', () => {
+  it('deve exibir o campo de busca global', async () => {
     renderWithProviders(<Dashboard />);
-    
-    // Verifica se o alerta de baixo estoque está presente
-    expect(screen.getByText('Materiais em Baixo Estoque')).toBeInTheDocument();
-    expect(screen.getByText('Tecido Algodão')).toBeInTheDocument();
-  });
-
-  it('deve calcular e exibir o tempo médio de produção', () => {
-    renderWithProviders(<Dashboard />);
-    
-    // Verifica se o tempo médio está sendo exibido
-    expect(screen.getByText('Tempo Médio de Produção')).toBeInTheDocument();
-    expect(screen.getByText('0 dias')).toBeInTheDocument();
-  });
-
-  it('deve calcular e exibir o valor total do estoque', () => {
-    renderWithProviders(<Dashboard />);
-    
-    // Verifica se o valor total do estoque está sendo exibido
-    expect(screen.getByText('Valor Total do Estoque')).toBeInTheDocument();
-    expect(screen.getByText('R$ 875')).toBeInTheDocument();
-  });
-
-  it('deve exibir a seção de pedidos recentes', () => {
-    renderWithProviders(<Dashboard />);
-    
-    expect(screen.getByText('Pedidos Recentes')).toBeInTheDocument();
-    expect(screen.getByText('#1')).toBeInTheDocument();
-    expect(screen.getByText('Cliente Teste')).toBeInTheDocument();
-  });
-
-  it('deve permitir busca rápida de pedidos', () => {
-    renderWithProviders(<Dashboard />);
-    
-    const searchInput = screen.getByPlaceholderText('Buscar pedidos...');
+    const searchInput = await screen.findByPlaceholderText('Buscar pedido, produto, cliente...');
     expect(searchInput).toBeInTheDocument();
+  });
+
+  it('deve renderizar o cabeçalho da tabela com a coluna Detalhes', async () => {
+    renderWithProviders(<Dashboard />);
+    expect(await screen.findByText('Nº Pedido')).toBeInTheDocument();
+    expect(screen.getByText('Tipo')).toBeInTheDocument();
+    expect(screen.getByText('Entrega')).toBeInTheDocument();
+    expect(screen.getByText('Detalhes')).toBeInTheDocument();
+    expect(screen.getByText('Pagamento')).toBeInTheDocument();
+    expect(screen.getByText('Status Produção')).toBeInTheDocument();
+  });
+
+  it('deve renderizar o botão de Gerar PDF', async () => {
+    renderWithProviders(<Dashboard />);
+    expect(await screen.findByRole('button', { name: /Gerar PDF/i })).toBeInTheDocument();
   });
 });

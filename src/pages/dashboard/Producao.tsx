@@ -366,32 +366,41 @@ const Producao = () => {
                         {/* Linha 2: Produto e Serviço (Destaque) */}
                         <div className="mb-4">
                           <h3 className="text-xl md:text-2xl font-black text-gray-800 dark:text-gray-100 uppercase">
-                            {pedidoItem?.tipo_sofa || item.pedidos?.tipo_sofa || 'Produto N/A'}
+                            {pedidoItem?.descricao || pedidoItem?.tipo_sofa || item.pedidos?.tipo_sofa || 'Produto N/A'}
                           </h3>
                           <p className="text-sm text-gray-500 font-bold uppercase mt-1">
                             Serviço: <span className="text-gray-800 dark:text-gray-200">{pedidoItem?.tipo_servico || item.pedidos?.tipo_servico || 'N/A'}</span>
                           </p>
                         </div>
 
-                        {/* Bloco Cinza com a Ficha Técnica */}
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 border border-gray-200 dark:border-gray-700 shadow-inner">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Espuma</span>
-                            <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.espuma || item.pedidos?.espuma || '-'}</span>
+                        {/* Bloco com Detalhes do Produto / Ficha Técnica */}
+                        {pedidoItem?.observacoes ? (
+                          <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 mb-4 border border-gray-200 dark:border-gray-700 shadow-inner">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-1">Detalhes do Produto</span>
+                            <p className="text-sm md:text-base font-semibold text-gray-900 dark:text-white whitespace-pre-wrap">
+                              {pedidoItem.observacoes}
+                            </p>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Tecido</span>
-                            <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.tecido || item.pedidos?.tecido || '-'}</span>
+                        ) : (pedidoItem?.espuma || pedidoItem?.tecido || pedidoItem?.braco || pedidoItem?.tipo_pe) ? (
+                          <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 border border-gray-200 dark:border-gray-700 shadow-inner">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Espuma</span>
+                              <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.espuma || item.pedidos?.espuma || '-'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Tecido</span>
+                              <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.tecido || item.pedidos?.tecido || '-'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Braço</span>
+                              <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.braco || item.pedidos?.braco || '-'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Pé</span>
+                              <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.tipo_pe || item.pedidos?.tipo_pe || '-'}</span>
+                            </div>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Braço</span>
-                            <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.braco || item.pedidos?.braco || '-'}</span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Pé</span>
-                            <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.tipo_pe || item.pedidos?.tipo_pe || '-'}</span>
-                          </div>
-                        </div>
+                        ) : null}
 
                         {/* Alerta de Observações (Destacado e visível para todos) */}
                         {observacoes && (

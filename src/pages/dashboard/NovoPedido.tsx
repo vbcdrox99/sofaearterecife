@@ -578,6 +578,7 @@ const NovoPedido = () => {
         observacoes: observacaoGeral || null,
         frete: parseValor(frete) || null,
         descricao_sofa: primeiroProduto.descricao,
+        tipo_sofa: primeiroProduto.descricao || null,
         dimensoes: primeiroProduto.detalhes || null,
         preco_unitario: parseValor(primeiroProduto.precoUnitario) || null,
         quantidade: quantidadeTotalGeral,
@@ -640,7 +641,7 @@ const NovoPedido = () => {
         braco: '',
         tipo_pe: '',
         tipo_servico: '',
-        tipo_sofa: '',
+        tipo_sofa: p.descricao || '',
       }));
 
       const { data: itensInseridos, error: erroItens } = await supabase

@@ -337,8 +337,14 @@ export const usePDFGenerator = () => {
         quantidade: pedido.quantidade || 1,
         observacoes: pedido.observacoes,
       }]).map((it: any, idx: number) => {
-        const descricao = [safe(it.tipo_sofa), safe(it.tipo_servico)].filter(Boolean).join(' - ');
+        const partesDescricao = [
+          (it.descricao || it.tipo_sofa || '').trim(),
+          (it.tipo_servico || '').trim()
+        ].filter(Boolean);
+        const descricao = partesDescricao.length > 0 ? partesDescricao.join(' - ') : (pedido.descricao_sofa || 'Produto');
+
         const detalhes = [
+          it.observacoes ? safe(it.observacoes) : '',
           it.cor ? `Cor: ${it.cor}` : '',
           it.tecido ? `Tecido: ${it.tecido}` : '',
           it.espuma ? `Espuma: ${it.espuma}` : '',
@@ -346,6 +352,31 @@ export const usePDFGenerator = () => {
           it.tipo_pe ? `Tipo Pé: ${it.tipo_pe}` : '',
           it.dimensoes ? `Dimensões: ${it.dimensoes}` : ''
         ].filter(Boolean).join(' • ');
+
+        const visitaTecnicaInfo = it.visita_tecnica ? `
+          <div style="color:#0284c7; font-size:11px; margin-top:4px; font-weight:500;">
+            📅 Visita técnica solicitada${it.data_visita_tecnica ? ` para ${format(new Date(it.data_visita_tecnica), 'dd/MM/yyyy', { locale: ptBR })}` : ''}
+          </div>
+        ` : '';
+
+        // Buscar foto do produto
+        let primeiraFoto = null;
+        if (it.id && fotosPorItem[it.id] && fotosPorItem[it.id].length > 0) {
+          primeiraFoto = fotosPorItem[it.id][0];
+        } else if (fotosPorItem['sem_item'] && fotosPorItem['sem_item'].length > 0) {
+          primeiraFoto = fotosPorItem['sem_item'].find((f: any) => !usedPhotoIds.includes(f.id)) || fotosPorItem['sem_item'][0];
+        } else if (fotosPedido.length > 0 && idx === 0) {
+          primeiraFoto = fotosPedido.find((f: any) => !usedPhotoIds.includes(f.id)) || fotosPedido[0];
+        }
+        if (primeiraFoto?.id && !usedPhotoIds.includes(primeiraFoto.id)) {
+          usedPhotoIds.push(primeiraFoto.id);
+        }
+
+        const imagemItemHTML = primeiraFoto ? `
+          <div style="width:110px; min-width:110px; height:80px; border-radius:6px; overflow:hidden; border:1px solid #e5e7eb; background:#f9fafb; flex-shrink:0;">
+            <img src="${primeiraFoto.url_arquivo}" style="width:100%; height:100%; object-fit:cover; display:block;" crossorigin="anonymous" />
+          </div>
+        ` : '';
 
         // Cálculos de preço item a item
         const precoUnitario = it.preco_unitario || 0;
@@ -363,15 +394,19 @@ export const usePDFGenerator = () => {
 
         return `
           <tr>
-            <td style="padding:10px; border-bottom:1px solid #eee;">
-              <div style="flex:1;">
-                <div style="font-weight:600;">${descricao || safe(it.descricao)}</div>
-                ${detalhes ? `<div style="color:#555; font-size:12px; margin-top:4px;">${detalhes}</div>` : ''}
+            <td style="padding:10px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
+              <div style="display:flex; gap:12px; align-items:flex-start;">
+                ${imagemItemHTML}
+                <div style="flex:1; min-width:0;">
+                  <div style="font-weight:600; color:#111827; font-size:13px;">${descricao}</div>
+                  ${detalhes ? `<div style="color:#4b5563; font-size:12px; margin-top:4px; line-height:1.4;">${detalhes}</div>` : ''}
+                  ${visitaTecnicaInfo}
+                </div>
               </div>
             </td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${priceDisplay}</td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">${quantidade}</td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">${totalDisplay}</td>
+            <td style="padding:10px; border-bottom:1px solid #e5e7eb; text-align:right; color:#111827; font-size:13px; vertical-align:top;">${priceDisplay}</td>
+            <td style="padding:10px; border-bottom:1px solid #e5e7eb; text-align:center; color:#111827; font-size:13px; vertical-align:top;">${quantidade}</td>
+            <td style="padding:10px; border-bottom:1px solid #e5e7eb; text-align:right; color:#111827; font-size:13px; font-weight:600; vertical-align:top;">${totalDisplay}</td>
           </tr>
         `;
       }).join('');
@@ -539,15 +574,19 @@ export const usePDFGenerator = () => {
 
       const infosBasicasHTML = `
         <div style="margin-top:18px;">
-          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Informações básicas</div>
+          <div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:8px;">Informações básicas</div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
-              <div style="font-size:12px; color:#555;">Previsão de entrega</div>
-              <div style="font-size:13px; font-weight:600;">${pedido.data_previsao_entrega ? format(new Date(pedido.data_previsao_entrega), 'dd/MM/yyyy', { locale: ptBR }) : 'A definir'}</div>
+            <div style="background:#F9FAFB; border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; color:#6b7280; font-weight:500;">Previsão de entrega</div>
+              <div style="font-size:13px; font-weight:600; color:#111827; margin-top:3px;">
+                ${pedido.data_previsao_entrega ? format(new Date(pedido.data_previsao_entrega), 'dd/MM/yyyy', { locale: ptBR }) : 'A definir'}
+              </div>
             </div>
-            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
-              <div style="font-size:12px; color:#555;">Observações</div>
-              <div style="font-size:13px;">${safe(pedido.observacoes)}</div>
+            <div style="background:#F9FAFB; border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; color:#6b7280; font-weight:500;">Observações</div>
+              <div style="font-size:13px; color:#111827; margin-top:3px;">
+                ${safe(pedido.observacoes)}
+              </div>
             </div>
           </div>
         </div>
@@ -555,47 +594,49 @@ export const usePDFGenerator = () => {
 
       const pagamentoHTML = `
         <div style="margin-top:18px;">
-          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Pagamento</div>
-          <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
-            <div style="font-size:12px; color:#555;">Forma de pagamento</div>
-            <div style="font-size:13px; font-weight:600;">${safe(pedido.forma_pagamento)}</div>
+          <div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:8px;">Pagamento</div>
+          <div style="background:#F9FAFB; border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
+            <div style="font-size:12px; color:#6b7280; font-weight:500;">Forma de pagamento</div>
+            <div style="font-size:13px; font-weight:600; color:#111827; margin-top:3px;">
+              ${safe(pedido.forma_pagamento)}
+            </div>
           </div>
         </div>
       `;
 
       const produtosTabelaHTML = `
         <div style="margin-top:20px;">
-          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Produtos</div>
+          <div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:8px;">Produtos</div>
           <table style="width:100%; border-collapse:collapse;">
             <thead>
-              <tr style="background:#F3F4F6;">
-                <th style="text-align:left; padding:10px; font-size:12px;">Descrição</th>
-                <th style="text-align:right; padding:10px; font-size:12px;">Preço unitário</th>
-                <th style="text-align:center; padding:10px; font-size:12px;">Qtde</th>
-                <th style="text-align:right; padding:10px; font-size:12px;">Total</th>
+              <tr style="background:#f3f4f6;">
+                <th style="text-align:left; padding:10px; font-size:12px; color:#374151; font-weight:600;">Descrição</th>
+                <th style="text-align:right; padding:10px; font-size:12px; color:#374151; font-weight:600;">Preço unitário</th>
+                <th style="text-align:center; padding:10px; font-size:12px; color:#374151; font-weight:600;">Qtde</th>
+                <th style="text-align:right; padding:10px; font-size:12px; color:#374151; font-weight:600;">Total</th>
               </tr>
             </thead>
             <tbody>
               ${produtosHTML}
               <tr>
-                <td colspan="3" style="padding:10px; text-align:right; font-weight:600; font-size: 12px;">Subtotal</td>
-                <td style="padding:10px; text-align:right; font-weight:600; font-size: 12px;">${currency(totalGross)}</td>
+                <td colspan="3" style="padding:10px; text-align:right; font-weight:600; font-size:12px; color:#374151;">Subtotal</td>
+                <td style="padding:10px; text-align:right; font-weight:600; font-size:12px; color:#111827;">${currency(totalGross)}</td>
               </tr>
               ${frete > 0 ? `
               <tr>
-                <td colspan="3" style="padding:10px; text-align:right; color: #666; font-size: 12px;">Frete</td>
-                <td style="padding:10px; text-align:right; color: #666; font-size: 12px;">${currency(frete)}</td>
+                <td colspan="3" style="padding:10px; text-align:right; color:#6b7280; font-size:12px;">Frete</td>
+                <td style="padding:10px; text-align:right; color:#6b7280; font-size:12px;">${currency(frete)}</td>
               </tr>
               ` : ''}
               ${totalDescontos > 0 ? `
               <tr>
-                <td colspan="3" style="padding:10px; text-align:right; color: #16a34a; font-size: 12px;">Desconto sobre produtos</td>
-                <td style="padding:10px; text-align:right; color: #16a34a; font-size: 12px;">-${currency(totalDescontos)}</td>
+                <td colspan="3" style="padding:10px; text-align:right; color:#16a34a; font-size:12px; font-weight:600;">Desconto sobre produtos</td>
+                <td style="padding:10px; text-align:right; color:#16a34a; font-size:12px; font-weight:600;">-${currency(totalDescontos)}</td>
               </tr>
               ` : ''}
               <tr>
-                <td colspan="3" style="padding:10px; text-align:right; font-weight:700; font-size: 14px;">Total</td>
-                <td style="padding:10px; text-align:right; font-weight:700; font-size: 14px;">${currency(totalFinal)}</td>
+                <td colspan="3" style="padding:10px; text-align:right; font-weight:700; font-size:14px; color:#111827;">Total</td>
+                <td style="padding:10px; text-align:right; font-weight:700; font-size:14px; color:#111827;">${currency(totalFinal)}</td>
               </tr>
             </tbody>
           </table>
@@ -604,15 +645,15 @@ export const usePDFGenerator = () => {
 
       const garantiaHTML = `
         <div style="margin-top:18px;">
-          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Garantia</div>
-          <div style="font-size:12px; color:#333; white-space:pre-line;">${garantiasTexto}</div>
+          <div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:8px;">Garantia</div>
+          <div style="font-size:12px; color:#374151; line-height:1.5; white-space:pre-line;">${garantiasTexto}</div>
         </div>
       `;
 
       const termoHTML = termoEntregaAtivo ? `
         <div style="margin-top:18px;">
-          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Termo de Entrega e Recebimento</div>
-          <div style="font-size:12px; color:#333; white-space:pre-line;">${termoEntregaTexto}</div>
+          <div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:8px;">Termo de Entrega e Recebimento</div>
+          <div style="font-size:12px; color:#374151; line-height:1.5; white-space:pre-line;">${termoEntregaTexto}</div>
         </div>
       ` : '';
 
@@ -622,7 +663,8 @@ export const usePDFGenerator = () => {
       tempDiv.style.left = '-9999px';
       tempDiv.style.top = '-9999px';
       tempDiv.style.width = '800px';
-      tempDiv.style.backgroundColor = '#fff';
+      tempDiv.style.backgroundColor = '#ffffff';
+      tempDiv.style.color = '#111827';
       tempDiv.style.padding = '24px';
       tempDiv.style.fontFamily = 'Arial, sans-serif';
       tempDiv.innerHTML = `
@@ -640,17 +682,28 @@ export const usePDFGenerator = () => {
         <div style="margin-top:80px; display:flex; justify-content:space-between; align-items:flex-start; gap:20px; page-break-inside:avoid;">
           <div style="flex:1; text-align:center;">
             <div style="border-bottom:1px solid #000; margin-bottom:4px;"></div>
-            <div style="font-size:12px; font-weight:600; color:#111;">${lojaNome}</div>
+            <div style="font-size:12px; font-weight:600; color:#111827;">${lojaNome}</div>
             <div style="font-size:10px; color:#555;">CNPJ: ${lojaCnpj}</div>
           </div>
           <div style="flex:1; text-align:center;">
             <div style="border-bottom:1px solid #000; margin-bottom:4px;"></div>
-            <div style="font-size:12px; font-weight:600; color:#111;">${pedido.cliente_nome}</div>
+            <div style="font-size:12px; font-weight:600; color:#111827;">${pedido.cliente_nome}</div>
             <div style="font-size:10px; color:#555;">${cpfCnpj || '111.111.111-01'}</div>
           </div>
         </div>
       `;
       document.body.appendChild(tempDiv);
+
+      // Pré-carrega todas as imagens no tempDiv para garantir que apareçam na captura do html2canvas
+      const imagesInTempDiv = Array.from(tempDiv.querySelectorAll('img'));
+      await Promise.all(imagesInTempDiv.map(img => {
+        if (img.complete && img.naturalHeight !== 0) return Promise.resolve();
+        return new Promise<void>(resolve => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          setTimeout(resolve, 2500);
+        });
+      }));
 
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
@@ -660,7 +713,7 @@ export const usePDFGenerator = () => {
         width: tempDiv.scrollWidth,
         height: tempDiv.scrollHeight,
         logging: false,
-        imageTimeout: 0
+        imageTimeout: 5000
       });
       document.body.removeChild(tempDiv);
 
@@ -800,32 +853,35 @@ export const usePDFGenerator = () => {
         });
       };
 
-      const addPhotosSection = async (tituloSecao: string, fotos: any[], startY?: number) => {
-        if (!fotos || fotos.length === 0) return;
+      const addPhotosSection = async (tituloSecao: string, fotos: any[], startY?: number): Promise<number> => {
+        if (!fotos || fotos.length === 0) return typeof startY === 'number' ? startY : (marginTop + 8);
         const cols = 3;
         const gap = 6;
         const contentW = pageWidth - (marginLeft + marginRight);
         const cellW = (contentW - gap * (cols - 1)) / cols;
-        const cellH = 60;
+        const cellH = 55;
 
         let y = typeof startY === 'number' ? startY : (marginTop + 8);
-        const titleHeight = 6;
-        const requiredSpace = titleHeight + cellH + 6; // Espaço para o título e ao menos 1 linha de fotos
+        const titleHeight = 8;
+        const requiredSpace = titleHeight + cellH + 10;
         
         if (y + requiredSpace > pageHeight - marginBottom) {
           pdf.addPage();
           y = marginTop + 8;
         }
-        pdf.setFontSize(14);
-        pdf.setTextColor(17);
-        pdf.text(tituloSecao, marginLeft, y - 2);
+
+        // Título estilizado da seção sem sobreposição
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.setTextColor(33, 37, 41);
+        pdf.text(tituloSecao, marginLeft, y + 4);
+        y += 8;
 
         let x = marginLeft;
-        y += 6;
         let colIndex = 0;
 
         for (const f of fotos) {
-          if (y + cellH > pageHeight - marginBottom) {
+          if (y + cellH + 8 > pageHeight - marginBottom) {
             pdf.addPage();
             y = marginTop + 8;
             colIndex = 0;
@@ -842,7 +898,7 @@ export const usePDFGenerator = () => {
           try {
             let imgWmm = cellW;
             let imgHmm = cellH;
-            if (meta) {
+            if (meta && meta.width && meta.height) {
               const ar = meta.width / meta.height;
               imgWmm = cellW;
               imgHmm = cellW / ar;
@@ -857,17 +913,19 @@ export const usePDFGenerator = () => {
 
             pdf.addImage((meta?.dataUrl || f.url_arquivo), 'JPEG', drawX, drawY, imgWmm, imgHmm);
           } catch (e) {
-            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8);
             pdf.setTextColor(150);
             pdf.rect(x, y, cellW, cellH);
-            pdf.text('Imagem não pôde ser carregada', x + 4, y + cellH / 2);
+            pdf.text('Imagem indisponível', x + 4, y + cellH / 2);
           }
 
           try {
             const dateStr = f.created_at ? format(new Date(f.created_at), 'dd/MM/yyyy', { locale: ptBR }) : '';
             if (dateStr) {
-              pdf.setFontSize(9);
-              pdf.setTextColor(85);
+              pdf.setFont('helvetica', 'normal');
+              pdf.setFontSize(8);
+              pdf.setTextColor(100);
               pdf.text(dateStr, x + 2, y + cellH + 4);
             }
           } catch { }
@@ -881,11 +939,21 @@ export const usePDFGenerator = () => {
             x += cellW + gap;
           }
         }
+
+        if (colIndex > 0) {
+          y += cellH + 12;
+        }
+
+        return y + 4;
       };
 
-      const startYPhotos = Math.min(pageHeight - marginBottom, lastYMM + 10);
-      await addPhotosSection('Fotos do pedido', fotosRestantes, startYPhotos);
-      await addPhotosSection('Fotos de controle', fotosControle, startYPhotos);
+      let currentYPhotos = Math.min(pageHeight - marginBottom, lastYMM + 12);
+      if (fotosRestantes.length > 0) {
+        currentYPhotos = await addPhotosSection('Fotos do pedido', fotosRestantes, currentYPhotos);
+      }
+      if (fotosControle.length > 0) {
+        currentYPhotos = await addPhotosSection('Fotos de controle', fotosControle, currentYPhotos);
+      }
 
       const prefix = isOrcamento ? 'orcamento' : 'pedido-cliente';
       const fileName = `${prefix}-${numero}.pdf`;
@@ -972,8 +1040,14 @@ export const usePDFGenerator = () => {
         quantidade: pedido.quantidade || 1,
         observacoes: pedido.observacoes,
       }]).map((it: any, idx: number) => {
-        const descricao = [safe(it.tipo_sofa), safe(it.tipo_servico)].filter(Boolean).join(' - ');
+        const partesDescricao = [
+          (it.descricao || it.tipo_sofa || '').trim(),
+          (it.tipo_servico || '').trim()
+        ].filter(Boolean);
+        const descricao = partesDescricao.length > 0 ? partesDescricao.join(' - ') : (pedido.descricao_sofa || 'Produto');
+
         const detalhes = [
+          it.observacoes ? safe(it.observacoes) : '',
           it.cor ? `Cor: ${it.cor}` : '',
           it.tecido ? `Tecido: ${it.tecido}` : '',
           it.espuma ? `Espuma: ${it.espuma}` : '',
@@ -982,27 +1056,36 @@ export const usePDFGenerator = () => {
           it.dimensoes ? `Dimensões: ${it.dimensoes}` : ''
         ].filter(Boolean).join(' • ');
 
-        const fotosItem = it.id ? (fotosPorItem[it.id] || []) : (idx === 0 ? (fotosPorItem['sem_item'] || []) : []);
-        const primeiraFoto = fotosItem && fotosItem.length > 0 ? fotosItem[0] : null;
-        if (primeiraFoto?.id) usedPhotoIds.push(primeiraFoto.id);
+        let primeiraFoto = null;
+        if (it.id && fotosPorItem[it.id] && fotosPorItem[it.id].length > 0) {
+          primeiraFoto = fotosPorItem[it.id][0];
+        } else if (fotosPorItem['sem_item'] && fotosPorItem['sem_item'].length > 0) {
+          primeiraFoto = fotosPorItem['sem_item'].find((f: any) => !usedPhotoIds.includes(f.id)) || fotosPorItem['sem_item'][0];
+        } else if (fotosPedido.length > 0 && idx === 0) {
+          primeiraFoto = fotosPedido.find((f: any) => !usedPhotoIds.includes(f.id)) || fotosPedido[0];
+        }
+        if (primeiraFoto?.id && !usedPhotoIds.includes(primeiraFoto.id)) {
+          usedPhotoIds.push(primeiraFoto.id);
+        }
+
         const imagemItemHTML = primeiraFoto ? `
-              <div style="width:120px; min-width:120px;">
-                <img src="${primeiraFoto.url_arquivo}" style="width:120px; height:90px; object-fit:cover; border-radius:6px;" crossorigin="anonymous" />
+              <div style="width:110px; min-width:110px; height:80px; border-radius:6px; overflow:hidden; border:1px solid #e5e7eb; background:#f9fafb; flex-shrink:0;">
+                <img src="${primeiraFoto.url_arquivo}" style="width:100%; height:100%; object-fit:cover; display:block;" crossorigin="anonymous" />
               </div>
             ` : '';
 
         return `
           <tr>
-            <td style="padding:10px; border-bottom:1px solid #eee;">
+            <td style="padding:10px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
               <div style="display:flex; gap:12px; align-items:flex-start;">
                 ${imagemItemHTML}
-                <div style="flex:1;">
-                  <div style="font-weight:600;">${descricao || safe(it.descricao)}</div>
-                  ${detalhes ? `<div style="color:#555; font-size:12px; margin-top:4px;">${detalhes}</div>` : ''}
+                <div style="flex:1; min-width:0;">
+                  <div style="font-weight:600; color:#111827; font-size:13px;">${descricao}</div>
+                  ${detalhes ? `<div style="color:#4b5563; font-size:12px; margin-top:4px; line-height:1.4;">${detalhes}</div>` : ''}
                 </div>
               </div>
             </td>
-            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">${it.quantidade || 1}</td>
+            <td style="padding:10px; border-bottom:1px solid #e5e7eb; text-align:center; color:#111827; font-size:13px; vertical-align:top;">${it.quantidade || 1}</td>
           </tr>
         `;
       }).join('');
@@ -1153,15 +1236,19 @@ export const usePDFGenerator = () => {
 
       const infosBasicasHTML = `
         <div style="margin-top:18px;">
-          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Informações básicas</div>
+          <div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:8px;">Informações básicas</div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
-              <div style="font-size:12px; color:#555;">Previsão de entrega</div>
-              <div style="font-size:13px; font-weight:600;">${pedido.data_previsao_entrega ? format(new Date(pedido.data_previsao_entrega), 'dd/MM/yyyy', { locale: ptBR }) : 'A definir'}</div>
+            <div style="background:#F9FAFB; border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; color:#6b7280; font-weight:500;">Previsão de entrega</div>
+              <div style="font-size:13px; font-weight:600; color:#111827; margin-top:3px;">
+                ${pedido.data_previsao_entrega ? format(new Date(pedido.data_previsao_entrega), 'dd/MM/yyyy', { locale: ptBR }) : 'A definir'}
+              </div>
             </div>
-            <div style="background:#F9FAFB; border:1px solid #eee; border-radius:8px; padding:10px;">
-              <div style="font-size:12px; color:#555;">Observações</div>
-              <div style="font-size:13px;">${safe(pedido.observacoes)}</div>
+            <div style="background:#F9FAFB; border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; color:#6b7280; font-weight:500;">Observações</div>
+              <div style="font-size:13px; color:#111827; margin-top:3px;">
+                ${safe(pedido.observacoes)}
+              </div>
             </div>
           </div>
         </div>
@@ -1169,12 +1256,12 @@ export const usePDFGenerator = () => {
 
       const produtosTabelaHTML = `
         <div style="margin-top:20px;">
-          <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:8px;">Produtos</div>
+          <div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:8px;">Produtos</div>
           <table style="width:100%; border-collapse:collapse;">
             <thead>
-              <tr style="background:#F3F4F6;">
-                <th style="text-align:left; padding:10px; font-size:12px;">Descrição</th>
-                <th style="text-align:center; padding:10px; font-size:12px;">Qtde</th>
+              <tr style="background:#f3f4f6;">
+                <th style="text-align:left; padding:10px; font-size:12px; color:#374151; font-weight:600;">Descrição</th>
+                <th style="text-align:center; padding:10px; font-size:12px; color:#374151; font-weight:600;">Qtde</th>
               </tr>
             </thead>
             <tbody>
@@ -1228,7 +1315,8 @@ export const usePDFGenerator = () => {
       tempDiv.style.left = '-9999px';
       tempDiv.style.top = '-9999px';
       tempDiv.style.width = '800px';
-      tempDiv.style.backgroundColor = '#fff';
+      tempDiv.style.backgroundColor = '#ffffff';
+      tempDiv.style.color = '#111827';
       tempDiv.style.padding = '24px';
       tempDiv.style.fontFamily = 'Arial, sans-serif';
       // Removido fotosHTML do bloco capturado para evitar cortes nas imagens ao dividir páginas.
@@ -1244,6 +1332,17 @@ export const usePDFGenerator = () => {
       `;
       document.body.appendChild(tempDiv);
 
+      // Pré-carrega todas as imagens no tempDiv para garantir que apareçam na captura do html2canvas
+      const imagesInTempDiv = Array.from(tempDiv.querySelectorAll('img'));
+      await Promise.all(imagesInTempDiv.map(img => {
+        if (img.complete && img.naturalHeight !== 0) return Promise.resolve();
+        return new Promise<void>(resolve => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          setTimeout(resolve, 2500);
+        });
+      }));
+
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
@@ -1252,7 +1351,7 @@ export const usePDFGenerator = () => {
         width: tempDiv.scrollWidth,
         height: tempDiv.scrollHeight,
         logging: false,
-        imageTimeout: 0
+        imageTimeout: 5000
       });
 
       document.body.removeChild(tempDiv);
@@ -1397,111 +1496,108 @@ export const usePDFGenerator = () => {
         });
       };
 
-      const addPhotosSection = async (tituloSecao: string, fotos: any[], startY?: number) => {
-        if (!fotos || fotos.length === 0) return;
-        // Inserir um cabeçalho e grid 3-colunas, mantendo imagens inteiras (contain)
+      const addPhotosSection = async (tituloSecao: string, fotos: any[], startY?: number): Promise<number> => {
+        if (!fotos || fotos.length === 0) return typeof startY === 'number' ? startY : (marginTop + 8);
         const cols = 3;
-        const gap = 6; // mm
+        const gap = 6;
         const contentW = pageWidth - (marginLeft + marginRight);
-        const cellW = (contentW - gap * (cols - 1)) / cols; // mm
-        const cellH = 60; // mm por célula (altura suficiente para manter proporções)
+        const cellW = (contentW - gap * (cols - 1)) / cols;
+        const cellH = 55;
 
-        // Decidir posição inicial: tentar continuar na mesma página logo abaixo do último texto
         let y = typeof startY === 'number' ? startY : (marginTop + 8);
-        // Espaço necessário para título e ao menos 1 linha de fotos
-        const titleHeight = 6; // mm aproximado
-        const requiredSpace = titleHeight + cellH + 6;
+        const titleHeight = 8;
+        const requiredSpace = titleHeight + cellH + 10;
         
-        // Se não couber o título e a primeira linha na página atual, ir para nova página
         if (y + requiredSpace > pageHeight - marginBottom) {
           pdf.addPage();
           y = marginTop + 8;
         }
-        pdf.setFontSize(14);
-        pdf.setTextColor(17); // #111
-        pdf.text(tituloSecao, marginLeft, y - 2);
+
+        // Título estilizado da seção sem sobreposição
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.setTextColor(33, 37, 41);
+        pdf.text(tituloSecao, marginLeft, y + 4);
+        y += 8;
 
         let x = marginLeft;
-        y += 6; // espaço abaixo do título
         let colIndex = 0;
 
         for (const f of fotos) {
-          // Se não couber mais uma linha completa, ir para próxima página
-          if (y + cellH > pageHeight - marginBottom) {
+          if (y + cellH + 8 > pageHeight - marginBottom) {
             pdf.addPage();
             y = marginTop + 8;
             colIndex = 0;
             x = marginLeft;
           }
 
-          // Pré-carregar imagem e metadados para ajustar proporção
           let meta: { dataUrl: string; width: number; height: number } | null = null;
           try {
             meta = await loadImageMeta(f.url_arquivo);
           } catch (e) {
-            // Se falhar, tentar usar diretamente a URL (pode não funcionar em todos os casos)
             meta = null;
           }
 
-          // Tentar adicionar imagem
           try {
-            // Definir tamanho "contain" dentro da célula
-            // Assumir proporção 4:3 como default se não conseguirmos natural sizes
             let imgWmm = cellW;
             let imgHmm = cellH;
-            if (meta) {
-              // Ajustar proporção para "contain" dentro da célula
-              const ar = meta.width / meta.height; // width/height
+            if (meta && meta.width && meta.height) {
+              const ar = meta.width / meta.height;
               imgWmm = cellW;
-              imgHmm = cellW / ar; // altura correspondente
+              imgHmm = cellW / ar;
               if (imgHmm > cellH) {
                 imgHmm = cellH;
                 imgWmm = cellH * ar;
               }
             }
 
-            // Centralizar dentro da célula
             const drawX = x + (cellW - imgWmm) / 2;
             const drawY = y + (cellH - imgHmm) / 2;
 
             pdf.addImage((meta?.dataUrl || f.url_arquivo), 'JPEG', drawX, drawY, imgWmm, imgHmm);
           } catch (e) {
-            // Se houver erro na imagem, renderizar um placeholder
-            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8);
             pdf.setTextColor(150);
             pdf.rect(x, y, cellW, cellH);
-            pdf.text('Imagem não pôde ser carregada', x + 4, y + cellH / 2);
+            pdf.text('Imagem indisponível', x + 4, y + cellH / 2);
           }
 
-          // Legenda com data
           try {
             const dateStr = f.created_at ? format(new Date(f.created_at), 'dd/MM/yyyy', { locale: ptBR }) : '';
             if (dateStr) {
-              pdf.setFontSize(9);
-              pdf.setTextColor(85); // #555
+              pdf.setFont('helvetica', 'normal');
+              pdf.setFontSize(8);
+              pdf.setTextColor(100);
               pdf.text(dateStr, x + 2, y + cellH + 4);
             }
           } catch { }
 
-          // Avançar coluna
           colIndex++;
           if (colIndex >= cols) {
-            // Próxima linha
             colIndex = 0;
             x = marginLeft;
-            y += cellH + 12; // espaço vertical entre linhas
+            y += cellH + 12;
           } else {
-            // Próxima coluna
             x += cellW + gap;
           }
         }
+
+        if (colIndex > 0) {
+          y += cellH + 12;
+        }
+
+        return y + 4;
       };
 
-      // Construir páginas específicas para fotos (pedido e controle)
-      // Iniciar "Fotos" logo abaixo do último conteúdo, com uma pequena margem
-      const startYPhotos = Math.min(pageHeight - marginBottom, lastYMM + 10);
-      await addPhotosSection('Fotos do pedido', fotosRestantes, startYPhotos);
-      await addPhotosSection('Fotos de controle', fotosControle, startYPhotos);
+      // Construir páginas específicas para fotos (pedido e controle) sequencialmente
+      let currentYPhotos = Math.min(pageHeight - marginBottom, lastYMM + 12);
+      if (fotosRestantes.length > 0) {
+        currentYPhotos = await addPhotosSection('Fotos do pedido', fotosRestantes, currentYPhotos);
+      }
+      if (fotosControle.length > 0) {
+        currentYPhotos = await addPhotosSection('Fotos de controle', fotosControle, currentYPhotos);
+      }
 
       const fileName = `pedido-${numero}.pdf`;
       const blob = pdf.output('blob');

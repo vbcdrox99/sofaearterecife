@@ -269,6 +269,22 @@ const Dashboard = () => {
     return diffDays;
   };
 
+  // Helper para obter os Detalhes do Produto (digitados à mão na criação do pedido)
+  // com fallback para pedidos antigos que usavam campos individuais
+  const getDetalhesProduto = (item?: any, pedido?: any) => {
+    if (item?.observacoes && item.observacoes.trim()) return item.observacoes.trim();
+    if (item?.detalhes && item.detalhes.trim()) return item.detalhes.trim();
+    const legado = [
+      item?.espuma || pedido?.espuma,
+      item?.tecido || pedido?.tecido,
+      item?.tipo_pe || pedido?.tipo_pe,
+      item?.braco || pedido?.braco,
+    ].filter(Boolean).join(' • ');
+    if (legado) return legado;
+    if (pedido?.observacoes && pedido.observacoes.trim()) return pedido.observacoes.trim();
+    return '-';
+  };
+
   // Função para determinar a cor de urgência
   const getCorUrgencia = (dataEntrega: string | null) => {
     const diasRestantes = calcularDiasRestantes(dataEntrega);
@@ -481,12 +497,10 @@ const Dashboard = () => {
     pedidosFiltrados = pedidosFiltrados.filter(({ pedido, item }) => {
       const matchPedido = String(pedido.numero_pedido).includes(termo);
       const matchCliente = (pedido as any).cliente_nome?.toLowerCase().includes(termo) || false;
-      const matchSofa = (item?.tipo_sofa || pedido.tipo_sofa || '').toLowerCase().includes(termo);
-      const matchTecido = (item?.tecido || pedido.tecido || '').toLowerCase().includes(termo);
-      const matchEspuma = (item?.espuma || pedido.espuma || '').toLowerCase().includes(termo);
-      const matchBraco = (item?.braco || pedido.braco || '').toLowerCase().includes(termo);
+      const matchSofa = (item?.descricao || item?.tipo_sofa || pedido.tipo_sofa || '').toLowerCase().includes(termo);
+      const matchDetalhes = getDetalhesProduto(item, pedido).toLowerCase().includes(termo);
       const matchPagamento = (pedido.forma_pagamento || '').toLowerCase().includes(termo);
-      return matchPedido || matchCliente || matchSofa || matchTecido || matchEspuma || matchBraco || matchPagamento;
+      return matchPedido || matchCliente || matchSofa || matchDetalhes || matchPagamento;
     });
   }
 
@@ -643,10 +657,7 @@ const Dashboard = () => {
                         <div className="col-span-1">Nº Pedido</div>
                         <div className="col-span-1">Tipo</div>
                         <div className="col-span-1">Entrega</div>
-                        <div className="col-span-1">Espuma</div>
-                        <div className="col-span-1 print:col-span-2">Tecido</div>
-                        <div className="col-span-1">Tipo Pé</div>
-                        <div className="col-span-1">Braço</div>
+                        <div className="col-span-4 print:col-span-4">Detalhes</div>
                         <div className="col-span-1">Pagamento</div>
                         <div className="col-span-2 print:col-span-2">Status Produção</div>
                         <div className="col-span-1 print-hide">Cliente</div>
@@ -705,8 +716,8 @@ const Dashboard = () => {
 
                               {/* Produto (Tipo de Sofá) - por item */}
                               <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={(item?.tipo_sofa || pedido.tipo_sofa || 'N/A')}>
-                                  {item?.tipo_sofa || pedido.tipo_sofa || 'N/A'}
+                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={(item?.descricao || item?.tipo_sofa || pedido.tipo_sofa || 'N/A')}>
+                                  {item?.descricao || item?.tipo_sofa || pedido.tipo_sofa || 'N/A'}
                                 </span>
                               </div>
 
@@ -733,31 +744,10 @@ const Dashboard = () => {
                                 </div>
                               </div>
 
-                              {/* Espuma - por item */}
-                              <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={(item?.espuma || pedido.espuma || 'D33')}>
-                                  {item?.espuma || pedido.espuma || 'D33'}
-                                </span>
-                              </div>
-
-                              {/* Tecido - por item */}
-                              <div className="col-span-1 print:col-span-2 min-w-0">
-                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate print:whitespace-normal print:break-words print:overflow-visible" title={(item?.tecido || pedido.tecido || 'Suede Premium')}>
-                                  {item?.tecido || pedido.tecido || 'Suede Premium'}
-                                </span>
-                              </div>
-
-                              {/* Tipo de Pé - por item */}
-                              <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={(item?.tipo_pe || pedido.tipo_pe || 'Madeira Escura')}>
-                                  {item?.tipo_pe || pedido.tipo_pe || 'Madeira Escura'}
-                                </span>
-                              </div>
-
-                              {/* Braço - por item */}
-                              <div className="col-span-1 min-w-0">
-                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate" title={(item?.braco || pedido.braco || 'Reto')}>
-                                  {item?.braco || pedido.braco || 'Reto'}
+                              {/* Detalhes do Produto (reúne Espuma, Tecido, Tipo de Pé e Braço digitados à mão) */}
+                              <div className="col-span-4 print:col-span-4 min-w-0">
+                                <span className="text-sm text-gray-900 dark:text-gray-100 block truncate print:whitespace-normal print:break-words print:overflow-visible" title={getDetalhesProduto(item, pedido)}>
+                                  {getDetalhesProduto(item, pedido)}
                                 </span>
                               </div>
 

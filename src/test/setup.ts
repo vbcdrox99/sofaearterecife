@@ -5,8 +5,8 @@ import { vi } from 'vitest';
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     auth: {
-      getSession: vi.fn(),
-      onAuthStateChange: vi.fn(),
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
       signInWithPassword: vi.fn(),
       signOut: vi.fn(),
     },
