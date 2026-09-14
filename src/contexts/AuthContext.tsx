@@ -10,6 +10,7 @@ interface Profile {
   tipo: 'admin' | 'funcionario';
   role: 'admin' | 'gerente' | 'funcionario';
   store: 'loja_1' | 'loja_2' | 'loja_3' | 'todas';
+  stores?: string[];
   sector: 'geral' | 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido';
   created_at: string;
   updated_at: string;
@@ -24,6 +25,7 @@ interface AuthContextType {
   isGerente: boolean;
   isFuncionario: boolean;
   userStore: 'loja_1' | 'loja_2' | 'loja_3' | 'todas' | null;
+  userStores: string[];
   selectedStore: 'loja_1' | 'loja_2' | 'loja_3' | 'todas';
   setSelectedStore: (store: 'loja_1' | 'loja_2' | 'loja_3' | 'todas') => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -54,6 +56,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isFuncionario = profile?.role === 'funcionario';
   const userStore = profile?.store || null;
 
+  // Lista de lojas autorizadas para o usuário logado
+  const userStores = React.useMemo(() => {
+    if (isAdmin) return ['loja_1', 'loja_2', 'loja_3'];
+    if (Array.isArray(profile?.stores) && profile.stores.length > 0) {
+      if (profile.stores.includes('todas')) {
+        return ['loja_1', 'loja_2', 'loja_3'];
+      }
+      return profile.stores;
+    }
+    if (profile?.store === 'todas') return ['loja_1', 'loja_2', 'loja_3'];
+    if (profile?.store) return [profile.store];
+    return ['loja_1'];
+  }, [isAdmin, profile?.stores, profile?.store]);
+
+  const handleSetSelectedStore = (store: 'loja_1' | 'loja_2' | 'loja_3' | 'todas') => {
+    if (isAdmin || store === 'todas' || userStores.includes(store)) {
+      setSelectedStore(store);
+    }
+  };
+
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -70,7 +92,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileData.role === 'admin' || profileData.tipo === 'admin') {
         setSelectedStore('todas');
       } else {
-        setSelectedStore(profileData.store);
+        const stores = Array.isArray(profileData.stores) && profileData.stores.length > 0
+          ? profileData.stores
+          : (profileData.store === 'todas' ? ['loja_1', 'loja_2', 'loja_3'] : [profileData.store]);
+
+        if (stores.length === 1) {
+          setSelectedStore(stores[0] as any);
+        } else {
+          setSelectedStore('todas');
+        }
       }
     } catch (error) {
       console.error('Erro ao buscar perfil:', error);
@@ -222,8 +252,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isGerente,
     isFuncionario,
     userStore,
+    userStores,
     selectedStore,
-    setSelectedStore,
+    setSelectedStore: handleSetSelectedStore,
     signIn,
     signUp,
     signOut,

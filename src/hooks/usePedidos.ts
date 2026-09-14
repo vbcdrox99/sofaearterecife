@@ -28,6 +28,11 @@ export interface Pedido {
   tecido?: string;
   tipo_pe?: string;
   braco?: string;
+  forma_pagamento?: string;
+  frete?: number;
+  prioridade?: string;
+  desconto_tipo?: string;
+  desconto_valor?: number;
 }
 
 export interface NovoPedidoData {
@@ -44,7 +49,7 @@ export const usePedidos = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { selectedStore } = useAuth();
+  const { selectedStore, userStores, isAdmin } = useAuth();
 
   const fetchPedidos = async () => {
     try {
@@ -55,6 +60,8 @@ export const usePedidos = () => {
 
       if (selectedStore && selectedStore !== 'todas') {
         query = query.eq('loja', selectedStore);
+      } else if (!isAdmin && userStores && userStores.length > 0) {
+        query = query.in('loja', userStores);
       }
 
       const { data, error } = await query;
@@ -75,7 +82,7 @@ export const usePedidos = () => {
 
   useEffect(() => {
     fetchPedidos();
-  }, [selectedStore]);
+  }, [selectedStore, userStores, isAdmin]);
 
   const criarPedido = async (dadosPedido: NovoPedidoData) => {
     try {

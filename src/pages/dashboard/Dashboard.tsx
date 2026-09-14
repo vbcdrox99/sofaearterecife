@@ -18,7 +18,8 @@ import {
   Search,
   CheckSquare,
   Square,
-  Trash2
+  Trash2,
+  Tag
 } from 'lucide-react';
 import { User } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
@@ -33,13 +34,14 @@ import { usePDFGenerator } from '@/hooks/usePDFGenerator';
 import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import PedidoPhotosModal from '@/components/PedidoPhotosModal';
 import PDFPreviewModal from '@/components/dashboard/PDFPreviewModal';
+import ModalFichaTecnica from '@/components/dashboard/ModalFichaTecnica';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
   const { pedidos, apagarPedido } = usePedidos();
-  const { selectedStore, isAdmin, isGerente, isFuncionario } = useAuth();
+  const { selectedStore, userStores, isAdmin, isGerente, isFuncionario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { printRef, printCurrentView, isPrinting, generatePedidoPDF, generatePedidoClientePDF } = usePDFGenerator();
@@ -48,7 +50,7 @@ const Dashboard = () => {
   const [loadingProducao, setLoadingProducao] = useState(true);
   const [pedidoItens, setPedidoItens] = useState<any[]>([]);
   const [datasVisiveis, setDatasVisiveis] = useState<{ [key: string]: boolean }>({});
-  const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'novos' | 'iniciados' | 'finalizados'>('todos');
+  const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'novos' | 'iniciados' | 'finalizados' | 'ficha_pendente'>('todos');
   const [filtroArea, setFiltroArea] = useState<'todos' | 'marcenaria' | 'corte_costura' | 'espuma' | 'bancada' | 'tecido'>('todos');
   const [termoBusca, setTermoBusca] = useState('');
   const [pedidoPhotosModal, setPedidoPhotosModal] = useState<{ isOpen: boolean; pedidoId: string | null; pedidoItemId: string | null }>({
@@ -56,6 +58,10 @@ const Dashboard = () => {
     pedidoId: null,
     pedidoItemId: null,
   });
+
+  // Estado do modal de Ficha Técnica rápida
+  const [modalFichaAberta, setModalFichaAberta] = useState(false);
+  const [pedidoFichaSelecionado, setPedidoFichaSelecionado] = useState<{ id: string; numero?: string | number } | null>(null);
 
   // Estado do modal de seleção de pedidos para PDF
   const [pdfModalAberto, setPdfModalAberto] = useState(false);
@@ -185,12 +191,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     carregarDadosProducao();
-  }, [selectedStore]);
+  }, [selectedStore, userStores, isAdmin]);
 
   const carregarDadosProducao = async () => {
     try {
       setLoadingProducao(true);
-      const dados = await producaoService.getAll(selectedStore);
+      const dados = await producaoService.getAll(selectedStore, isAdmin ? undefined : userStores);
       setItensProducao(dados);
       // Carregar itens de pedido (produtos) para expandir em 443, 443/2, etc
       const pedidoIds = Array.from(new Set((dados || []).map(d => d.pedido_id))).filter(Boolean) as string[];
@@ -283,6 +289,12 @@ const Dashboard = () => {
     if (legado) return legado;
     if (pedido?.observacoes && pedido.observacoes.trim()) return pedido.observacoes.trim();
     return '-';
+  };
+
+  // Helper para verificar se a Ficha Técnica de um item está pendente
+  const isFichaPendente = (item?: any) => {
+    if (!item) return false;
+    return !item.tecido || !item.tipo_pe || !item.espuma || !item.braco || !item.dimensoes;
   };
 
   // Função para determinar a cor de urgência
@@ -468,8 +480,10 @@ const Dashboard = () => {
     p.itensProducao.length > 0 && p.itensProducao.every(item => item.status === 'finalizado')
   ).length;
 
+  const pedidosFichaPendente = linhasExpandido.filter(({ item }) => isFichaPendente(item)).length;
+
   // Filtrar pedidos baseado no filtro ativo
-  let pedidosFiltrados = linhasExpandido.filter(({ pedido, itensProducao }) => {
+  let pedidosFiltrados = linhasExpandido.filter(({ pedido, itensProducao, item }) => {
     if (filtroAtivo === 'todos') return true;
     if (filtroAtivo === 'novos') {
       return itensProducao.every(item => item.status === 'pendente');
@@ -480,6 +494,9 @@ const Dashboard = () => {
     }
     if (filtroAtivo === 'finalizados') {
       return itensProducao.length > 0 && itensProducao.every(item => item.status === 'finalizado');
+    }
+    if (filtroAtivo === 'ficha_pendente') {
+      return isFichaPendente(item);
     }
     return true;
   });
@@ -550,6 +567,21 @@ const Dashboard = () => {
                 <div>
                   <p className="text-xs text-green-600 dark:text-green-400 font-medium">Finalizados</p>
                   <p className="text-xs font-bold text-green-700 dark:text-green-300">{pedidosFinalizados}</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setFiltroAtivo('ficha_pendente')}
+                className={`flex items-center space-x-1 p-1 rounded-md transition-all duration-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 ${filtroAtivo === 'ficha_pendente' ? 'bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-200 dark:ring-amber-800' : ''
+                  }`}
+                title="Filtrar pedidos com Ficha Técnica pendente"
+              >
+                <div className="p-1 bg-amber-100 dark:bg-amber-900/40 rounded-full">
+                  <Tag className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Ficha Pendente</p>
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-300">{pedidosFichaPendente}</p>
                 </div>
               </button>
             </div>
@@ -685,13 +717,27 @@ const Dashboard = () => {
                               {/* Número do Pedido + indicador de mesmo pedido (sub-item) */}
                               <div className="col-span-1">
                                 <div className="flex flex-col">
-                                  <div className="flex items-center space-x-2">
+                                  <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
                                     {(seq && seq > 1) ? (
-                                      <CornerDownRight className="w-4 h-4 text-primary" />
+                                      <CornerDownRight className="w-4 h-4 text-primary shrink-0" />
                                     ) : (
-                                      <Package className="w-4 h-4 text-primary" />
+                                      <Package className="w-4 h-4 text-primary shrink-0" />
                                     )}
                                     <span className="font-semibold text-sm">#{String(pedido.numero_pedido).padStart(3, '0')}{seq && seq > 1 ? `/${seq}` : ''}</span>
+                                    {(!seq || seq === 1) && selectedStore === 'todas' && (
+                                      <span
+                                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight ${
+                                          pedido.loja === 'loja_3'
+                                            ? 'bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-900'
+                                            : pedido.loja === 'loja_2'
+                                              ? 'bg-cyan-100 text-cyan-800 border border-cyan-200 dark:bg-cyan-950 dark:text-cyan-300 dark:border-cyan-900'
+                                              : 'bg-indigo-100 text-indigo-800 border border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-900'
+                                        }`}
+                                        title={pedido.loja === 'loja_3' ? 'Loja Tamarineira' : pedido.loja === 'loja_2' ? 'Loja Boa Viagem' : 'Loja Aragão'}
+                                      >
+                                        {pedido.loja === 'loja_3' ? 'Tamarineira' : pedido.loja === 'loja_2' ? 'Boa Viagem' : 'Aragão'}
+                                      </span>
+                                    )}
                                     {(!seq || seq === 1) && (
                                       <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
                                         (pedido as any).tipo_pedido === 'orcamento' 
@@ -745,10 +791,28 @@ const Dashboard = () => {
                               </div>
 
                               {/* Detalhes do Produto (reúne Espuma, Tecido, Tipo de Pé e Braço digitados à mão) */}
-                              <div className="col-span-4 print:col-span-4 min-w-0">
+                              <div className="col-span-4 print:col-span-4 min-w-0 flex items-center justify-between gap-2">
                                 <span className="text-sm text-gray-900 dark:text-gray-100 block truncate print:whitespace-normal print:break-words print:overflow-visible" title={getDetalhesProduto(item, pedido)}>
                                   {getDetalhesProduto(item, pedido)}
                                 </span>
+                                {item && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPedidoFichaSelecionado({ id: pedido.id, numero: pedido.numero_pedido });
+                                      setModalFichaAberta(true);
+                                    }}
+                                    className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer print:hidden ${
+                                      isFichaPendente(item)
+                                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+                                        : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                                    }`}
+                                    title={isFichaPendente(item) ? "Ficha técnica pendente. Clique para preencher Pé, Tecido, Espuma, Braço e Dimensões" : "Ficha técnica completa. Clique para ver ou editar"}
+                                  >
+                                    <Tag className="w-3 h-3" />
+                                    <span>{isFichaPendente(item) ? 'Ficha Pendente' : 'Ficha OK'}</span>
+                                  </button>
+                                )}
                               </div>
 
                               {/* Forma de Pagamento */}
@@ -874,6 +938,18 @@ const Dashboard = () => {
                                         <Edit className="w-5 h-5 md:w-4 md:h-4" />
                                       </button>
                                     )}
+
+                                    {/* Ícone para abrir Ficha Técnica */}
+                                    <button
+                                      className={`p-2 -m-2 transition-colors ${item && isFichaPendente(item) ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-primary'}`}
+                                      title={item && isFichaPendente(item) ? "Preencher Ficha Técnica (Pendente)" : "Ver / Editar Ficha Técnica"}
+                                      onClick={() => {
+                                        setPedidoFichaSelecionado({ id: pedido.id, numero: pedido.numero_pedido });
+                                        setModalFichaAberta(true);
+                                      }}
+                                    >
+                                      <Tag className="w-5 h-5 md:w-4 md:h-4" />
+                                    </button>
 
                                     {/* Ícone para observações (prioriza observações do produto) */}
                                     {(item?.observacoes || pedido.observacoes) && (
@@ -1318,6 +1394,20 @@ const Dashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Ficha Técnica */}
+      <ModalFichaTecnica
+        isOpen={modalFichaAberta}
+        onClose={() => {
+          setModalFichaAberta(false);
+          setPedidoFichaSelecionado(null);
+        }}
+        pedidoId={pedidoFichaSelecionado?.id || null}
+        numeroPedido={pedidoFichaSelecionado?.numero}
+        onSuccess={() => {
+          carregarDadosProducao();
+        }}
+      />
     </DashboardLayout>
   );
 };

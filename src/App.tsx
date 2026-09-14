@@ -12,6 +12,7 @@ import Dashboard from "./pages/dashboard/Dashboard";
 import NovoPedido from "./pages/dashboard/NovoPedido";
 import Producao from "./pages/dashboard/Producao";
 import CadastroFuncionarios from "./pages/dashboard/CadastroFuncionarios";
+import LogsAuditoria from "./pages/dashboard/LogsAuditoria";
 import NotFound from "./pages/NotFound";
 import Catalogo2 from "./pages/Catalogo2";
 import LinkBio from "./pages/LinkBio";
@@ -56,6 +57,11 @@ const App = () => (
                 <Route path="/dashboard/cadastro-funcionarios" element={
                   <ProtectedRoute requireAdmin={true}>
                     <CadastroFuncionarios />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/logs" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <LogsAuditoria />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<NotFound />} />

@@ -16,7 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Store,
-  UserPlus
+  UserPlus,
+  History
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,7 +50,7 @@ type NavItem = {
 };
 
 const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollapse }: SidebarProps) => {
-  const { profile, signOut, isAdmin, selectedStore, setSelectedStore } = useAuth();
+  const { profile, signOut, isAdmin, selectedStore, setSelectedStore, userStores } = useAuth();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(false);
 
@@ -98,6 +99,12 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
       href: '/dashboard/cadastro-funcionarios',
       icon: UserPlus,
       description: 'Criar contas de acesso',
+    },
+    {
+      name: 'Histórico de Logs',
+      href: '/dashboard/logs',
+      icon: History,
+      description: 'Auditoria de edições e pedidos',
     },
   ];
 
@@ -184,8 +191,8 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
               )}
             </div>
 
-            {/* Store Selector for Admin */}
-            {!isCollapsed && isAdmin && (
+            {/* Store Selector (Admin or users with multiple stores) */}
+            {!isCollapsed && (isAdmin || userStores.length > 1) && (
               <div className="mb-4">
                 <Select value={selectedStore} onValueChange={(v: any) => setSelectedStore(v)}>
                   <SelectTrigger className="w-full h-8 text-xs bg-muted/50 border-muted">
@@ -195,12 +202,28 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
                     </div>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todas">Todas as Lojas</SelectItem>
-                    <SelectItem value="loja_1">Aragão</SelectItem>
-                    <SelectItem value="loja_2">Boa Viagem</SelectItem>
-                    <SelectItem value="loja_3">Tamarineira</SelectItem>
+                    <SelectItem value="todas">{isAdmin ? "Todas as Lojas" : "Minhas Lojas"}</SelectItem>
+                    {(isAdmin || userStores.includes('loja_1')) && (
+                      <SelectItem value="loja_1">Aragão</SelectItem>
+                    )}
+                    {(isAdmin || userStores.includes('loja_2')) && (
+                      <SelectItem value="loja_2">Boa Viagem</SelectItem>
+                    )}
+                    {(isAdmin || userStores.includes('loja_3')) && (
+                      <SelectItem value="loja_3">Tamarineira</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {/* Store badge for single store users */}
+            {!isCollapsed && !isAdmin && userStores.length === 1 && (
+              <div className="mb-4 px-3 py-1.5 bg-muted/50 rounded-md flex items-center gap-2 text-xs text-muted-foreground">
+                <Store className="w-3.5 h-3.5 text-primary" />
+                <span className="font-medium text-foreground">
+                  {userStores[0] === 'loja_1' ? 'Loja: Aragão' : userStores[0] === 'loja_2' ? 'Loja: Boa Viagem' : 'Loja: Tamarineira'}
+                </span>
               </div>
             )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Save,
@@ -20,7 +20,9 @@ import {
   Layers,
   Sparkles,
   Info,
-  Clock
+  Clock,
+  RotateCw,
+  Tag
 } from 'lucide-react';
 import { format, parse, isValid, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -30,6 +32,7 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { ClienteSelector, Cliente } from '@/components/dashboard/ClienteSelector';
 import { VendedorSelector, Vendedor } from '@/components/dashboard/VendedorSelector';
 import DiscountInput from '@/components/dashboard/DiscountInput';
+import ModalFichaTecnica from '@/components/dashboard/ModalFichaTecnica';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,6 +49,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { getNextOrderNumber, getStoreSequenceLabel } from '@/services/pedidosService';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatOrderNumber, formatCurrencyInput, cn } from '@/lib/utils';
@@ -70,6 +74,11 @@ export interface ProdutoItem {
   visitaTecnicaAtiva: boolean; // "Visita técnica (sim/não)"
   visitaTecnicaData: string; // Data da visita no formato DD/MM/AAAA
   fotosPedido: UploadedImage[]; // "Foto do PRODUTO"
+  tecido?: string;
+  tipoPe?: string;
+  espuma?: string;
+  braco?: string;
+  dimensoes?: string;
 }
 
 const defaultProdutoItem: ProdutoItem = {
@@ -82,6 +91,11 @@ const defaultProdutoItem: ProdutoItem = {
   visitaTecnicaAtiva: false,
   visitaTecnicaData: '',
   fotosPedido: [],
+  tecido: '',
+  tipoPe: '',
+  espuma: '',
+  braco: '',
+  dimensoes: '',
 };
 
 const TERMO_ENTREGA_PADRAO = `Recebi o produto em perfeito estado, sem defeito ou avaria.
@@ -153,7 +167,7 @@ const NovoPedido = () => {
   const isEditMode = !!pedidoIdParam;
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, selectedStore, isFuncionario } = useAuth();
+  const { user, selectedStore, isFuncionario, isAdmin, userStores } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
   const [lojaSelecionadaForm, setLojaSelecionadaForm] = useState<string>('loja_1');
@@ -198,6 +212,11 @@ const NovoPedido = () => {
   const [termoEntregaJaAberto, setTermoEntregaJaAberto] = useState<boolean>(false);
   const [formaPagamentoJaAberta, setFormaPagamentoJaAberta] = useState<boolean>(false);
   const [fotosControleJaAberto, setFotosControleJaAberto] = useState<boolean>(false);
+
+  // Controle de diálogo pós-salvamento e Ficha Técnica rápida
+  const [dialogPosSalvarAberto, setDialogPosSalvarAberto] = useState(false);
+  const [pedidoSalvoInfo, setPedidoSalvoInfo] = useState<{ id: string; numero: string | number } | null>(null);
+  const [modalFichaTecnicaAberto, setModalFichaTecnicaAberto] = useState(false);
 
   const toggleInfoPedido = () => {
     setInfoPedidoExpandido(prev => {
@@ -244,37 +263,34 @@ const NovoPedido = () => {
     if (selectedStore && selectedStore !== 'todas') {
       setLojaSelecionadaForm(selectedStore);
     } else {
-      setLojaSelecionadaForm('loja_1');
+      const defaultStore = (userStores && userStores.length > 0) ? userStores[0] : 'loja_1';
+      setLojaSelecionadaForm(defaultStore);
     }
-  }, [selectedStore]);
+  }, [selectedStore, userStores]);
 
-  // Buscar próximo número do pedido em criação
+  const [numeroPedidoEditadoManualmente, setNumeroPedidoEditadoManualmente] = useState(false);
+  const [loadingNumeroPedido, setLoadingNumeroPedido] = useState(false);
+
+  const atualizarProximoNumero = useCallback(async (loja: string, forcar: boolean = false) => {
+    if (isEditMode) return;
+    if (numeroPedidoEditadoManualmente && !forcar) return;
+    try {
+      setLoadingNumeroPedido(true);
+      const nextNum = await getNextOrderNumber(loja);
+      setNumeroPedido(String(nextNum));
+    } catch (err) {
+      console.error('Erro ao buscar próximo número do pedido:', err);
+    } finally {
+      setLoadingNumeroPedido(false);
+    }
+  }, [isEditMode, numeroPedidoEditadoManualmente]);
+
+  // Buscar próximo número do pedido em criação conforme loja selecionada
   useEffect(() => {
-    const fetchNextNumber = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('pedidos')
-          .select('numero_pedido')
-          .lt('numero_pedido', 1000000)
-          .order('numero_pedido', { ascending: false })
-          .limit(1);
-
-        let maxNumber = 0;
-        if (!error && data && data.length > 0) {
-          maxNumber = data[0].numero_pedido || 0;
-        }
-
-        const nextNumber = maxNumber + 1;
-        setNumeroPedido(prev => prev || String(nextNumber));
-      } catch (err) {
-        console.error('Erro ao buscar próximo número do pedido:', err);
-      }
-    };
-
-    if (!isEditMode) {
-      fetchNextNumber();
+    if (!isEditMode && lojaSelecionadaForm) {
+      atualizarProximoNumero(lojaSelecionadaForm);
     }
-  }, [isEditMode]);
+  }, [isEditMode, lojaSelecionadaForm, atualizarProximoNumero]);
 
   // Carregar dados se for modo edição
   useEffect(() => {
@@ -414,6 +430,11 @@ const NovoPedido = () => {
               visitaTecnicaAtiva: !!it.visita_tecnica,
               visitaTecnicaData: converterDataISOParaBR(it.data_visita_tecnica),
               fotosPedido: fotosDoItem,
+              tecido: it.tecido || '',
+              tipoPe: it.tipo_pe || '',
+              espuma: it.espuma || '',
+              braco: it.braco || '',
+              dimensoes: it.dimensoes || '',
             };
           });
           setProdutos(produtosMapeados);
@@ -606,7 +627,14 @@ const NovoPedido = () => {
           .select()
           .single();
 
-        if (erroCriar || !pedidoCriado) throw erroCriar || new Error('Erro ao cadastrar pedido');
+        if (erroCriar || !pedidoCriado) {
+          if ((erroCriar as any)?.code === '23505') {
+            throw new Error(
+              `O número de pedido #${pedidoPayload.numero_pedido} já existe no banco de dados. No Supabase, remova a restrição antiga 'pedidos_numero_pedido_key' para permitir sequências independentes por loja e ano.`
+            );
+          }
+          throw erroCriar || new Error('Erro ao cadastrar pedido');
+        }
         pedidoSalvoId = pedidoCriado.id;
       } else {
         const { error: erroUpdate } = await supabase
@@ -636,12 +664,13 @@ const NovoPedido = () => {
         visita_tecnica: !!p.visitaTecnicaAtiva,
         data_visita_tecnica: p.visitaTecnicaAtiva ? (converterDataParaISO(p.visitaTecnicaData) || null) : null,
         created_by: user.id,
-        espuma: '',
-        tecido: '',
-        braco: '',
-        tipo_pe: '',
+        espuma: p.espuma || '',
+        tecido: p.tecido || '',
+        braco: p.braco || '',
+        tipo_pe: p.tipoPe || '',
         tipo_servico: '',
         tipo_sofa: p.descricao || '',
+        dimensoes: p.dimensoes || null,
       }));
 
       const { data: itensInseridos, error: erroItens } = await supabase
@@ -752,17 +781,15 @@ const NovoPedido = () => {
 
       toast({
         title: isEditMode ? 'Pedido Atualizado!' : 'Pedido Criado com Sucesso!',
-        description: `Pedido #${numeroPedidoLimpo} foi salvo e enviado para a produção.`,
+        description: `Pedido #${numeroPedidoLimpo} foi salvo.`,
       });
 
-      setTimeout(() => {
-        navigate('/dashboard', {
-          state: {
-            novoPedidoCriadoId: pedidoSalvoId,
-            numeroPedido: numeroPedidoLimpo,
-          },
-        });
-      }, 1200);
+      // Abrir diálogo de pós-salvamento (Preencher Ficha Técnica ou ir ao Dashboard)
+      setPedidoSalvoInfo({
+        id: pedidoSalvoId,
+        numero: numeroPedidoLimpo,
+      });
+      setDialogPosSalvarAberto(true);
 
     } catch (error: any) {
       console.error('Erro ao processar pedido:', error);
@@ -894,8 +921,8 @@ const NovoPedido = () => {
 
             {infoPedidoExpandido && (
               <CardContent className="space-y-5 pt-1 border-t">
-                {/* Linha de Loja (se administrador) */}
-                {selectedStore === 'todas' && (
+                {/* Linha de Loja (se administrador ou usuário com múltiplas lojas quando loja selecionada for 'todas') */}
+                {selectedStore === 'todas' && (isAdmin || userStores.length > 1) && (
                   <div className="p-3 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300 font-medium">
                       <Store className="w-4 h-4" />
@@ -906,9 +933,15 @@ const NovoPedido = () => {
                         <SelectValue placeholder="Selecione a loja" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="loja_1">Aragão</SelectItem>
-                        <SelectItem value="loja_2">Boa Viagem</SelectItem>
-                        <SelectItem value="loja_3">Tamarineira</SelectItem>
+                        {(isAdmin || userStores.includes('loja_1')) && (
+                          <SelectItem value="loja_1">Aragão</SelectItem>
+                        )}
+                        {(isAdmin || userStores.includes('loja_2')) && (
+                          <SelectItem value="loja_2">Boa Viagem</SelectItem>
+                        )}
+                        {(isAdmin || userStores.includes('loja_3')) && (
+                          <SelectItem value="loja_3">Tamarineira</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -918,17 +951,42 @@ const NovoPedido = () => {
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                   
                   {/* Número do Pedido */}
-                  <div className="md:col-span-3 space-y-2">
-                    <Label htmlFor="numeroPedido" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Número do Pedido
-                    </Label>
+                  <div className="md:col-span-3 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="numeroPedido" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Número do Pedido
+                      </Label>
+                      {!isEditMode && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNumeroPedidoEditadoManualmente(false);
+                            atualizarProximoNumero(lojaSelecionadaForm, true);
+                          }}
+                          className="text-[11px] text-primary hover:text-primary/80 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                          title="Recalcular próximo número automático desta loja"
+                        >
+                          <RotateCw className={`w-3 h-3 ${loadingNumeroPedido ? 'animate-spin' : ''}`} />
+                          <span>Atualizar</span>
+                        </button>
+                      )}
+                    </div>
                     <Input
                       id="numeroPedido"
                       value={numeroPedido}
-                      onChange={(e) => setNumeroPedido(e.target.value)}
+                      onChange={(e) => {
+                        setNumeroPedido(e.target.value);
+                        setNumeroPedidoEditadoManualmente(true);
+                      }}
                       placeholder="Ex: 001"
                       className="font-bold text-base tracking-wide bg-background/50"
                     />
+                    {!isEditMode && (
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
+                        <span className="truncate">{getStoreSequenceLabel(lojaSelecionadaForm)}</span>
+                      </p>
+                    )}
                   </div>
 
                   {/* Cliente com seletor e botão + */}
@@ -1974,6 +2032,87 @@ const NovoPedido = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Diálogo Pós-Salvamento: Preencher Ficha Técnica Agora ou Depois */}
+      <Dialog open={dialogPosSalvarAberto} onOpenChange={(open) => {
+        if (!open) {
+          setDialogPosSalvarAberto(false);
+          navigate('/dashboard', {
+            state: {
+              novoPedidoCriadoId: pedidoSalvoInfo?.id,
+              numeroPedido: pedidoSalvoInfo?.numero,
+            },
+          });
+        }
+      }}>
+        <DialogContent className="max-w-md border-border/80 shadow-2xl">
+          <DialogHeader className="pt-2">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-2">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-center text-lg">
+              Pedido #{pedidoSalvoInfo?.numero} Salvo com Sucesso!
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm pt-1 leading-relaxed">
+              O pedido já está registrado no sistema. Deseja preencher a <strong>Ficha Técnica</strong> das peças (Pé, Tecido, Espuma, Braço e Dimensões) agora ou deixar para depois?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDialogPosSalvarAberto(false);
+                navigate('/dashboard', {
+                  state: {
+                    novoPedidoCriadoId: pedidoSalvoInfo?.id,
+                    numeroPedido: pedidoSalvoInfo?.numero,
+                  },
+                });
+              }}
+              className="w-full sm:w-auto"
+            >
+              Deixar para Depois
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setDialogPosSalvarAberto(false);
+                setModalFichaTecnicaAberto(true);
+              }}
+              className="w-full sm:w-auto gap-2 bg-primary text-primary-foreground font-semibold hover:bg-primary/90"
+            >
+              <Tag className="w-4 h-4" />
+              Preencher Ficha Agora
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Ficha Técnica */}
+      <ModalFichaTecnica
+        isOpen={modalFichaTecnicaAberto}
+        onClose={() => {
+          setModalFichaTecnicaAberto(false);
+          navigate('/dashboard', {
+            state: {
+              novoPedidoCriadoId: pedidoSalvoInfo?.id,
+              numeroPedido: pedidoSalvoInfo?.numero,
+            },
+          });
+        }}
+        pedidoId={pedidoSalvoInfo?.id || null}
+        numeroPedido={pedidoSalvoInfo?.numero}
+        onSuccess={() => {
+          setModalFichaTecnicaAberto(false);
+          navigate('/dashboard', {
+            state: {
+              novoPedidoCriadoId: pedidoSalvoInfo?.id,
+              numeroPedido: pedidoSalvoInfo?.numero,
+            },
+          });
+        }}
+      />
 
     </DashboardLayout>
   );

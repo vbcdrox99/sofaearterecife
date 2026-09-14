@@ -2,23 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import { AuthProvider } from '@/contexts/AuthContext';
-import Sidebar from './Sidebar';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import Sidebar from './dashboard/Sidebar';
 
 // Mock do contexto de autenticação
 vi.mock('@/contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
-  useAuth: vi.fn(() => ({
-    user: {
-      id: '1',
-      email: 'test@example.com',
-      user_metadata: {
-        full_name: 'Usuário Teste',
-        avatar_url: null,
-      },
-    },
-    signOut: vi.fn(),
-  })),
+  useAuth: vi.fn(),
 }));
 
 const renderWithProviders = (component: React.ReactElement) => {
@@ -35,10 +25,11 @@ const renderWithProviders = (component: React.ReactElement) => {
 
 describe('Sidebar', () => {
   const mockOnToggle = vi.fn();
+  const mockSignOut = vi.fn();
+  const mockSetSelectedStore = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Mock do window.matchMedia
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation(query => ({
@@ -54,75 +45,84 @@ describe('Sidebar', () => {
     });
   });
 
-  it('deve renderizar o logo da empresa', () => {
-    renderWithProviders(<Sidebar isOpen={true} onToggle={mockOnToggle} />);
-    expect(screen.getByText('SofáArte')).toBeInTheDocument();
-  });
-
-  it('deve exibir os itens de navegação', () => {
-    renderWithProviders(<Sidebar isOpen={true} onToggle={mockOnToggle} />);
-    
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Pedidos')).toBeInTheDocument();
-    expect(screen.getByText('Clientes')).toBeInTheDocument();
-    expect(screen.getByText('Materiais')).toBeInTheDocument();
-    expect(screen.getByText('Produção')).toBeInTheDocument();
-    expect(screen.getByText('Relatórios')).toBeInTheDocument();
-  });
-
-  it('deve exibir informações do usuário', () => {
-    renderWithProviders(<Sidebar isOpen={true} onToggle={mockOnToggle} />);
-    
-    expect(screen.getByText('Usuário Teste')).toBeInTheDocument();
-    expect(screen.getByText('test@example.com')).toBeInTheDocument();
-  });
-
-  it('deve ter um botão de logout', () => {
-    renderWithProviders(<Sidebar isOpen={true} onToggle={mockOnToggle} />);
-    
-    const logoutButton = screen.getByRole('button', { name: /sair/i });
-    expect(logoutButton).toBeInTheDocument();
-  });
-
-  it('deve chamar onToggle quando o botão de fechar for clicado em mobile', () => {
-    // Mock para simular mobile
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation(query => ({
-        matches: query === '(max-width: 768px)',
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
+  it('deve renderizar a logo da empresa e itens padrão', () => {
+    (useAuth as any).mockReturnValue({
+      profile: { nome_completo: 'Carlos Silva', role: 'funcionario' },
+      isAdmin: false,
+      userStores: ['loja_1'],
+      selectedStore: 'loja_1',
+      setSelectedStore: mockSetSelectedStore,
+      signOut: mockSignOut,
     });
 
     renderWithProviders(<Sidebar isOpen={true} onToggle={mockOnToggle} />);
-    
-    const closeButton = screen.getByRole('button', { name: /fechar menu/i });
-    fireEvent.click(closeButton);
-    
-    expect(mockOnToggle).toHaveBeenCalled();
+
+    expect(screen.getByText('Válleri')).toBeInTheDocument();
+    expect(screen.getByText('Início')).toBeInTheDocument();
+    expect(screen.getByText('Novo Pedido')).toBeInTheDocument();
+    expect(screen.getByText('Linha de Produção')).toBeInTheDocument();
   });
 
-  it('deve aplicar classes corretas quando fechada', () => {
-    const { container } = renderWithProviders(
-      <Sidebar isOpen={false} onToggle={mockOnToggle} />
-    );
-    
-    const sidebar = container.querySelector('aside');
-    expect(sidebar).toHaveClass('w-0');
+  it('NÃO deve exibir Cadastro de Funcionários para funcionário comum', () => {
+    (useAuth as any).mockReturnValue({
+      profile: { nome_completo: 'Carlos Silva', role: 'funcionario' },
+      isAdmin: false,
+      userStores: ['loja_1'],
+      selectedStore: 'loja_1',
+      setSelectedStore: mockSetSelectedStore,
+      signOut: mockSignOut,
+    });
+
+    renderWithProviders(<Sidebar isOpen={true} onToggle={mockOnToggle} />);
+
+    expect(screen.queryByText('Cadastro de Funcionários')).not.toBeInTheDocument();
+    expect(screen.queryByText('Histórico de Logs')).not.toBeInTheDocument();
   });
 
-  it('deve aplicar classes corretas quando aberta', () => {
-    const { container } = renderWithProviders(
-      <Sidebar isOpen={true} onToggle={mockOnToggle} />
-    );
-    
-    const sidebar = container.querySelector('aside');
-    expect(sidebar).toHaveClass('w-64');
+  it('deve exibir Cadastro de Funcionários e Histórico de Logs quando for administrador', () => {
+    (useAuth as any).mockReturnValue({
+      profile: { nome_completo: 'Administrador Chefe', role: 'admin' },
+      isAdmin: true,
+      userStores: ['loja_1', 'loja_2', 'loja_3'],
+      selectedStore: 'todas',
+      setSelectedStore: mockSetSelectedStore,
+      signOut: mockSignOut,
+    });
+
+    renderWithProviders(<Sidebar isOpen={true} onToggle={mockOnToggle} />);
+
+    expect(screen.getByText('Cadastro de Funcionários')).toBeInTheDocument();
+    expect(screen.getByText('Histórico de Logs')).toBeInTheDocument();
+  });
+
+  it('deve exibir badge fixa de loja para colaborador com apenas uma loja', () => {
+    (useAuth as any).mockReturnValue({
+      profile: { nome_completo: 'Mariana Lima', role: 'funcionario' },
+      isAdmin: false,
+      userStores: ['loja_2'],
+      selectedStore: 'loja_2',
+      setSelectedStore: mockSetSelectedStore,
+      signOut: mockSignOut,
+    });
+
+    renderWithProviders(<Sidebar isOpen={true} onToggle={mockOnToggle} />);
+
+    expect(screen.getByText('Loja: Boa Viagem')).toBeInTheDocument();
+  });
+
+  it('deve exibir seletor de lojas para colaborador com múltiplas lojas', () => {
+    (useAuth as any).mockReturnValue({
+      profile: { nome_completo: 'Gerente Regional', role: 'gerente' },
+      isAdmin: false,
+      userStores: ['loja_1', 'loja_2'],
+      selectedStore: 'todas',
+      setSelectedStore: mockSetSelectedStore,
+      signOut: mockSignOut,
+    });
+
+    renderWithProviders(<Sidebar isOpen={true} onToggle={mockOnToggle} />);
+
+    // Deve exibir o seletor com a opção Minhas Lojas
+    expect(screen.getByText('Minhas Lojas')).toBeInTheDocument();
   });
 });

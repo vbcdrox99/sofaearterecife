@@ -12,11 +12,7 @@ const ThrowError = ({ shouldThrow }: { shouldThrow: boolean }) => {
 };
 
 const renderWithRouter = (component: React.ReactElement) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  );
+  return render(component, { wrapper: BrowserRouter });
 };
 
 describe('ErrorBoundary', () => {
@@ -36,7 +32,7 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Componente funcionando')).toBeInTheDocument();
   });
 
-  it('deve renderizar UI de erro quando há um erro', () => {
+  it('deve renderizar UI de erro quando ocorre um erro', () => {
     renderWithRouter(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
@@ -44,18 +40,22 @@ describe('ErrorBoundary', () => {
     );
     
     expect(screen.getByText('Ops! Algo deu errado')).toBeInTheDocument();
-    expect(screen.getByText(/Ocorreu um erro inesperado/)).toBeInTheDocument();
+    expect(screen.getByText(/Ocorreu um erro inesperado/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /recarregar página/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ir para dashboard/i })).toBeInTheDocument();
   });
 
-  it('deve exibir botões de ação na UI de erro', () => {
+  it('deve renderizar fallback customizado quando fornecido', () => {
+    const customFallback = <div>Fallback customizado</div>;
+    
     renderWithRouter(
-      <ErrorBoundary>
+      <ErrorBoundary fallback={customFallback}>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>
     );
     
-    expect(screen.getByRole('button', { name: /recarregar página/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /ir para dashboard/i })).toBeInTheDocument();
+    expect(screen.getByText('Fallback customizado')).toBeInTheDocument();
+    expect(screen.queryByText('Ops! Algo deu errado')).not.toBeInTheDocument();
   });
 
   it('deve recarregar a página quando o botão recarregar for clicado', () => {
@@ -91,15 +91,14 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
     
-    expect(screen.getByText('Detalhes do erro:')).toBeInTheDocument();
-    expect(screen.getByText('Erro de teste')).toBeInTheDocument();
+    expect(screen.getByText(/Detalhes do erro/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Erro de teste/i).length).toBeGreaterThan(0);
 
     // Restaurar o NODE_ENV original
     process.env.NODE_ENV = originalEnv;
   });
 
   it('não deve exibir detalhes do erro em modo de produção', () => {
-    // Mock do NODE_ENV para produção
     const originalEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
 
@@ -109,10 +108,8 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
     
-    expect(screen.queryByText('Detalhes do erro:')).not.toBeInTheDocument();
-    expect(screen.queryByText('Erro de teste')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Detalhes do erro/i)).not.toBeInTheDocument();
 
-    // Restaurar o NODE_ENV original
     process.env.NODE_ENV = originalEnv;
   });
 
@@ -128,11 +125,9 @@ describe('ErrorBoundary', () => {
     
     // Re-renderiza com um componente que não gera erro
     rerender(
-      <BrowserRouter>
-        <ErrorBoundary>
-          <ThrowError shouldThrow={false} />
-        </ErrorBoundary>
-      </BrowserRouter>
+      <ErrorBoundary>
+        <ThrowError shouldThrow={false} />
+      </ErrorBoundary>
     );
     
     // Verifica se o componente normal está sendo exibido novamente

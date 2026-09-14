@@ -28,6 +28,7 @@ export interface Pedido {
   prioridade: 'baixa' | 'media' | 'alta';
   data_previsao_entrega?: string;
   observacoes?: string;
+  forma_pagamento?: string;
   created_by?: string;
   created_at?: string;
   updated_at?: string;
@@ -65,7 +66,7 @@ export interface ItemProducao {
 // Funções auxiliares para interação com o banco
 export const pedidosService = {
   // Buscar todos os pedidos
-  async getAll(store?: string) {
+  async getAll(store?: string, allowedStores?: string[]) {
     let query = supabase
       .from('pedidos')
       .select('*')
@@ -73,6 +74,8 @@ export const pedidosService = {
 
     if (store && store !== 'todas') {
       query = query.eq('loja', store);
+    } else if (allowedStores && allowedStores.length > 0) {
+      query = query.in('loja', allowedStores);
     }
     
     const { data, error } = await query;
@@ -158,7 +161,7 @@ export const producaoService = {
   },
 
   // Buscar todos os itens de produção
-  async getAll(store?: string): Promise<ItemProducao[]> {
+  async getAll(store?: string, allowedStores?: string[]): Promise<ItemProducao[]> {
     let query = supabase
       .from('itens_producao')
       .select(`
@@ -176,6 +179,8 @@ export const producaoService = {
 
     if (store && store !== 'todas') {
       query = query.eq('pedidos.loja', store);
+    } else if (allowedStores && allowedStores.length > 0) {
+      query = query.in('pedidos.loja', allowedStores);
     }
 
     const { data, error } = await query;
@@ -185,7 +190,7 @@ export const producaoService = {
   },
 
   // Buscar itens por etapa
-  async getByEtapa(etapa: ItemProducao['etapa'], store?: string): Promise<ItemProducao[]> {
+  async getByEtapa(etapa: ItemProducao['etapa'], store?: string, allowedStores?: string[]): Promise<ItemProducao[]> {
     let query = supabase
       .from('itens_producao')
       .select(`
@@ -209,6 +214,8 @@ export const producaoService = {
 
     if (store && store !== 'todas') {
       query = query.eq('pedidos.loja', store);
+    } else if (allowedStores && allowedStores.length > 0) {
+      query = query.in('pedidos.loja', allowedStores);
     }
 
     const { data, error } = await query;

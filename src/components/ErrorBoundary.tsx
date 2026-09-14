@@ -39,6 +39,12 @@ class ErrorBoundary extends Component<Props, State> {
     // logErrorToService(error, errorInfo);
   }
 
+  componentDidUpdate(prevProps: Props) {
+    if (this.state.hasError && prevProps.children !== this.props.children) {
+      this.setState({ hasError: false, error: undefined, errorInfo: undefined });
+    }
+  }
+
   handleReload = () => {
     window.location.reload();
   };

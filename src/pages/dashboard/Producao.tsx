@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle, Hammer, Scissors, Package, Wrench, Shirt, Loader2, Eye, RefreshCw, Camera } from 'lucide-react';
+import { Clock, CheckCircle, Hammer, Scissors, Package, Wrench, Shirt, Loader2, Eye, RefreshCw, Camera, Tag } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,13 @@ import { useToast } from '@/hooks/use-toast';
 import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import PedidoPhotosModal from '@/components/PedidoPhotosModal';
+import ModalFichaTecnica from '@/components/dashboard/ModalFichaTecnica';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Producao = () => {
   const { toast } = useToast();
-  const { selectedStore, isAdmin } = useAuth();
+  const { selectedStore, userStores, isAdmin } = useAuth();
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [pedidoItens, setPedidoItens] = useState<any[]>([]);
   const [abaAtiva, setAbaAtiva] = useState('marcenaria');
@@ -25,15 +26,22 @@ const Producao = () => {
     pedidoId: null,
     pedidoItemId: null,
   });
+  const [modalFichaAberta, setModalFichaAberta] = useState(false);
+  const [pedidoFichaSelecionado, setPedidoFichaSelecionado] = useState<{ id: string; numero?: string | number } | null>(null);
+
+  const isFichaPendente = (item?: any) => {
+    if (!item) return false;
+    return !item.tecido || !item.tipo_pe || !item.espuma || !item.braco || !item.dimensoes;
+  };
 
   useEffect(() => {
     carregarItensProducao();
-  }, [abaAtiva, selectedStore]);
+  }, [abaAtiva, selectedStore, userStores, isAdmin]);
 
   const carregarItensProducao = async () => {
     try {
       setCarregando(true);
-      const dados = await producaoService.getByEtapa(abaAtiva as ItemProducao['etapa'], selectedStore);
+      const dados = await producaoService.getByEtapa(abaAtiva as ItemProducao['etapa'], selectedStore, isAdmin ? undefined : userStores);
       const dadosOrdenados = [...dados].sort((a, b) => {
         const diasA = calcularDiasRestantes(a.pedidos?.data_previsao_entrega);
         const diasB = calcularDiasRestantes(b.pedidos?.data_previsao_entrega);
@@ -354,13 +362,31 @@ const Producao = () => {
                               Cliente: <span className="font-bold text-gray-900 dark:text-white">{item.pedidos?.cliente_nome || 'N/A'}</span>
                             </p>
                           </div>
-                          <Button 
-                            variant="secondary" 
-                            className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 shadow-sm font-bold"
-                            onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: item.pedido_id, pedidoItemId: pedidoItem?.id || null })}
-                          >
-                            <Camera className="w-5 h-5 mr-2" /> FOTOS
-                          </Button>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Button 
+                              variant="outline" 
+                              className={`font-bold text-xs shadow-xs border ${
+                                isFichaPendente(pedidoItem)
+                                  ? 'bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 border-amber-500/30 dark:text-amber-400'
+                                  : 'bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 border-emerald-500/30 dark:text-emerald-400'
+                              }`}
+                              onClick={() => {
+                                setPedidoFichaSelecionado({ id: item.pedido_id, numero: item.pedidos?.numero_pedido });
+                                setModalFichaAberta(true);
+                              }}
+                              title={isFichaPendente(pedidoItem) ? "Ficha técnica pendente. Clique para preencher" : "Ficha técnica completa. Clique para ver ou editar"}
+                            >
+                              <Tag className="w-4 h-4 mr-1.5" />
+                              {isFichaPendente(pedidoItem) ? 'FICHA PENDENTE' : 'FICHA TÉCNICA'}
+                            </Button>
+                            <Button 
+                              variant="secondary" 
+                              className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 shadow-sm font-bold text-xs"
+                              onClick={() => setPedidoPhotosModal({ isOpen: true, pedidoId: item.pedido_id, pedidoItemId: pedidoItem?.id || null })}
+                            >
+                              <Camera className="w-4 h-4 mr-1.5" /> FOTOS
+                            </Button>
+                          </div>
                         </div>
 
                         {/* Linha 2: Produto e Serviço (Destaque) */}
@@ -374,33 +400,56 @@ const Producao = () => {
                         </div>
 
                         {/* Bloco com Detalhes do Produto / Ficha Técnica */}
-                        {pedidoItem?.observacoes ? (
-                          <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 mb-4 border border-gray-200 dark:border-gray-700 shadow-inner">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-1">Detalhes do Produto</span>
-                            <p className="text-sm md:text-base font-semibold text-gray-900 dark:text-white whitespace-pre-wrap">
-                              {pedidoItem.observacoes}
-                            </p>
+                        <div className="bg-gray-100 dark:bg-gray-800/80 rounded-xl p-4 mb-4 border border-gray-200 dark:border-gray-700 shadow-inner space-y-3">
+                          {pedidoItem?.observacoes && (
+                            <div>
+                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-1">Observações da Venda</span>
+                              <p className="text-sm md:text-base font-medium text-gray-900 dark:text-white whitespace-pre-wrap">
+                                {pedidoItem.observacoes}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Grid com as 5 tags técnicas */}
+                          <div className="pt-2 border-t border-gray-200/80 dark:border-gray-700/80 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Dimensões</span>
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">{pedidoItem?.dimensoes || '-'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Tecido</span>
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">{pedidoItem?.tecido || '-'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Tipo de Pé</span>
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">{pedidoItem?.tipo_pe || '-'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Espuma</span>
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">{pedidoItem?.espuma || '-'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Braço</span>
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">{pedidoItem?.braco || '-'}</span>
+                            </div>
                           </div>
-                        ) : (pedidoItem?.espuma || pedidoItem?.tecido || pedidoItem?.braco || pedidoItem?.tipo_pe) ? (
-                          <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 border border-gray-200 dark:border-gray-700 shadow-inner">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Espuma</span>
-                              <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.espuma || item.pedidos?.espuma || '-'}</span>
+
+                          {isFichaPendente(pedidoItem) && (
+                            <div className="pt-1 flex items-center justify-between text-xs text-amber-700 dark:text-amber-400">
+                              <span className="font-semibold">⚠️ Tags técnicas incompletas para a produção.</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPedidoFichaSelecionado({ id: item.pedido_id, numero: item.pedidos?.numero_pedido });
+                                  setModalFichaAberta(true);
+                                }}
+                                className="underline font-bold hover:text-amber-800 dark:hover:text-amber-300"
+                              >
+                                Preencher agora
+                              </button>
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Tecido</span>
-                              <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.tecido || item.pedidos?.tecido || '-'}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Braço</span>
-                              <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.braco || item.pedidos?.braco || '-'}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Pé</span>
-                              <span className="text-sm md:text-base font-black text-gray-900 dark:text-white">{pedidoItem?.tipo_pe || item.pedidos?.tipo_pe || '-'}</span>
-                            </div>
-                          </div>
-                        ) : null}
+                          )}
+                        </div>
 
                         {/* Alerta de Observações (Destacado e visível para todos) */}
                         {observacoes && (
@@ -442,6 +491,20 @@ const Producao = () => {
         onClose={() => setPedidoPhotosModal({ isOpen: false, pedidoId: null, pedidoItemId: null })}
         pedidoId={pedidoPhotosModal.pedidoId!}
         pedidoItemId={pedidoPhotosModal.pedidoItemId}
+      />
+
+      {/* Modal de Ficha Técnica */}
+      <ModalFichaTecnica
+        isOpen={modalFichaAberta}
+        onClose={() => {
+          setModalFichaAberta(false);
+          setPedidoFichaSelecionado(null);
+        }}
+        pedidoId={pedidoFichaSelecionado?.id || null}
+        numeroPedido={pedidoFichaSelecionado?.numero}
+        onSuccess={() => {
+          carregarItensProducao();
+        }}
       />
     </DashboardLayout>
   );
