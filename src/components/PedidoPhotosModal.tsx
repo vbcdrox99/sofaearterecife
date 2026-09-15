@@ -140,7 +140,8 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
 
   const getPriorityColor = (prioridade: string) => {
     switch (prioridade) {
-      case 'alta': return 'bg-red-100 text-red-800';
+      case 'urgente': return 'bg-red-600 text-white font-semibold';
+      case 'alta': return 'bg-orange-100 text-orange-800';
       case 'media': return 'bg-yellow-100 text-yellow-800';
       case 'baixa': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';

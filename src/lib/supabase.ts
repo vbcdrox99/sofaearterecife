@@ -25,7 +25,7 @@ export interface Pedido {
   valor_orcamento?: number;
   valor_pago?: number;
   status: 'pendente' | 'em_producao' | 'concluido' | 'entregue';
-  prioridade: 'baixa' | 'media' | 'alta';
+  prioridade: 'baixa' | 'media' | 'alta' | 'urgente';
   data_previsao_entrega?: string;
   observacoes?: string;
   forma_pagamento?: string;
