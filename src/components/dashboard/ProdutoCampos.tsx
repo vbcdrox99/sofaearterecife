@@ -168,14 +168,15 @@ const ProdutoCampos = ({
 
 
       <div className="space-y-2">
-        <Label>Dimensões (metros)</Label>
+        <Label>Dimensões (Largura × Profundidade - metros)</Label>
         <div className="flex items-center gap-2">
           <div className="flex-1">
             <Input
               value={values.dimensaoLargura}
               onChange={(e) => onDimensaoChange('dimensaoLargura', e.target.value)}
-              placeholder="2,20"
-              maxLength={4}
+              placeholder="Largura (ex: 2,20)"
+              title="Largura (metros)"
+              maxLength={6}
               className="text-center"
             />
           </div>
@@ -184,8 +185,9 @@ const ProdutoCampos = ({
             <Input
               value={values.dimensaoComprimento}
               onChange={(e) => onDimensaoChange('dimensaoComprimento', e.target.value)}
-              placeholder="1,10"
-              maxLength={4}
+              placeholder="Profundidade (ex: 1,10)"
+              title="Profundidade (metros)"
+              maxLength={6}
               className="text-center"
             />
           </div>

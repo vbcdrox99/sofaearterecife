@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Store,
   UserPlus,
-  History
+  History,
+  Scissors
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -89,6 +90,12 @@ const Sidebar = ({ isOpen = true, onToggle, isCollapsed = false, onToggleCollaps
       href: '/dashboard/producao',
       icon: Wrench,
       description: 'Acompanhar fabricação',
+    },
+    {
+      name: 'Compra de Tecidos',
+      href: '/dashboard/tecidos',
+      icon: Scissors,
+      description: 'Metragens e romaneio de tecidos',
     },
   ];
 

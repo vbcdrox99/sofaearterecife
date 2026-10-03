@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SearchableSelect } from '@/components/dashboard/SearchableSelect';
-import { Loader2, CheckCircle2, Tag, Ruler, AlertCircle, Save, ExternalLink } from 'lucide-react';
+import { Loader2, CheckCircle2, Tag, Ruler, AlertCircle, Save, ExternalLink, Scissors } from 'lucide-react';
 
 export interface ModalFichaTecnicaProps {
   isOpen: boolean;
@@ -23,8 +23,9 @@ interface ItemFicha {
   descricao: string;
   observacoes: string;
   dimensaoLargura: string;
-  dimensaoComprimento: string;
+  dimensaoProfundidade: string;
   tecido: string;
+  metragemTecido: string;
   tipoPe: string;
   espuma: string;
   braco: string;
@@ -134,13 +135,13 @@ export function ModalFichaTecnica({
 
       if (itensDb && itensDb.length > 0) {
         const itensFormatados: ItemFicha[] = itensDb.map(it => {
-          // Extrai largura e comprimento de dimensoes salvas (ex: "2,20 x 1,10")
+          // Extrai largura e profundidade de dimensoes salvas (ex: "2,20 x 1,10")
           let largura = '';
-          let comprimento = '';
+          let profundidade = '';
           if (it.dimensoes) {
             const partes = it.dimensoes.split(/[xX×]/).map((s: string) => s.trim());
             largura = partes[0] || '';
-            comprimento = partes[1] || '';
+            profundidade = partes[1] || '';
           }
 
           const fotosItem = (anexosData || [])
@@ -153,8 +154,9 @@ export function ModalFichaTecnica({
             descricao: it.descricao || 'Produto sem descrição',
             observacoes: it.observacoes || '',
             dimensaoLargura: largura,
-            dimensaoComprimento: comprimento,
+            dimensaoProfundidade: profundidade,
             tecido: it.tecido || '',
+            metragemTecido: (it as any).metragem_tecido || '',
             tipoPe: it.tipo_pe || '',
             espuma: it.espuma || '',
             braco: it.braco || '',
@@ -220,18 +222,19 @@ export function ModalFichaTecnica({
       for (const item of itens) {
         // Monta a string unificada de dimensões
         const larguraClean = item.dimensaoLargura.trim();
-        const compClean = item.dimensaoComprimento.trim();
-        const dimensoesFormatadas = [larguraClean, compClean].filter(Boolean).join(' × ');
+        const profClean = item.dimensaoProfundidade.trim();
+        const dimensoesFormatadas = [larguraClean, profClean].filter(Boolean).join(' × ');
 
         const { error } = await supabase
           .from('pedido_itens')
           .update({
             dimensoes: dimensoesFormatadas || null,
             tecido: item.tecido || '',
+            metragem_tecido: item.metragemTecido || null,
             tipo_pe: item.tipoPe || '',
             espuma: item.espuma || '',
             braco: item.braco || '',
-          })
+          } as any)
           .eq('id', item.id);
 
         if (error) throw error;
@@ -313,7 +316,7 @@ export function ModalFichaTecnica({
               {/* Lista de Itens para Especificação Técnica */}
               <div className="space-y-6">
                 {itens.map((item, idx) => {
-                  const preenchido = !!(item.tecido && item.tipoPe && item.espuma && item.braco && (item.dimensaoLargura || item.dimensaoComprimento));
+                  const preenchido = !!(item.tecido && item.tipoPe && item.espuma && item.braco && (item.dimensaoLargura || item.dimensaoProfundidade));
                   return (
                     <div
                       key={item.id}
@@ -376,21 +379,23 @@ export function ModalFichaTecnica({
                         <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
                           <Label className="text-xs font-medium flex items-center gap-1.5">
                             <Ruler className="w-3.5 h-3.5 text-primary" />
-                            Dimensões (L × C metros)
+                            Dimensões (Largura × Profundidade)
                           </Label>
                           <div className="flex items-center gap-1.5">
                             <Input
                               value={item.dimensaoLargura}
                               onChange={(e) => updateItemField(item.id, 'dimensaoLargura', e.target.value)}
-                              placeholder="2,20"
+                              placeholder="Largura (ex: 2,20)"
+                              title="Largura (metros)"
                               className="h-9 text-xs text-center"
                               maxLength={6}
                             />
                             <span className="text-muted-foreground font-bold text-xs">×</span>
                             <Input
-                              value={item.dimensaoComprimento}
-                              onChange={(e) => updateItemField(item.id, 'dimensaoComprimento', e.target.value)}
-                              placeholder="1,10"
+                              value={item.dimensaoProfundidade}
+                              onChange={(e) => updateItemField(item.id, 'dimensaoProfundidade', e.target.value)}
+                              placeholder="Profundidade (ex: 1,10)"
+                              title="Profundidade (metros)"
                               className="h-9 text-xs text-center"
                               maxLength={6}
                             />
@@ -410,6 +415,20 @@ export function ModalFichaTecnica({
                             onAddOption={(novo) => handleAddCategory('tecido', novo)}
                             onDeleteOption={(rem) => handleDeleteCategory('tecido', rem)}
                             className="w-full"
+                          />
+                        </div>
+
+                        {/* 3. Metragem do Tecido */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium flex items-center gap-1.5">
+                            <Scissors className="w-3.5 h-3.5 text-primary" />
+                            Metragem do Tecido
+                          </Label>
+                          <Input
+                            value={item.metragemTecido}
+                            onChange={(e) => updateItemField(item.id, 'metragemTecido', e.target.value)}
+                            placeholder="Ex: 1 metro, 1,2 metro"
+                            className="h-9 text-xs"
                           />
                         </div>
 

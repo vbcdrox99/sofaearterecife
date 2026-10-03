@@ -24,3 +24,31 @@ export function formatCurrencyInput(value: string): string {
     maximumFractionDigits: 2,
   });
 }
+
+export function parseMetragem(raw?: string | null): number | null {
+  if (!raw) return null;
+  const cleaned = raw.trim().toLowerCase();
+  
+  if (cleaned.includes('+')) {
+    const parts = cleaned.split('+');
+    let sum = 0;
+    let anyValid = false;
+    for (const p of parts) {
+      const numStr = p.replace(',', '.').replace(/[^0-9.]/g, '');
+      const parsed = parseFloat(numStr);
+      if (!isNaN(parsed)) {
+        sum += parsed;
+        anyValid = true;
+      }
+    }
+    return anyValid ? sum : null;
+  }
+
+  const numStr = cleaned.replace(',', '.').replace(/[^0-9.]/g, '');
+  const parsed = parseFloat(numStr);
+  return isNaN(parsed) ? null : parsed;
+}
+
+export function formatMetros(num: number): string {
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + ' m';
+}

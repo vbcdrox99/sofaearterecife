@@ -260,6 +260,7 @@ export type Database = {
           quantidade: number
           sequencia: number
           tecido: string
+          metragem_tecido?: string | null
           tipo_pe: string
           tipo_servico: string
           tipo_sofa: string
@@ -282,6 +283,7 @@ export type Database = {
           quantidade?: number
           sequencia?: number
           tecido: string
+          metragem_tecido?: string | null
           tipo_pe: string
           tipo_servico: string
           tipo_sofa: string
@@ -304,6 +306,7 @@ export type Database = {
           quantidade?: number
           sequencia?: number
           tecido?: string
+          metragem_tecido?: string | null
           tipo_pe?: string
           tipo_servico?: string
           tipo_sofa?: string

@@ -346,7 +346,7 @@ export const usePDFGenerator = () => {
         const detalhes = [
           it.observacoes ? safe(it.observacoes) : '',
           it.cor ? `Cor: ${it.cor}` : '',
-          it.tecido ? `Tecido: ${it.tecido}` : '',
+          it.tecido ? `Tecido: ${it.tecido}${(it as any).metragem_tecido ? ` (${(it as any).metragem_tecido})` : ''}` : '',
           it.espuma ? `Espuma: ${it.espuma}` : '',
           it.braco ? `Braço: ${it.braco}` : '',
           it.tipo_pe ? `Tipo Pé: ${it.tipo_pe}` : '',
@@ -1049,7 +1049,7 @@ export const usePDFGenerator = () => {
         const detalhes = [
           it.observacoes ? safe(it.observacoes) : '',
           it.cor ? `Cor: ${it.cor}` : '',
-          it.tecido ? `Tecido: ${it.tecido}` : '',
+          it.tecido ? `Tecido: ${it.tecido}${(it as any).metragem_tecido ? ` (${(it as any).metragem_tecido})` : ''}` : '',
           it.espuma ? `Espuma: ${it.espuma}` : '',
           it.braco ? `Braço: ${it.braco}` : '',
           it.tipo_pe ? `Tipo Pé: ${it.tipo_pe}` : '',

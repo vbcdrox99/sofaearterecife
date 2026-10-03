@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock, CheckCircle, Hammer, Scissors, Package, Wrench, Shirt, Loader2, Eye, RefreshCw, Camera, Tag } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -281,11 +282,26 @@ const Producao = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-end">
-          <Button onClick={carregarItensProducao} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar
-          </Button>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Wrench className="w-6 h-6 text-primary" />
+              Linha de Produção
+            </h1>
+            <p className="text-xs text-muted-foreground">Acompanhe a fabricação de cada item por etapa</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/dashboard/tecidos">
+              <Button variant="outline" size="sm" className="gap-1.5 font-bold text-primary border-primary/30 hover:bg-primary/5">
+                <Scissors className="w-4 h-4" />
+                Compra de Tecidos
+              </Button>
+            </Link>
+            <Button onClick={carregarItensProducao} variant="outline" size="sm">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Atualizar
+            </Button>
+          </div>
         </div>
 
         {/* Abas de Produção */}
@@ -418,7 +434,14 @@ const Producao = () => {
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Tecido</span>
-                              <span className="text-sm font-bold text-gray-900 dark:text-white">{pedidoItem?.tecido || '-'}</span>
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                {pedidoItem?.tecido || '-'}
+                                {(pedidoItem as any)?.metragem_tecido && (
+                                  <span className="ml-1.5 text-xs font-semibold text-primary inline-flex items-center">
+                                    • {(pedidoItem as any).metragem_tecido}
+                                  </span>
+                                )}
+                              </span>
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Tipo de Pé</span>

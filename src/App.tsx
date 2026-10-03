@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/dashboard/Dashboard";
 import NovoPedido from "./pages/dashboard/NovoPedido";
 import Producao from "./pages/dashboard/Producao";
+import ListaTecidos from "./pages/dashboard/ListaTecidos";
 import CadastroFuncionarios from "./pages/dashboard/CadastroFuncionarios";
 import LogsAuditoria from "./pages/dashboard/LogsAuditoria";
 import NotFound from "./pages/NotFound";
@@ -51,6 +52,11 @@ const App = () => (
                 <Route path="/dashboard/producao" element={
                   <ProtectedRoute>
                     <Producao />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/tecidos" element={
+                  <ProtectedRoute>
+                    <ListaTecidos />
                   </ProtectedRoute>
                 } />
 
