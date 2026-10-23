@@ -329,6 +329,7 @@ export const usePDFGenerator = () => {
         tipo_servico: pedido.tipo_servico,
         cor: (pedido as any).cor,
         dimensoes: pedido.dimensoes,
+        profundidade_aberto: (pedido as any).profundidade_aberto,
         espuma: pedido.espuma,
         tecido: pedido.tecido,
         braco: pedido.braco,
@@ -350,7 +351,9 @@ export const usePDFGenerator = () => {
           it.espuma ? `Espuma: ${it.espuma}` : '',
           it.braco ? `Braço: ${it.braco}` : '',
           it.tipo_pe ? `Tipo Pé: ${it.tipo_pe}` : '',
-          it.dimensoes ? `Dimensões: ${it.dimensoes}` : ''
+          it.dimensoes
+            ? `Dimensões: ${it.dimensoes}${it.profundidade_aberto ? ` (Aberto: ${it.profundidade_aberto})` : ''}`
+            : (it.profundidade_aberto ? `Prof. Aberto: ${it.profundidade_aberto}` : '')
         ].filter(Boolean).join(' • ');
 
         const visitaTecnicaInfo = it.visita_tecnica ? `
@@ -955,8 +958,8 @@ export const usePDFGenerator = () => {
         currentYPhotos = await addPhotosSection('Fotos de controle', fotosControle, currentYPhotos);
       }
 
-      const prefix = isOrcamento ? 'orcamento' : 'pedido-cliente';
-      const fileName = `${prefix}-${numero}.pdf`;
+      const prefix = isOrcamento ? 'Orçamento' : 'Pedido';
+      const fileName = `${prefix} #${numero}.pdf`;
       const blob = pdf.output('blob');
       const blobUrl = URL.createObjectURL(blob);
       if (autoDownload) {
@@ -1032,6 +1035,7 @@ export const usePDFGenerator = () => {
         tipo_servico: pedido.tipo_servico,
         cor: (pedido as any).cor,
         dimensoes: pedido.dimensoes,
+        profundidade_aberto: (pedido as any).profundidade_aberto,
         espuma: pedido.espuma,
         tecido: pedido.tecido,
         braco: pedido.braco,
@@ -1053,7 +1057,9 @@ export const usePDFGenerator = () => {
           it.espuma ? `Espuma: ${it.espuma}` : '',
           it.braco ? `Braço: ${it.braco}` : '',
           it.tipo_pe ? `Tipo Pé: ${it.tipo_pe}` : '',
-          it.dimensoes ? `Dimensões: ${it.dimensoes}` : ''
+          it.dimensoes
+            ? `Dimensões: ${it.dimensoes}${it.profundidade_aberto ? ` (Aberto: ${it.profundidade_aberto})` : ''}`
+            : (it.profundidade_aberto ? `Prof. Aberto: ${it.profundidade_aberto}` : '')
         ].filter(Boolean).join(' • ');
 
         let primeiraFoto = null;
@@ -1599,7 +1605,7 @@ export const usePDFGenerator = () => {
         currentYPhotos = await addPhotosSection('Fotos de controle', fotosControle, currentYPhotos);
       }
 
-      const fileName = `pedido-${numero}.pdf`;
+      const fileName = `Pedido #${numero}.pdf`;
       const blob = pdf.output('blob');
       const blobUrl = URL.createObjectURL(blob);
       if (autoDownload) {

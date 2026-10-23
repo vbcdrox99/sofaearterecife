@@ -75,10 +75,12 @@ export interface ProdutoItem {
   visitaTecnicaData: string; // Data da visita no formato DD/MM/AAAA
   fotosPedido: UploadedImage[]; // "Foto do PRODUTO"
   tecido?: string;
+  metragemTecido?: string;
   tipoPe?: string;
   espuma?: string;
   braco?: string;
   dimensoes?: string;
+  profundidadeAberto?: string;
 }
 
 const defaultProdutoItem: ProdutoItem = {
@@ -92,10 +94,12 @@ const defaultProdutoItem: ProdutoItem = {
   visitaTecnicaData: '',
   fotosPedido: [],
   tecido: '',
+  metragemTecido: '',
   tipoPe: '',
   espuma: '',
   braco: '',
   dimensoes: '',
+  profundidadeAberto: '',
 };
 
 const TERMO_ENTREGA_PADRAO = `Recebi o produto em perfeito estado, sem defeito ou avaria.
@@ -431,10 +435,12 @@ const NovoPedido = () => {
               visitaTecnicaData: converterDataISOParaBR(it.data_visita_tecnica),
               fotosPedido: fotosDoItem,
               tecido: it.tecido || '',
+              metragemTecido: (it as any).metragem_tecido || '',
               tipoPe: it.tipo_pe || '',
               espuma: it.espuma || '',
               braco: it.braco || '',
               dimensoes: it.dimensoes || '',
+              profundidadeAberto: (it as any).profundidade_aberto || '',
             };
           });
           setProdutos(produtosMapeados);
@@ -601,6 +607,7 @@ const NovoPedido = () => {
         descricao_sofa: primeiroProduto.descricao,
         tipo_sofa: primeiroProduto.descricao || null,
         dimensoes: primeiroProduto.detalhes || null,
+        profundidade_aberto: primeiroProduto.profundidadeAberto || null,
         preco_unitario: parseValor(primeiroProduto.precoUnitario) || null,
         quantidade: quantidadeTotalGeral,
         valor_total: totalFinalPedido,
@@ -666,11 +673,13 @@ const NovoPedido = () => {
         created_by: user.id,
         espuma: p.espuma || '',
         tecido: p.tecido || '',
+        metragem_tecido: p.metragemTecido || null,
         braco: p.braco || '',
         tipo_pe: p.tipoPe || '',
         tipo_servico: '',
         tipo_sofa: p.descricao || '',
         dimensoes: p.dimensoes || null,
+        profundidade_aberto: p.profundidadeAberto || null,
       }));
 
       const { data: itensInseridos, error: erroItens } = await supabase

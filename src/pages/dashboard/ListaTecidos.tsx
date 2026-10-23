@@ -72,6 +72,7 @@ const ListaTecidos = () => {
           tecido,
           metragem_tecido,
           dimensoes,
+          profundidade_aberto,
           observacoes,
           pedidos:pedido_id (
             id,
@@ -116,6 +117,7 @@ const ListaTecidos = () => {
           tecido: tecidoNome || 'Tecido não especificado',
           metragemTecido: metragem,
           dimensoes: row.dimensoes || '',
+          profundidadeAberto: (row.profundidade_aberto || '').trim(),
           dataPrevisaoEntrega: ped.data_previsao_entrega,
           statusPedido: ped.status || 'pendente',
           loja: ped.loja,
@@ -535,6 +537,11 @@ const ListaTecidos = () => {
                             {/* Dimensões */}
                             <td className="py-3.5 px-4 text-xs text-muted-foreground font-medium">
                               {item.dimensoes || '—'}
+                              {item.profundidadeAberto && (
+                                <span className="block text-[11px] text-muted-foreground/80 font-normal">
+                                  (Ab: {item.profundidadeAberto})
+                                </span>
+                              )}
                             </td>
 
                             {/* Previsão de Entrega */}
@@ -812,7 +819,7 @@ const ListaTecidos = () => {
                         <p className="text-[8px] text-neutral-600 leading-tight">{item.clienteNome}</p>
                         {item.dimensoes && (
                           <p className="text-[7.5px] text-neutral-500 font-medium leading-tight mt-0.5">
-                            Tam: {item.dimensoes}
+                            Tam: {item.dimensoes}{item.profundidadeAberto ? ` (Ab: ${item.profundidadeAberto})` : ''}
                           </p>
                         )}
                       </td>

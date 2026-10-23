@@ -24,6 +24,7 @@ interface ItemFicha {
   observacoes: string;
   dimensaoLargura: string;
   dimensaoProfundidade: string;
+  profundidadeAberto: string;
   tecido: string;
   metragemTecido: string;
   tipoPe: string;
@@ -138,8 +139,18 @@ export function ModalFichaTecnica({
           // Extrai largura e profundidade de dimensoes salvas (ex: "2,20 x 1,10")
           let largura = '';
           let profundidade = '';
+          let profundidadeAberto = (it as any).profundidade_aberto || '';
+
           if (it.dimensoes) {
-            const partes = it.dimensoes.split(/[xX×]/).map((s: string) => s.trim());
+            // Se já tiver anotado algo como "(Aberto: 1,60)" na string dimensoes legada
+            if (!profundidadeAberto) {
+              const matchAberto = it.dimensoes.match(/\(?\s*aberto:?\s*([^)\n]+)\)?/i);
+              if (matchAberto) {
+                profundidadeAberto = matchAberto[1].trim();
+              }
+            }
+            const dimensoesLimpa = it.dimensoes.replace(/\(?\s*aberto:?[^)]*\)?/gi, '').trim();
+            const partes = dimensoesLimpa.split(/[xX×]/).map((s: string) => s.trim());
             largura = partes[0] || '';
             profundidade = partes[1] || '';
           }
@@ -155,6 +166,7 @@ export function ModalFichaTecnica({
             observacoes: it.observacoes || '',
             dimensaoLargura: largura,
             dimensaoProfundidade: profundidade,
+            profundidadeAberto: profundidadeAberto,
             tecido: it.tecido || '',
             metragemTecido: (it as any).metragem_tecido || '',
             tipoPe: it.tipo_pe || '',
@@ -219,16 +231,19 @@ export function ModalFichaTecnica({
     try {
       setSalvando(true);
 
-      for (const item of itens) {
+      for (let i = 0; i < itens.length; i++) {
+        const item = itens[i];
         // Monta a string unificada de dimensões
         const larguraClean = item.dimensaoLargura.trim();
         const profClean = item.dimensaoProfundidade.trim();
+        const profAbertoClean = item.profundidadeAberto?.trim() || '';
         const dimensoesFormatadas = [larguraClean, profClean].filter(Boolean).join(' × ');
 
         const { error } = await supabase
           .from('pedido_itens')
           .update({
             dimensoes: dimensoesFormatadas || null,
+            profundidade_aberto: profAbertoClean || null,
             tecido: item.tecido || '',
             metragem_tecido: item.metragemTecido || null,
             tipo_pe: item.tipoPe || '',
@@ -238,6 +253,25 @@ export function ModalFichaTecnica({
           .eq('id', item.id);
 
         if (error) throw error;
+
+        // Se for o primeiro item, sincroniza no pedido para relatórios/visões legadas
+        if (i === 0) {
+          try {
+            await supabase
+              .from('pedidos')
+              .update({
+                dimensoes: dimensoesFormatadas || null,
+                profundidade_aberto: profAbertoClean || null,
+                tecido: item.tecido || null,
+                tipo_pe: item.tipoPe || null,
+                espuma: item.espuma || null,
+                braco: item.braco || null,
+              } as any)
+              .eq('id', pedidoId);
+          } catch (errSync) {
+            console.warn('Aviso ao sincronizar cabeçalho do pedido:', errSync);
+          }
+        }
       }
 
       toast({
@@ -377,9 +411,11 @@ export function ModalFichaTecnica({
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
                         {/* 1. Dimensões */}
                         <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-                          <Label className="text-xs font-medium flex items-center gap-1.5">
-                            <Ruler className="w-3.5 h-3.5 text-primary" />
-                            Dimensões (Largura × Profundidade)
+                          <Label className="text-xs font-medium flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <Ruler className="w-3.5 h-3.5 text-primary" />
+                              Dimensões (Largura × Prof.)
+                            </span>
                           </Label>
                           <div className="flex items-center gap-1.5">
                             <Input
@@ -388,16 +424,36 @@ export function ModalFichaTecnica({
                               placeholder="Largura (ex: 2,20)"
                               title="Largura (metros)"
                               className="h-9 text-xs text-center"
-                              maxLength={6}
+                              maxLength={7}
                             />
                             <span className="text-muted-foreground font-bold text-xs">×</span>
                             <Input
                               value={item.dimensaoProfundidade}
                               onChange={(e) => updateItemField(item.id, 'dimensaoProfundidade', e.target.value)}
                               placeholder="Profundidade (ex: 1,10)"
-                              title="Profundidade (metros)"
+                              title="Profundidade Fechado (metros)"
                               className="h-9 text-xs text-center"
-                              maxLength={6}
+                              maxLength={7}
+                            />
+                          </div>
+
+                          {/* Medida Extra: Profundidade Aberto */}
+                          <div className="pt-0.5 space-y-1">
+                            <div className="flex items-center justify-between px-0.5">
+                              <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                                Profundidade Aberto
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 font-normal text-muted-foreground bg-muted/30 border-dashed">
+                                  extra / opcional
+                                </Badge>
+                              </span>
+                            </div>
+                            <Input
+                              value={item.profundidadeAberto}
+                              onChange={(e) => updateItemField(item.id, 'profundidadeAberto', e.target.value)}
+                              placeholder="Ex: 1,60 m (quando sofá aberto)"
+                              title="Profundidade com o sofá aberto (metros) - Medida extra / opcional"
+                              className="h-8 text-xs text-center bg-muted/20 border-dashed focus:border-solid placeholder:text-[11px]"
+                              maxLength={12}
                             />
                           </div>
                         </div>

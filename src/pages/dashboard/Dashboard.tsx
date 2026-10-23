@@ -112,7 +112,7 @@ const Dashboard = () => {
       isOpen: true,
       url: null,
       title: 'Gerando Ordem de Serviço...',
-      fileName: 'ordem-de-servico.pdf',
+      fileName: 'Pedido.pdf',
       isLoading: true,
     });
     try {
@@ -140,7 +140,7 @@ const Dashboard = () => {
       isOpen: true,
       url: null,
       title: `Gerando ${rotulo}...`,
-      fileName: `${isOrcamento ? 'orcamento' : 'pedido-cliente'}.pdf`,
+      fileName: `${isOrcamento ? 'Orçamento' : 'Pedido'}.pdf`,
       isLoading: true,
     });
     try {

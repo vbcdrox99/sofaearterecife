@@ -32,6 +32,7 @@ export interface TecidoItem {
   tecido: string;
   metragemTecido: string;
   dimensoes: string;
+  profundidadeAberto?: string;
   dataPrevisaoEntrega: string | null;
   statusPedido: string;
   loja?: string | null;

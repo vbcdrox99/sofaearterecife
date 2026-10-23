@@ -261,6 +261,7 @@ export type Database = {
           sequencia: number
           tecido: string
           metragem_tecido?: string | null
+          profundidade_aberto?: string | null
           tipo_pe: string
           tipo_servico: string
           tipo_sofa: string
@@ -284,6 +285,7 @@ export type Database = {
           sequencia?: number
           tecido: string
           metragem_tecido?: string | null
+          profundidade_aberto?: string | null
           tipo_pe: string
           tipo_servico: string
           tipo_sofa: string
@@ -307,6 +309,7 @@ export type Database = {
           sequencia?: number
           tecido?: string
           metragem_tecido?: string | null
+          profundidade_aberto?: string | null
           tipo_pe?: string
           tipo_servico?: string
           tipo_sofa?: string
@@ -380,6 +383,7 @@ export type Database = {
           desconto_valor: number | null
           descricao_sofa: string
           dimensoes: string | null
+          profundidade_aberto?: string | null
           espuma: string | null
           etapas_necessarias: string[] | null
           forma_pagamento: string | null
@@ -424,6 +428,7 @@ export type Database = {
           desconto_valor?: number | null
           descricao_sofa: string
           dimensoes?: string | null
+          profundidade_aberto?: string | null
           espuma?: string | null
           etapas_necessarias?: string[] | null
           forma_pagamento?: string | null
@@ -468,6 +473,7 @@ export type Database = {
           desconto_valor?: number | null
           descricao_sofa?: string
           dimensoes?: string | null
+          profundidade_aberto?: string | null
           espuma?: string | null
           etapas_necessarias?: string[] | null
           forma_pagamento?: string | null

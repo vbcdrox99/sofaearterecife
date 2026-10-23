@@ -430,7 +430,14 @@ const Producao = () => {
                           <div className="pt-2 border-t border-gray-200/80 dark:border-gray-700/80 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                             <div className="flex flex-col">
                               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Dimensões</span>
-                              <span className="text-sm font-bold text-gray-900 dark:text-white">{pedidoItem?.dimensoes || '-'}</span>
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                {pedidoItem?.dimensoes || '-'}
+                                {(pedidoItem as any)?.profundidade_aberto && (
+                                  <span className="ml-1.5 text-xs font-semibold text-primary inline-flex items-center">
+                                    • Aberto: {(pedidoItem as any).profundidade_aberto}
+                                  </span>
+                                )}
+                              </span>
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Tecido</span>

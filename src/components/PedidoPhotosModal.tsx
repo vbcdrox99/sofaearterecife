@@ -54,6 +54,7 @@ interface PedidoItem {
   tipo_sofa?: string;
   cor?: string;
   dimensoes?: string;
+  profundidade_aberto?: string;
   tipo_servico?: string;
   espuma?: string;
   tecido?: string;
@@ -270,7 +271,10 @@ const PedidoPhotosModal: React.FC<PedidoPhotosModalProps> = ({ isOpen, onClose, 
                         </div>
                         <div>
                           <span className="text-xs text-gray-500">Dimensões</span>
-                          <p className="text-sm">{produtoSelecionado.dimensoes || ''}</p>
+                          <p className="text-sm">
+                            {produtoSelecionado.dimensoes || ''}
+                            {produtoSelecionado.profundidade_aberto ? ` (Aberto: ${produtoSelecionado.profundidade_aberto})` : ''}
+                          </p>
                         </div>
                         <div>
                           <span className="text-xs text-gray-500">Preço Unitário</span>
