@@ -50,5 +50,5 @@ export function parseMetragem(raw?: string | null): number | null {
 }
 
 export function formatMetros(num: number): string {
-  return num.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + ' m';
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + '\u00A0m';
 }

@@ -227,6 +227,7 @@ const ListaTecidos = () => {
     dateRange: DateRange | undefined;
     itensFiltrados: TecidoItem[];
     agrupadosFiltrados: TecidoAgrupado[];
+    isSelecaoPersonalizada?: boolean;
   }) => {
     setTipoImpressao(params.tipo);
     setItensImpressao(params.itensFiltrados);
@@ -250,6 +251,12 @@ const ListaTecidos = () => {
       } else {
         textoFiltro = `Data: ${ini}`;
       }
+    }
+
+    if (params.isSelecaoPersonalizada) {
+      textoFiltro = textoFiltro 
+        ? `${textoFiltro} (Seleção Personalizada • ${params.itensFiltrados.length} peças)`
+        : `Seleção Personalizada (${params.itensFiltrados.length} peças)`;
     }
 
     setTextoFiltroDataImpresso(textoFiltro);
@@ -695,6 +702,7 @@ const ListaTecidos = () => {
         isOpen={modalImpressaoAberta}
         onClose={() => setModalImpressaoAberta(false)}
         itens={itensFiltrados}
+        todosItens={itens}
         filtroStatus={filtroStatus}
         selectedStore={selectedStore}
         initialTipo={tipoImpressao}
