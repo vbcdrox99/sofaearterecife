@@ -52,3 +52,25 @@ export function parseMetragem(raw?: string | null): number | null {
 export function formatMetros(num: number): string {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + '\u00A0m';
 }
+
+
+export function calcularDiasRestantes(dataEntrega: string | null | undefined): number | null {
+  if (!dataEntrega) return null;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  const partes = dataEntrega.split('T')[0].split('-');
+  if (partes.length === 3) {
+    const [ano, mes, dia] = partes.map(Number);
+    if (!isNaN(ano) && !isNaN(mes) && !isNaN(dia)) {
+      const dEntrega = new Date(ano, mes - 1, dia);
+      const diffTime = dEntrega.getTime() - hoje.getTime();
+      return Math.round(diffTime / (1000 * 60 * 60 * 24));
+    }
+  }
+
+  const entrega = new Date(dataEntrega);
+  if (isNaN(entrega.getTime())) return null;
+  const diffTime = entrega.getTime() - hoje.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}

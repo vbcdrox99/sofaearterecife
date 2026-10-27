@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Package,
   Wrench,
@@ -35,6 +35,7 @@ import { producaoService, ItemProducao, StatusProducao } from '@/lib/supabase';
 import PedidoPhotosModal from '@/components/PedidoPhotosModal';
 import PDFPreviewModal from '@/components/dashboard/PDFPreviewModal';
 import ModalFichaTecnica from '@/components/dashboard/ModalFichaTecnica';
+import ModalImpressaoDashboard from '@/components/dashboard/ModalImpressaoDashboard';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -185,9 +186,9 @@ const Dashboard = () => {
     }
   }, [isPrinting]);
 
-  const [pdfFiltroBusca, setPdfFiltroBusca] = useState('');
-  const [pdfFiltroData, setPdfFiltroData] = useState('');
-  const [pdfFiltroStatus, setPdfFiltroStatus] = useState('todos');
+
+
+
 
   useEffect(() => {
     carregarDadosProducao();
@@ -321,16 +322,18 @@ const Dashboard = () => {
 
   // Impressão nativa em A4 horizontal da visualização atual (usando pedidos selecionados)
   const handleGerarPDF = () => {
-    // Abre modal de seleção - pré-seleciona todos os visíveis
-    const todosIds = new Set(pedidosFiltrados.map(({ pedido, seq }) => `${pedido.id}-${seq}`));
-    setPdfSelecionados(todosIds);
-    setPdfFiltroBusca('');
-    setPdfFiltroData('');
-    setPdfFiltroStatus('todos');
     setPdfModalAberto(true);
   };
 
-  const handleConfirmarGerarPDF = () => {
+  const handleConfirmarGerarPDF = ({
+    selectedChaves,
+    isPersonalizada,
+    resumoFiltro,
+  }: {
+    selectedChaves: Set<string>;
+    isPersonalizada: boolean;
+    resumoFiltro: string;
+  }) => {
     const tituloBase =
       filtroAtivo === 'todos'
         ? 'Relatório de Todos os Pedidos'
@@ -341,15 +344,19 @@ const Dashboard = () => {
             : 'Relatório de Pedidos Finalizados';
 
     const areaLabel = filtroArea === 'todos' ? 'GERAL/TODOS' : getEtapaLabel(filtroArea);
-    const titulo = `${tituloBase} — Área: ${areaLabel}`;
+    const detalheSufixo = isPersonalizada
+      ? ` (Seleção Personalizada • ${selectedChaves.size} pedidos)`
+      : ` (${resumoFiltro})`;
+    const titulo = `${tituloBase} — Área: ${areaLabel}${detalheSufixo}`;
 
+    setPdfSelecionados(selectedChaves);
     setPdfModalAberto(false);
     
     // Ocultação forçada e síncrona no DOM para evitar falhas do React to Print
-    if (pdfSelecionados.size > 0) {
+    if (selectedChaves.size > 0) {
       document.querySelectorAll('[data-print-chave]').forEach(row => {
         const chave = row.getAttribute('data-print-chave');
-        if (chave && !pdfSelecionados.has(chave)) {
+        if (chave && !selectedChaves.has(chave)) {
           row.classList.add('force-hide-print');
           (row as HTMLElement).style.display = 'none';
         }
@@ -521,6 +528,19 @@ const Dashboard = () => {
     });
   }
 
+  // Linhas disponíveis para o modal de impressão (respeitando a área de produção selecionada)
+  const linhasParaModal = useMemo(() => {
+    if (filtroArea === 'todos') return linhasExpandido;
+    return linhasExpandido.filter(({ itensProducao }) =>
+      itensProducao?.some(item => item.etapa === filtroArea)
+    );
+  }, [linhasExpandido, filtroArea]);
+
+  // Linhas para renderizar na tabela do Dashboard (se estiver no ciclo de impressão, usa exatamente os selecionados)
+  const linhasTabela = isPrinting && pdfSelecionados.size > 0
+    ? linhasParaModal.filter(({ pedido, seq }) => pdfSelecionados.has(`${pedido.id}-${seq}`))
+    : pedidosFiltrados;
+
   return (
     <DashboardLayout
       title="Dashboard - Válleri"
@@ -610,7 +630,7 @@ const Dashboard = () => {
               </div>
               <Button
                 onClick={handleGerarPDF}
-                disabled={isPrinting || pedidosFiltrados.length === 0}
+                disabled={isPrinting || linhasParaModal.length === 0}
                 variant="outline"
                 size="sm"
                 className="flex items-center space-x-2 no-print"
@@ -699,7 +719,7 @@ const Dashboard = () => {
 
                     {/* Conteúdo da Tabela */}
                     <div className="divide-y divide-gray-200 dark:divide-border min-w-[1400px]">
-                      {pedidosFiltrados.length === 0 ? (
+                      {linhasTabela.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                           {filtroAtivo === 'todos'
                             ? 'Nenhum pedido em produção encontrado.'
@@ -707,7 +727,7 @@ const Dashboard = () => {
                           }
                         </div>
                       ) : (
-                        pedidosFiltrados.map(({ pedido, itensProducao, seq, itemId, item }, index, arr) => {
+                        linhasTabela.map(({ pedido, itensProducao, seq, itemId, item }, index, arr) => {
                           return (
                           <div data-print-chave={`${pedido.id}-${seq}`} key={itemId || `${pedido.id}-${seq}-${index}`} className={`relative px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-muted/50 transition-colors ${(seq && seq > 1) ? 'bg-gray-100 dark:bg-muted' : 'bg-white dark:bg-card'} ${index !== arr.length - 1 ? 'border-b border-gray-200 dark:border-border' : ''}`}>
                             {/* Barra de urgência na lateral esquerda */}
@@ -1043,229 +1063,17 @@ const Dashboard = () => {
         pedidoItemId={pedidoPhotosModal.pedidoItemId}
       />
 
-      {/* Modal de Seleção de Pedidos para PDF */}
-      <Dialog open={pdfModalAberto} onOpenChange={setPdfModalAberto}>
-        <DialogContent className="max-w-2xl w-full max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Printer className="w-5 h-5" />
-              Selecionar Pedidos para o PDF
-            </DialogTitle>
-          </DialogHeader>
-
-          {/* Filtros */}
-          <div className="flex gap-3 mt-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Buscar por Nº pedido..."
-                value={pdfFiltroBusca}
-                onChange={(e) => setPdfFiltroBusca(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <input
-              type="date"
-              value={pdfFiltroData}
-              onChange={(e) => setPdfFiltroData(e.target.value)}
-              className="px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              title="Filtrar por data de entrega"
-            />
-          </div>
-
-          {/* Quick Chips de Filtro */}
-          <div className="flex flex-wrap gap-2">
-            {[
-              { id: 'todos', label: 'Todos' },
-              { id: 'atrasados', label: 'Atrasados', color: 'text-red-600 bg-red-50 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900' },
-              { id: 'hoje', label: 'Para Hoje', color: 'text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-900' },
-              { id: 'novos', label: 'Novos', color: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900' }
-            ].map(chip => (
-              <button
-                key={chip.id}
-                onClick={() => setPdfFiltroStatus(chip.id)}
-                className={`px-3 py-1 text-xs rounded-full border transition-colors ${pdfFiltroStatus === chip.id ? 'bg-primary text-primary-foreground border-primary' : (chip.color || 'bg-background hover:bg-muted border-border')}`}
-              >
-                {chip.label}
-              </button>
-            ))}
-            
-            {pdfSelecionados.size > 0 && (
-              <button
-                onClick={() => setPdfSelecionados(new Set())}
-                className="ml-auto px-3 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-full transition-colors flex items-center gap-1 font-medium"
-              >
-                <Trash2 className="w-3 h-3" /> Limpar Seleção
-              </button>
-            )}
-          </div>
-
-          {/* Controles de seleção */}
-          {(() => {
-            const listaFiltrada = pedidosFiltrados.filter(({ pedido, seq, itensProducao: ips }) => {
-              const chave = `${pedido.id}-${seq}`;
-              const numPedido = String(pedido.numero_pedido ? String(pedido.numero_pedido).padStart(3, '0') : '').toLowerCase();
-              const buscaOk = pdfFiltroBusca === '' || numPedido.includes(pdfFiltroBusca.toLowerCase());
-              if (!buscaOk) return false;
-              if (pdfFiltroData) {
-                const dataEntrega = pedido.data_previsao_entrega ? pedido.data_previsao_entrega.split('T')[0] : '';
-                if (dataEntrega !== pdfFiltroData) return false;
-              }
-              
-              if (pdfFiltroStatus !== 'todos') {
-                const statusGlobal = ips.every(i => i.status === 'finalizado')
-                  ? 'Finalizado'
-                  : ips.some(i => i.status === 'iniciado' || i.status === 'supervisao')
-                    ? 'Em andamento'
-                    : 'Novo';
-                    
-                if (pdfFiltroStatus === 'novos' && statusGlobal !== 'Novo') return false;
-                if (pdfFiltroStatus === 'andamento' && statusGlobal !== 'Em andamento') return false;
-                
-                const diasRestantes = calcularDiasRestantes(pedido.data_previsao_entrega);
-                if (pdfFiltroStatus === 'atrasados' && (diasRestantes === null || diasRestantes >= 0)) return false;
-                if (pdfFiltroStatus === 'hoje' && diasRestantes !== 0) return false;
-              }
-              
-              return true;
-            });
-            const todosIds = listaFiltrada.map(({ pedido, seq }) => `${pedido.id}-${seq}`);
-            const todosSelecionados = todosIds.length > 0 && todosIds.every(id => pdfSelecionados.has(id));
-
-            return (
-              <>
-                <div className="flex items-center justify-between py-1">
-                  <button
-                    type="button"
-                    className="flex items-center gap-2 text-sm text-primary hover:underline"
-                    onClick={() => {
-                      if (todosSelecionados) {
-                        setPdfSelecionados(prev => {
-                          const n = new Set(prev);
-                          todosIds.forEach(id => n.delete(id));
-                          return n;
-                        });
-                      } else {
-                        setPdfSelecionados(prev => {
-                          const n = new Set(prev);
-                          todosIds.forEach(id => n.add(id));
-                          return n;
-                        });
-                      }
-                    }}
-                  >
-                    {todosSelecionados
-                      ? <><CheckSquare className="w-4 h-4" /> Desmarcar todos</>
-                      : <><Square className="w-4 h-4" /> Selecionar todos</>}
-                  </button>
-                  <span className="text-xs text-muted-foreground">
-                    {pdfSelecionados.size} de {listaFiltrada.length} selecionados
-                  </span>
-                </div>
-
-                {/* Lista de pedidos */}
-                <div className="overflow-y-auto flex-1 border rounded-md">
-                  {listaFiltrada.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground text-sm">Nenhum pedido encontrado</div>
-                  ) : (
-                    (() => {
-                      let lastDate = '';
-                      return [...listaFiltrada].sort((a, b) => {
-                        const da = a.pedido.data_previsao_entrega || 'zzzz';
-                        const db = b.pedido.data_previsao_entrega || 'zzzz';
-                        return da.localeCompare(db);
-                      }).map(({ pedido, seq, itensProducao: ips, item }) => {
-                        const elements = [];
-                        const currentDate = pedido.data_previsao_entrega ? pedido.data_previsao_entrega.split('T')[0] : 'sem-data';
-                        
-                        if (currentDate !== lastDate) {
-                          lastDate = currentDate;
-                          const dateLabel = currentDate === 'sem-data' ? 'Pedidos sem data de entrega' : `Entrega: ${formatDataCriacao(pedido.data_previsao_entrega)}`;
-                          elements.push(
-                            <div key={`header-${currentDate}`} className="bg-muted/60 px-4 py-2 text-xs font-bold text-muted-foreground uppercase sticky top-0 z-10 border-b border-t first:border-t-0 backdrop-blur-sm">
-                              {dateLabel}
-                            </div>
-                          );
-                        }
-
-                        const chave = `${pedido.id}-${seq}`;
-                        const selecionado = pdfSelecionados.has(chave);
-                      const statusGlobal = ips.every(i => i.status === 'finalizado')
-                        ? 'Finalizado'
-                        : ips.some(i => i.status === 'iniciado' || i.status === 'supervisao')
-                          ? 'Em andamento'
-                          : 'Novo';
-                      const statusColor = statusGlobal === 'Finalizado'
-                        ? 'text-green-600'
-                        : statusGlobal === 'Em andamento'
-                          ? 'text-yellow-600'
-                          : 'text-blue-600';
-
-                      const labelNode = (
-                        <label
-                          key={chave}
-                          className={`flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors ${selecionado ? 'bg-primary/5' : ''
-                            }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selecionado}
-                            onChange={() => {
-                              setPdfSelecionados(prev => {
-                                const n = new Set(prev);
-                                selecionado ? n.delete(chave) : n.add(chave);
-                                return n;
-                              });
-                            }}
-                            className="mt-0.5 accent-primary"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-sm">
-                                #{String(pedido.numero_pedido).padStart(3, '0')}{seq > 1 ? `/${seq}` : ''}
-                              </span>
-                              <span className={`text-xs font-medium ${statusColor}`}>{statusGlobal}</span>
-                            </div>
-                            {isAdmin && (
-                              <div className="text-xs text-muted-foreground mt-0.5 font-medium">
-                                {pedido.cliente_nome || 'Cliente não informado'} <span className="text-gray-900 dark:text-gray-100 font-bold ml-1">• {pedido.tipo_sofa || 'Produto'}</span>
-                              </div>
-                            )}
-                            <div className="text-xs mt-0.5 font-medium">
-                              {pedido.data_previsao_entrega ? (
-                                <span className="text-red-600 dark:text-red-400 font-bold">Entrega: {formatDataCriacao(pedido.data_previsao_entrega)}</span>
-                              ) : (
-                                <span className="text-muted-foreground">Sem data de entrega</span>
-                              )}
-                            </div>
-                          </div>
-                        </label>
-                      );
-                      elements.push(labelNode);
-                      return elements;
-                    })
-                  })()
-                  )}
-                </div>
-              </>
-            );
-          })()}
-
-          {/* Rodapé do modal */}
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => setPdfModalAberto(false)}>Cancelar</Button>
-            <Button
-              onClick={handleConfirmarGerarPDF}
-              disabled={pdfSelecionados.size === 0 || isPrinting}
-              className="flex items-center gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              {isPrinting ? 'Gerando...' : `Gerar PDF (${pdfSelecionados.size})`}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Modal de Seleção de Pedidos para PDF (Fluxo em 2 Etapas) */}
+      <ModalImpressaoDashboard
+        isOpen={pdfModalAberto}
+        onClose={() => setPdfModalAberto(false)}
+        linhas={linhasParaModal}
+        linhasIniciais={pedidosFiltrados}
+        filtroArea={filtroArea}
+        filtroAtivo={filtroAtivo}
+        selectedStore={selectedStore}
+        onConfirmarImpressao={handleConfirmarGerarPDF}
+      />
 
       {/* Modal de Exclusão de Pedido */}
       <Dialog open={pedidoExcluir !== null} onOpenChange={(open) => !open && setPedidoExcluir(null)}>
